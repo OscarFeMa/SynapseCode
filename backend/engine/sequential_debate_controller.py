@@ -1,0 +1,853 @@
+"""
+Synapse Council v2.0 - Sequential Multi-Model Debate Controller
+Debate secuencial con carga/descarga dinámica de modelos
+"""
+import asyncio
+import uuid
+import os
+from datetime import datetime
+from typing import List, Dict, Any, Optional, Callable
+from dataclasses import dataclass, field
+from enum import Enum
+import structlog
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.engine.local_engine_manager import LocalEngineManager, EngineType
+from backend.adapters.openrouter import OpenRouterClient
+from backend.config import get_settings
+from backend.database.local_db import AsyncSessionLocal
+from backend.database.models import SequentialDebate, SequentialDebateTurn
+from backend.services.supabase_sync import get_supabase_service
+
+settings = get_settings()
+logger = structlog.get_logger()
+supabase_service = get_supabase_service()
+
+# Directorio para transcripts
+TRANSCRIPTS_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'debates')
+os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
+
+
+class AgentRole(Enum):
+    """Roles disponibles para agentes en el debate"""
+    ANALYST = "analyst"           # Analiza el tema propuesto
+    CRITIC = "critic"             # Critica el análisis anterior
+    SYNTHESIZER = "synthesizer"   # Síntesis de argumentos
+    REFINER = "refiner"           # Refina conclusiones
+    MODERATOR = "moderator"       # Moderador/veredicto final
+
+
+@dataclass
+class DebateAgent:
+    """Configuración de un agente en el debate secuencial"""
+    id: str
+    name: str
+    role: AgentRole
+    node: str  # LOCAL, CLOUD
+    engine: str  # ollama, openrouter
+    model: str
+    provider: str  # meta, mistral, qwen, openrouter, etc.
+    system_prompt: str
+    temperature: float = 0.7
+    max_tokens: int = 1000
+    
+
+@dataclass
+class DebateTurn:
+    """Un turno del debate"""
+    turn_number: int
+    agent: DebateAgent
+    prompt_sent: str
+    response_received: str = ""
+    tokens_in: int = 0
+    tokens_out: int = 0
+    latency_ms: int = 0
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    status: str = "pending"  # pending, running, completed, failed
+
+
+@dataclass
+class DebateSession:
+    """Sesión completa de debate"""
+    id: str
+    topic: str
+    turns: List[DebateTurn] = field(default_factory=list)
+    context_history: List[Dict[str, Any]] = field(default_factory=list)
+    status: str = "created"  # created, running, completed, failed
+    created_at: datetime = field(default_factory=datetime.now)
+    completed_at: Optional[datetime] = None
+    final_verdict: Optional[str] = None
+    
+    def build_context_prompt(self, current_agent: DebateAgent) -> str:
+        """Construye el prompt con todo el contexto acumulado"""
+        lines = [
+            f"# DEBATE SECUENCIAL: {self.topic}",
+            "",
+            "## Tu Rol",
+            f"Eres: {current_agent.name}",
+            f"Rol: {current_agent.role.value}",
+            f"Modelo: {current_agent.model} ({current_agent.provider})",
+            "",
+            "## Historial del Debate"
+        ]
+        
+        for turn in self.turns:
+            if turn.status == "completed":
+                lines.append(f"\n### Turno {turn.turn_number}: {turn.agent.name} ({turn.agent.role.value})")
+                lines.append(f"**Modelo:** {turn.agent.model} ({turn.agent.provider})")
+                lines.append(f"\n{turn.response_received}")
+        
+        lines.append("\n" + "="*60)
+        lines.append("\n## Tu Tarea")
+        
+        return "\n".join(lines)
+
+
+class SequentialDebateController:
+    """
+    Controller de debate secuencial multi-modelo:
+    - Carga modelos uno por uno
+    - Acumula contexto de cada turno
+    - Descarga modelo tras uso
+    - Alterna entre providers locales y cloud
+    """
+    
+    def __init__(self):
+        self.local_manager = LocalEngineManager()
+        self.openrouter = OpenRouterClient() if settings.OPENROUTER_API_KEY else None
+        self.active_sessions: Dict[str, DebateSession] = {}
+        
+    async def create_debate(
+        self,
+        topic: str,
+        agents_config: List[DebateAgent],
+        on_turn_start: Optional[Callable[[DebateTurn], None]] = None,
+        on_turn_complete: Optional[Callable[[DebateTurn], None]] = None,
+        on_model_load: Optional[Callable[[str, str], None]] = None,
+        on_model_unload: Optional[Callable[[str, str], None]] = None,
+        mode: str = "standard"
+    ) -> DebateSession:
+        """Crea y ejecuta un debate secuencial con persistencia"""
+        
+        session_id = str(uuid.uuid4())
+        session = DebateSession(
+            id=session_id,
+            topic=topic,
+            status="running"
+        )
+        self.active_sessions[session_id] = session
+        
+        # Crear registro en base de datos
+        db_debate = None
+        try:
+            async with AsyncSessionLocal() as db_session:
+                db_debate = SequentialDebate(
+                    id=session_id,
+                    topic=topic,
+                    mode=mode,
+                    status="running",
+                    total_turns=len(agents_config)
+                )
+                db_session.add(db_debate)
+                await db_session.commit()
+                logger.info("sequential_debate.db_created", 
+                           session_id=session_id)
+        except Exception as e:
+            logger.error("sequential_debate.db_error", 
+                        session_id=session_id, 
+                        error=str(e))
+        
+        logger.info("sequential_debate.created", 
+                   session_id=session_id, 
+                   topic=topic,
+                   num_agents=len(agents_config))
+        
+        try:
+            for idx, agent_config in enumerate(agents_config, 1):
+                turn = DebateTurn(
+                    turn_number=idx,
+                    agent=agent_config,
+                    prompt_sent="",
+                    started_at=datetime.now()
+                )
+                turn.status = "running"
+                
+                # Callback: modelo cargándose
+                if on_model_load:
+                    on_model_load(agent_config.model, agent_config.provider)
+                
+                # Construir prompt con contexto acumulado
+                context_prompt = session.build_context_prompt(agent_config)
+                full_prompt = f"{context_prompt}\n\n{agent_config.system_prompt}"
+                turn.prompt_sent = full_prompt
+                
+                if on_turn_start:
+                    on_turn_start(turn)
+                
+                # Ejecutar turno
+                logger.info("sequential_debate.turn_start",
+                           session_id=session_id,
+                           turn=idx,
+                           agent=agent_config.name,
+                           model=agent_config.model)
+                
+                try:
+                    if agent_config.node == "LOCAL":
+                        response = await self._run_local_agent(
+                            agent_config, 
+                            full_prompt,
+                            on_model_unload
+                        )
+                    else:  # CLOUD
+                        response = await self._run_cloud_agent(
+                            agent_config,
+                            full_prompt
+                        )
+                    
+                    turn.response_received = response["text"]
+                    turn.tokens_in = response["tokens_in"]
+                    turn.tokens_out = response["tokens_out"]
+                    turn.latency_ms = response["latency_ms"]
+                    turn.status = "completed"
+                    turn.completed_at = datetime.now()
+                    
+                    logger.info("sequential_debate.turn_complete",
+                               session_id=session_id,
+                               turn=idx,
+                               tokens_out=turn.tokens_out,
+                               latency_ms=turn.latency_ms)
+                    
+                except Exception as e:
+                    logger.warning("sequential_debate.cloud_failed_fallback",
+                                  session_id=session_id,
+                                  turn=idx,
+                                  agent=agent_config.name,
+                                  error=str(e))
+                    
+                    # Fallback: Usar modelo local si cloud falla
+                    if agent_config.node == "CLOUD":
+                        logger.info("sequential_debate.using_fallback",
+                                   session_id=session_id,
+                                   turn=idx,
+                                   fallback_model="llama3:8b")
+                        
+                        # Crear agente fallback local
+                        fallback_agent = DebateAgent(
+                            id=f"{agent_config.id}_fallback",
+                            name=f"{agent_config.name} (Fallback Local)",
+                            role=agent_config.role,
+                            node="LOCAL",
+                            engine="ollama",
+                            model="llama3:8b",
+                            provider="meta",
+                            system_prompt=agent_config.system_prompt + "\n\n[Nota: Actúas como respaldo local debido a indisponibilidad del servicio cloud]",
+                            temperature=agent_config.temperature,
+                            max_tokens=agent_config.max_tokens
+                        )
+                        
+                        try:
+                            response = await self._run_local_agent(
+                                fallback_agent, 
+                                full_prompt,
+                                on_model_unload
+                            )
+                            turn.response_received = response["text"]
+                            turn.tokens_in = response["tokens_in"]
+                            turn.tokens_out = response["tokens_out"]
+                            turn.latency_ms = response["latency_ms"]
+                            turn.status = "completed (fallback)"
+                            turn.agent = fallback_agent  # Actualizar agente usado
+                            turn.completed_at = datetime.now()
+                            
+                            logger.info("sequential_debate.fallback_success",
+                                       session_id=session_id,
+                                       turn=idx,
+                                       tokens_out=turn.tokens_out)
+                            
+                        except Exception as fallback_error:
+                            turn.status = "failed"
+                            turn.response_received = f"[ERROR Cloud: {str(e)}]\n[ERROR Fallback: {str(fallback_error)}]"
+                            logger.error("sequential_debate.fallback_failed",
+                                        session_id=session_id,
+                                        turn=idx,
+                                        error=str(fallback_error))
+                    else:
+                        turn.status = "failed"
+                        turn.response_received = f"[ERROR: {str(e)}]"
+                        logger.error("sequential_debate.turn_failed",
+                                    session_id=session_id,
+                                    turn=idx,
+                                    error=str(e))
+                
+                if on_turn_complete:
+                    on_turn_complete(turn)
+                
+                session.turns.append(turn)
+                
+                # Persistir turno en base de datos
+                try:
+                    async with AsyncSessionLocal() as db_session:
+                        db_turn = SequentialDebateTurn(
+                            debate_id=session_id,
+                            turn_number=turn.turn_number,
+                            agent_id=turn.agent.id,
+                            agent_name=turn.agent.name,
+                            agent_role=turn.agent.role.value,
+                            model=turn.agent.model,
+                            provider=turn.agent.provider,
+                            node=turn.agent.node,
+                            engine=turn.agent.engine,
+                            prompt_sent=turn.prompt_sent,
+                            response_received=turn.response_received,
+                            tokens_in=turn.tokens_in,
+                            tokens_out=turn.tokens_out,
+                            latency_ms=turn.latency_ms,
+                            status=turn.status,
+                            started_at=turn.started_at,
+                            completed_at=turn.completed_at
+                        )
+                        db_session.add(db_turn)
+                        await db_session.commit()
+                        logger.debug("sequential_debate.turn_saved_db",
+                                    session_id=session_id,
+                                    turn=turn.turn_number)
+                except Exception as e:
+                    logger.error("sequential_debate.turn_db_error",
+                                session_id=session_id,
+                                turn=turn.turn_number,
+                                error=str(e))
+                
+                # Pequeña pausa entre turnos
+                await asyncio.sleep(1)
+            
+            # Generar veredicto final
+            session.final_verdict = self._generate_verdict(session)
+            session.status = "completed"
+            session.completed_at = datetime.now()
+            
+            # Guardar archivo de transcripción
+            transcript_path = await self._save_transcript(session)
+            
+            # Actualizar registro en BD con path y totales
+            try:
+                async with AsyncSessionLocal() as db_session:
+                    db_debate = await db_session.get(SequentialDebate, session_id)
+                    if db_debate:
+                        db_debate.status = "completed"
+                        db_debate.total_tokens_in = sum(t.tokens_in for t in session.turns)
+                        db_debate.total_tokens_out = sum(t.tokens_out for t in session.turns)
+                        db_debate.total_latency_ms = sum(t.latency_ms for t in session.turns)
+                        db_debate.final_verdict = session.final_verdict
+                        db_debate.transcript_path = transcript_path
+                        db_debate.completed_at = datetime.now()
+                        await db_session.commit()
+                        logger.info("sequential_debate.db_finalized",
+                                   session_id=session_id,
+                                   transcript_path=transcript_path)
+            except Exception as e:
+                logger.error("sequential_debate.final_db_error",
+                            session_id=session_id,
+                            error=str(e))
+            
+            logger.info("sequential_debate.completed",
+                       session_id=session_id,
+                       total_turns=len(session.turns),
+                       total_tokens=sum(t.tokens_out for t in session.turns),
+                       transcript_path=transcript_path)
+            
+            # Sincronizar con Supabase (en background para no bloquear)
+            asyncio.create_task(self._sync_to_supabase(session, session_id))
+            
+        except Exception as e:
+            session.status = "failed"
+            # Actualizar estado en BD
+            try:
+                async with AsyncSessionLocal() as db_session:
+                    db_debate = await db_session.get(SequentialDebate, session_id)
+                    if db_debate:
+                        db_debate.status = "failed"
+                        await db_session.commit()
+            except:
+                pass
+            logger.error("sequential_debate.failed",
+                        session_id=session_id,
+                        error=str(e))
+        
+        return session
+    
+    async def _run_local_agent(
+        self,
+        agent: DebateAgent,
+        prompt: str,
+        on_model_unload: Optional[Callable[[str, str], None]] = None
+    ) -> Dict[str, Any]:
+        """Ejecuta agente local con Ollama"""
+        
+        start_time = datetime.now()
+        engine_type = EngineType(agent.engine)
+        
+        # El modelo ya debe estar cargado en Ollama del Worker
+        # Ollama lo cargará automáticamente al primer uso
+        # y con keep_alive:0 se descargará tras inactividad
+        
+        response_parts = []
+        tokens_out = 0
+        
+        async for token in self.local_manager.generate(
+            engine_type=engine_type,
+            model=agent.model,
+            prompt=prompt,
+            system=None,  # Ya incluido en prompt
+            temperature=agent.temperature,
+            max_tokens=agent.max_tokens,
+            stream=True
+        ):
+            response_parts.append(token)
+            tokens_out += 1
+        
+        end_time = datetime.now()
+        latency_ms = int((end_time - start_time).total_seconds() * 1000)
+        
+        # Callback: modelo descargado (virtualmente, Ollama maneja el keep_alive)
+        if on_model_unload:
+            on_model_unload(agent.model, agent.provider)
+        
+        return {
+            "text": "".join(response_parts),
+            "tokens_in": len(prompt.split()),  # Aproximación
+            "tokens_out": tokens_out,
+            "latency_ms": latency_ms
+        }
+    
+    async def _run_cloud_agent(
+        self,
+        agent: DebateAgent,
+        prompt: str
+    ) -> Dict[str, Any]:
+        """Ejecuta agente cloud vía OpenRouter"""
+        
+        if not self.openrouter:
+            raise RuntimeError("OpenRouter not configured")
+        
+        start_time = datetime.now()
+        
+        messages = [
+            {"role": "user", "content": prompt}
+        ]
+        
+        response_parts = []
+        tokens_out = 0
+        
+        async for token in self.openrouter.chat_completion(
+            model=agent.model,
+            messages=messages,
+            temperature=agent.temperature,
+            max_tokens=agent.max_tokens,
+            stream=True
+        ):
+            response_parts.append(token)
+            tokens_out += 1
+        
+        end_time = datetime.now()
+        latency_ms = int((end_time - start_time).total_seconds() * 1000)
+        
+        response_text = "".join(response_parts)
+        
+        # Verificar si se generó contenido
+        if not response_text.strip() or tokens_out == 0:
+            raise RuntimeError(f"Cloud agent {agent.model} returned empty response (no credits or model unavailable)")
+        
+        return {
+            "text": response_text,
+            "tokens_in": len(prompt.split()),
+            "tokens_out": tokens_out,
+            "latency_ms": latency_ms
+        }
+    
+    def _generate_verdict(self, session: DebateSession) -> str:
+        """Genera un veredicto final del debate"""
+        
+        verdict_lines = [
+            f"# VEREDICTO DEL SYNAPSE COUNCIL",
+            f"## Tema: {session.topic}",
+            "",
+            "### Participantes"
+        ]
+        
+        for turn in session.turns:
+            verdict_lines.append(
+                f"- **{turn.agent.name}** ({turn.agent.role.value}): "
+                f"{turn.agent.model} ({turn.agent.provider})"
+            )
+        
+        verdict_lines.extend([
+            "",
+            "### Resumen del Debate",
+            ""
+        ])
+        
+        # Extraer puntos clave de cada turno (primeras 200 chars)
+        for turn in session.turns:
+            if turn.status == "completed":
+                preview = turn.response_received[:200].replace('\n', ' ')
+                verdict_lines.append(
+                    f"**{turn.agent.role.value.upper()}** ({turn.agent.provider}): {preview}..."
+                )
+        
+        verdict_lines.extend([
+            "",
+            "---",
+            "*Veredicto emitido por el Tribunal de Magistrados del Synapse Council v2.0*"
+        ])
+        
+        return "\n".join(verdict_lines)
+    
+    async def _save_transcript(self, session: DebateSession) -> str:
+        """Guarda la transcripción completa del debate en archivo"""
+        
+        filename = f"debate_{session.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+        filepath = os.path.join(TRANSCRIPTS_DIR, filename)
+        
+        lines = [
+            f"# TRANSCRIPCIÓN DEL DEBATE: {session.topic}",
+            "",
+            f"**Session ID:** `{session.id}`",
+            f"**Estado:** {session.status}",
+            f"**Iniciado:** {session.created_at}",
+            f"**Completado:** {session.completed_at}",
+            "",
+            "## Estadísticas",
+            f"- **Total Turns:** {len(session.turns)}",
+            f"- **Tokens In:** {sum(t.tokens_in for t in session.turns):,}",
+            f"- **Tokens Out:** {sum(t.tokens_out for t in session.turns):,}",
+            f"- **Tiempo Total:** {sum(t.latency_ms for t in session.turns)/1000:.1f}s",
+            "",
+            "="*80,
+            ""
+        ]
+        
+        # Detalle de cada turno
+        for turn in session.turns:
+            lines.extend([
+                f"## Turno {turn.turn_number}: {turn.agent.name}",
+                "",
+                f"**Rol:** {turn.agent.role.value}",
+                f"**Modelo:** `{turn.agent.model}`",
+                f"**Provider:** {turn.agent.provider}",
+                f"**Nodo:** {turn.agent.node}",
+                f"**Engine:** {turn.agent.engine}",
+                f"**Estado:** {turn.status}",
+                f"**Tokens:** {turn.tokens_out} | **Tiempo:** {turn.latency_ms}ms",
+                "",
+                "### Prompt Enviado",
+                "```",
+                turn.prompt_sent[:500] + "..." if len(turn.prompt_sent) > 500 else turn.prompt_sent,
+                "```",
+                "",
+                "### Respuesta",
+                turn.response_received,
+                "",
+                "---",
+                ""
+            ])
+        
+        # Veredicto final
+        if session.final_verdict:
+            lines.extend([
+                "",
+                session.final_verdict,
+                ""
+            ])
+        
+        # Guardar archivo
+        content = "\n".join(lines)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        logger.info("sequential_debate.transcript_saved",
+                   session_id=session.id,
+                   filepath=filepath,
+                   size_bytes=len(content))
+        
+        return filepath
+    
+    async def get_debate_from_db(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Recupera un debate completo de la base de datos"""
+        try:
+            async with AsyncSessionLocal() as db_session:
+                from sqlalchemy import select
+                
+                # Obtener debate
+                result = await db_session.execute(
+                    select(SequentialDebate).where(SequentialDebate.id == session_id)
+                )
+                debate = result.scalar_one_or_none()
+                
+                if not debate:
+                    return None
+                
+                # Obtener turns
+                turns_result = await db_session.execute(
+                    select(SequentialDebateTurn)
+                    .where(SequentialDebateTurn.debate_id == session_id)
+                    .order_by(SequentialDebateTurn.turn_number)
+                )
+                turns = turns_result.scalars().all()
+                
+                return {
+                    "id": debate.id,
+                    "topic": debate.topic,
+                    "mode": debate.mode,
+                    "status": debate.status,
+                    "total_tokens_in": debate.total_tokens_in,
+                    "total_tokens_out": debate.total_tokens_out,
+                    "total_latency_ms": debate.total_latency_ms,
+                    "final_verdict": debate.final_verdict,
+                    "transcript_path": debate.transcript_path,
+                    "created_at": debate.created_at,
+                    "completed_at": debate.completed_at,
+                    "turns": [
+                        {
+                            "turn_number": t.turn_number,
+                            "agent_name": t.agent_name,
+                            "agent_role": t.agent_role,
+                            "model": t.model,
+                            "provider": t.provider,
+                            "node": t.node,
+                            "response_preview": t.response_received[:200] + "..." if len(t.response_received) > 200 else t.response_received,
+                            "tokens_in": t.tokens_in,
+                            "tokens_out": t.tokens_out,
+                            "latency_ms": t.latency_ms,
+                            "status": t.status
+                        }
+                        for t in turns
+                    ]
+                }
+        except Exception as e:
+            logger.error("sequential_debate.db_read_error",
+                        session_id=session_id,
+                        error=str(e))
+            return None
+    
+    async def list_debates_from_db(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Lista debates históricos de la base de datos"""
+        try:
+            async with AsyncSessionLocal() as db_session:
+                from sqlalchemy import select, desc
+                
+                result = await db_session.execute(
+                    select(SequentialDebate)
+                    .order_by(desc(SequentialDebate.created_at))
+                    .limit(limit)
+                )
+                debates = result.scalars().all()
+                
+                return [
+                    {
+                        "id": d.id,
+                        "topic": d.topic,
+                        "mode": d.mode,
+                        "status": d.status,
+                        "total_turns": d.total_turns,
+                        "total_tokens_out": d.total_tokens_out,
+                        "transcript_path": d.transcript_path,
+                        "created_at": d.created_at,
+                        "completed_at": d.completed_at
+                    }
+                    for d in debates
+                ]
+        except Exception as e:
+            logger.error("sequential_debate.db_list_error", error=str(e))
+            return []
+    
+    async def _sync_to_supabase(self, session: DebateSession, session_id: str):
+        """Sincroniza debate con Supabase en background"""
+        try:
+            # Preparar datos para sincronización
+            debate_data = {
+                "id": session_id,
+                "topic": session.topic,
+                "mode": "local_only",  # Simplificado, podría venir del create_debate
+                "status": session.status,
+                "total_turns": len(session.turns),
+                "total_tokens_in": sum(t.tokens_in for t in session.turns),
+                "total_tokens_out": sum(t.tokens_out for t in session.turns),
+                "total_latency_ms": sum(t.latency_ms for t in session.turns),
+                "final_verdict": session.final_verdict,
+                "created_at": session.created_at,
+                "completed_at": session.completed_at,
+                "turns": [
+                    {
+                        "id": f"{session_id}_turn_{t.turn_number}",
+                        "debate_id": session_id,
+                        "turn_number": t.turn_number,
+                        "agent_id": t.agent.id,
+                        "agent_name": t.agent.name,
+                        "agent_role": t.agent.role.value,
+                        "model": t.agent.model,
+                        "provider": t.agent.provider,
+                        "node": t.agent.node,
+                        "engine": t.agent.engine,
+                        "prompt_sent": t.prompt_sent[:10000],  # Limitar
+                        "response_received": t.response_received[:20000],  # Limitar
+                        "tokens_in": t.tokens_in,
+                        "tokens_out": t.tokens_out,
+                        "latency_ms": t.latency_ms,
+                        "status": t.status,
+                        "started_at": t.started_at,
+                        "completed_at": t.completed_at
+                    }
+                    for t in session.turns
+                ]
+            }
+            
+            # Sincronizar
+            result = await supabase_service.sync_debate(debate_data)
+            
+            if result.get("synced"):
+                logger.info("sequential_debate.supabase_synced",
+                           session_id=session_id,
+                           supabase_url=result.get("supabase_url"))
+            else:
+                logger.warning("sequential_debate.supabase_failed",
+                            session_id=session_id,
+                            error=result.get("error"))
+                            
+        except Exception as e:
+            logger.error("sequential_debate.supabase_exception",
+                        session_id=session_id,
+                        error=str(e))
+    
+    def get_session(self, session_id: str) -> Optional[DebateSession]:
+        """Obtiene una sesión de debate activa"""
+        return self.active_sessions.get(session_id)
+    
+    def list_sessions(self) -> List[DebateSession]:
+        """Lista todas las sesiones de debate"""
+        return list(self.active_sessions.values())
+
+
+# Configuraciones predefinidas de debates
+def get_standard_debate_config(topic: str) -> List[DebateAgent]:
+    """Configuración estándar: 3 locales + 1 cloud"""
+    return [
+        # 1. Análisis inicial - Meta (llama3)
+        DebateAgent(
+            id="analyst_llama3",
+            name="Analista Meta",
+            role=AgentRole.ANALYST,
+            node="LOCAL",
+            engine="ollama",
+            model="llama3:8b",
+            provider="meta",
+            system_prompt="Analiza el tema propuesto desde una perspectiva técnica y estructurada. "
+                        "Identifica los puntos clave, supuestos y posibles enfoques. "
+                        "Responde en español, máximo 300 palabras.",
+            temperature=0.7,
+            max_tokens=500
+        ),
+        
+        # 2. Crítica - Mistral AI
+        DebateAgent(
+            id="critic_mistral",
+            name="Crítico Mistral",
+            role=AgentRole.CRITIC,
+            node="LOCAL",
+            engine="ollama",
+            model="mistral:7b",
+            provider="mistral",
+            system_prompt="Examina críticamente el análisis anterior. Identifica debilidades lógicas, "
+                        "supuestos no verificados y alternativas no consideradas. "
+                        "Sé constructivo pero riguroso. Responde en español, máximo 300 palabras.",
+            temperature=0.8,
+            max_tokens=500
+        ),
+        
+        # 3. Síntesis - Alibaba (Qwen)
+        DebateAgent(
+            id="synth_qwen",
+            name="Sintetizador Qwen",
+            role=AgentRole.SYNTHESIZER,
+            node="LOCAL",
+            engine="ollama",
+            model="qwen2.5:3b",
+            provider="alibaba",
+            system_prompt="Sintetiza los argumentos presentados hasta ahora. Encuentra puntos de "
+                        "acuerdo y desacuerdo. Propone un marco integrador. "
+                        "Responde en español, máximo 300 palabras.",
+            temperature=0.6,
+            max_tokens=500
+        ),
+        
+        # 4. Refinamiento - OpenRouter (Cloud)
+        DebateAgent(
+            id="refiner_cloud",
+            name="Refinador Cloud",
+            role=AgentRole.REFINER,
+            node="CLOUD",
+            engine="openrouter",
+            model="anthropic/claude-3.5-haiku",
+            provider="anthropic",
+            system_prompt="Refina y mejora la síntesis anterior. Considera perspectivas adicionales "
+                        "y elabora una conclusión bien fundamentada. "
+                        "Responde en español, máximo 400 palabras.",
+            temperature=0.5,
+            max_tokens=600
+        )
+    ]
+
+
+def get_local_only_config(topic: str) -> List[DebateAgent]:
+    """Configuración solo local: 4 modelos distintos"""
+    return [
+        DebateAgent(
+            id="analyst_llama3",
+            name="Analista Meta (Llama3)",
+            role=AgentRole.ANALYST,
+            node="LOCAL",
+            engine="ollama",
+            model="llama3:8b",
+            provider="meta",
+            system_prompt="Análisis técnico profundo del tema. Enfoque práctico y estructurado. "
+                        "Máximo 300 palabras.",
+            temperature=0.7
+        ),
+        DebateAgent(
+            id="critic_mistral",
+            name="Crítico Mistral",
+            role=AgentRole.CRITIC,
+            node="LOCAL",
+            engine="ollama",
+            model="mistral:7b",
+            provider="mistral",
+            system_prompt="Crítica constructiva y rigurosa del análisis. Identificar debilidades. "
+                        "Máximo 300 palabras.",
+            temperature=0.8
+        ),
+        DebateAgent(
+            id="synth_qwen",
+            name="Sintetizador Qwen (Alibaba)",
+            role=AgentRole.SYNTHESIZER,
+            node="LOCAL",
+            engine="ollama",
+            model="qwen2.5:3b",
+            provider="alibaba",
+            system_prompt="Síntesis integradora de todos los argumentos. Enfoque oriental pragmatico. "
+                        "Máximo 300 palabras.",
+            temperature=0.6
+        ),
+        DebateAgent(
+            id="refiner_deepseek",
+            name="Refinador DeepSeek",
+            role=AgentRole.REFINER,
+            node="LOCAL",
+            engine="ollama",
+            model="deepseek-r1:7b",
+            provider="deepseek",
+            system_prompt="Refinamiento final con reasoning. Considera implicaciones profundas. "
+                        "Máximo 350 palabras.",
+            temperature=0.5
+        )
+    ]

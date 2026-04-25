@@ -1,0 +1,176 @@
+"""
+Synapse Council v2.0 - Base Adapter
+Clase base para clientes OpenAI-compatible (LM Studio, Jan, OpenRouter)
+Elimina duplicación de lógica SSE entre adaptadores.
+"""
+import json
+import httpx
+from typing import Dict, Any, Optional, AsyncGenerator, List
+from abc import ABC, abstractmethod
+
+
+class BaseOpenAICompatibleClient(ABC):
+    """
+    Cliente base para APIs compatibles con el formato OpenAI.
+    Encapsula el parsing de Server-Sent Events (SSE).
+    """
+    
+    def __init__(
+        self,
+        base_url: str,
+        timeout: int = 120,
+        max_retries: int = 2,
+        api_key: Optional[str] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
+    ):
+        self.base_url = base_url
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.api_key = api_key
+        self.extra_headers = extra_headers or {}
+        self._client: Optional[httpx.AsyncClient] = None
+    
+    @property
+    def client(self) -> httpx.AsyncClient:
+        """Cliente HTTPX persistente (Connection Pooling)"""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=self.timeout)
+        return self._client
+    
+    async def close(self):
+        """Cierra el cliente persistente explícitamente"""
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
+    
+    @abstractmethod
+    async def health_check(self) -> Dict[str, Any]:
+        """Verifica conexión con el servicio"""
+        ...
+    
+    def _build_headers(self) -> Dict[str, str]:
+        """Construye headers para la petición"""
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        headers.update(self.extra_headers)
+        return headers
+    
+    async def chat_completion(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        stream: bool = True
+    ) -> AsyncGenerator[str, None]:
+        """
+        Chat completion con formato OpenAI.
+        Parsing SSE unificado para todos los adaptadores compatibles.
+        """
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": stream,
+        }
+        if max_tokens:
+            payload["max_tokens"] = max_tokens
+        
+        headers = self._build_headers()
+        client = self.client
+        
+        try:
+            if stream:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/v1/chat/completions",
+                    json=payload,
+                    headers=headers
+                ) as response:
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data_str = line[6:]  # Remover "data: "
+                        if data_str.strip() == "[DONE]":
+                            break
+                        try:
+                            data = json.loads(data_str)
+                            choices = data.get("choices", [])
+                            if choices:
+                                delta = choices[0].get("delta", {})
+                                content = delta.get("content")
+                                if content:
+                                    yield content
+                        except (json.JSONDecodeError, KeyError, IndexError):
+                            continue
+            else:
+                response = await client.post(
+                    f"{self.base_url}/v1/chat/completions",
+                    json=payload,
+                    headers=headers
+                )
+                data = response.json()
+                choices = data.get("choices", [])
+                if choices:
+                    text = choices[0].get("message", {}).get("content", "")
+                    yield text
+        except Exception as e:
+            raise e
+    
+    async def completion(
+        self,
+        model: str,
+        prompt: str,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None
+    ) -> str:
+        """Text completion simple (convierte a chat format)"""
+        messages = [{"role": "user", "content": prompt}]
+        result = ""
+        async for token in self.chat_completion(
+            model, messages, temperature, max_tokens, stream=False
+        ):
+            result += token
+        return result
+    
+    async def _check_models_endpoint(self) -> Dict[str, Any]:
+        """Helper para verificar /v1/models (compartido entre servicios)"""
+        try:
+            # Usar un timeout corto específico para health check sin usar el persistente
+            # O usar el persistente con un override de timeout, pero httpx.AsyncClient permite
+            # override de timeout en la petición
+            client = self.client
+            headers = self._build_headers()
+            response = await client.get(
+                f"{self.base_url}/v1/models",
+                headers=headers,
+                timeout=5.0
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                models = [m.get("id", "unknown") for m in data.get("data", [])]
+                return {
+                    "status": "online",
+                    "models_available": len(models),
+                    "models": models,
+                    "url": self.base_url
+                }
+            else:
+                return {
+                    "status": "error",
+                    "error": f"HTTP {response.status_code}",
+                    "url": self.base_url
+                }
+        except httpx.ConnectError:
+            return {
+                "status": "offline",
+                "error": f"Cannot connect to {self.base_url}. Is it running?",
+                "url": self.base_url
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "error": str(e),
+                "url": self.base_url
+            }

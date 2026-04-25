@@ -1,0 +1,59 @@
+# Dependencies
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+node_modules/
+.pnpm-store/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Database
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Browser sessions (Playwright)
+data/browser_sessions/
+*.cookie
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Frontend
+frontend/dist/
+frontend/.vite/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Alembic
+backend/database/migrations/__pycache__/
+backend/database/migrations/versions/__pycache__/
