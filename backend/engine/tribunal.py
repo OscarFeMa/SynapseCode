@@ -7,6 +7,7 @@ Implementa el Protocolo de Consenso Forzado (PCO) con 3 magistrados:
 
 Ejecución SIEMPRE en LOCAL (PC B) para soberanía neuronal.
 """
+import asyncio
 import re
 import uuid
 from datetime import datetime
@@ -69,17 +70,17 @@ class TribunalCouncil:
         "evidence": AgentConfig(
             slot="magistrate_evidence",
             node="LOCAL",
-            engine="ollama",  # Motor más robusto para validación técnica
-            model="llama3.2:latest",
+            engine="ollama",
+            model="llama3:8b",
             role_label="Magistrado de Evidencias",
-            temperature=0.2,  # Baja temperatura para rigor
+            temperature=0.2,
             max_tokens=1500
         ),
         "risk": AgentConfig(
             slot="magistrate_risk",
             node="LOCAL",
-            engine="lm_studio",
-            model="local-model",
+            engine="ollama",
+            model="mistral:7b",
             role_label="Magistrado de Riesgos",
             temperature=0.3,
             max_tokens=1500
@@ -87,8 +88,8 @@ class TribunalCouncil:
         "alignment": AgentConfig(
             slot="magistrate_alignment",
             node="LOCAL",
-            engine="ollama",  # Usar mejor motor disponible
-            model="llama3.2:latest",
+            engine="ollama",
+            model="llama3:8b",
             role_label="Magistrado de Alineación",
             temperature=0.4,
             max_tokens=2000
