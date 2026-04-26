@@ -19,6 +19,8 @@ from backend.config import get_settings
 from backend.database.local_db import AsyncSessionLocal
 from backend.database.models import SequentialDebate, SequentialDebateTurn
 from backend.services.supabase_sync import get_supabase_service
+from backend.engine.tribunal import TribunalCouncil
+from backend.engine.convergence import ConvergenceEvaluator
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -80,6 +82,12 @@ class DebateSession:
     completed_at: Optional[datetime] = None
     final_verdict: Optional[str] = None
     
+    # Campos para Tribunal y Convergence (v2.1)
+    tribunal_verdict: Optional[Dict[str, Any]] = None
+    consensus_score: float = 0.0
+    convergence_level: str = 'UNKNOWN'
+    structured_report: Optional[Dict[str, Any]] = None
+    
     def build_context_prompt(self, current_agent: DebateAgent) -> str:
         """Construye el prompt con todo el contexto acumulado"""
         lines = [
@@ -118,6 +126,8 @@ class SequentialDebateController:
         self.local_manager = LocalEngineManager()
         self.openrouter = OpenRouterClient() if settings.OPENROUTER_API_KEY else None
         self.active_sessions: Dict[str, DebateSession] = {}
+        self.tribunal = TribunalCouncil()
+        self.convergence_evaluator = ConvergenceEvaluator()
         
     async def create_debate(
         self,
@@ -213,6 +223,28 @@ class SequentialDebateController:
                     turn.status = "completed"
                     turn.completed_at = datetime.now()
                     
+                    # Actualizar reputación EMA (en background, nunca bloquea)
+                    try:
+                        from backend.engine.reputation_manager import reputation_manager
+                        from backend.engine.intervention_taxonomy import detect_intervention_type
+                        
+                        intervention_type = detect_intervention_type(
+                            turn.response_received,
+                            agent_config.role.value
+                        )
+                        
+                        asyncio.create_task(reputation_manager.update_after_turn(
+                            model=agent_config.model,
+                            provider=agent_config.provider,
+                            role=agent_config.role.value,
+                            tokens_out=turn.tokens_out,
+                            latency_ms=turn.latency_ms,
+                            success=True,
+                            intervention_type=intervention_type
+                        ))
+                    except Exception:
+                        pass  # Silencioso - reputación no es crítica
+                    
                     logger.info("sequential_debate.turn_complete",
                                session_id=session_id,
                                turn=idx,
@@ -286,6 +318,47 @@ class SequentialDebateController:
                 
                 session.turns.append(turn)
                 
+                # Evaluar convergencia cada 2 turnos (early stop)
+                if idx % 2 == 0 and idx >= 2:
+                    try:
+                        # Construir síntesis parcial para evaluación
+                        completed_turns = [t for t in session.turns if t.status == "completed"]
+                        if len(completed_turns) >= 2:
+                            # Simular síntesis local desde turnos completados
+                            local_synthesis_parts = []
+                            for t in completed_turns[-2:]:  # Últimos 2 turnos
+                                local_synthesis_parts.append(t.response_received)
+                            local_synthesis = "\n\n".join(local_synthesis_parts)
+                            
+                            # Evaluar convergencia
+                            convergence_result = self.convergence_evaluator.evaluate(
+                                local_synthesis=local_synthesis,
+                                cloud_synthesis="",  # Solo local en sequential
+                                round_number=idx,
+                                max_rounds=len(agents_config)
+                            )
+                            
+                            logger.info("sequential_debate.convergence_evaluated",
+                                       session_id=session_id,
+                                       round=idx,
+                                       should_stop=convergence_result.should_stop,
+                                       consensus_level=convergence_result.consensus_level)
+                            
+                            if convergence_result.should_stop:
+                                logger.info("sequential_debate.early_stop",
+                                           session_id=session_id,
+                                           round=idx,
+                                           reason=convergence_result.consensus_level)
+                                session.convergence_level = convergence_result.consensus_level
+                                session.consensus_score = convergence_result.similarity_score
+                                logger.info("sequential_debate.breaking_loop", session_id=session_id)
+                                break
+                    except Exception as e:
+                        logger.error("sequential_debate.convergence_exception",
+                                    session_id=session_id,
+                                    error=str(e),
+                                    error_type=type(e).__name__)
+                
                 # Persistir turno en base de datos
                 try:
                     async with AsyncSessionLocal() as db_session:
@@ -322,8 +395,29 @@ class SequentialDebateController:
                 # Pequeña pausa entre turnos
                 await asyncio.sleep(1)
             
+            logger.info("sequential_debate.for_loop_finished", session_id=session_id, iterations_completed=idx)
+            
+            # Ejecutar Tribunal de Magistrados (si hay suficientes turnos)
+            tribunal_result = None
+            logger.info("sequential_debate.tribunal_call_start", session_id=session_id)
+            try:
+                async with AsyncSessionLocal() as db_session:
+                    tribunal_result = await self._run_tribunal(session, db_session)
+                    logger.info("sequential_debate.tribunal_call_completed", session_id=session_id)
+                    if tribunal_result:
+                        session.tribunal_verdict = tribunal_result
+                        session.consensus_score = (tribunal_result.get("evidence_score", 50) + 
+                                                 tribunal_result.get("risk_score", 50) + 
+                                                 tribunal_result.get("alignment_score", 50)) / 3
+                        session.convergence_level = "CONSENSUS_REACHED" if tribunal_result.get("consensus_reached") else "PARTIAL_CONSENSUS"
+            except Exception as e:
+                pass  # Silencioso por ahora
+            
             # Generar veredicto final
-            session.final_verdict = self._generate_verdict(session)
+            if tribunal_result and tribunal_result.get("verdict_text"):
+                session.final_verdict = tribunal_result["verdict_text"]
+            else:
+                session.final_verdict = self._generate_verdict(session)
             session.status = "completed"
             session.completed_at = datetime.now()
             
@@ -357,11 +451,24 @@ class SequentialDebateController:
                        total_tokens=sum(t.tokens_out for t in session.turns),
                        transcript_path=transcript_path)
             
-            # Sincronizar con Supabase (en background para no bloquear)
-            asyncio.create_task(self._sync_to_supabase(session, session_id))
+            # Sincronización asíncrona con Supabase (usando HybridMemoryV2)
+            try:
+                from backend.memory.hybrid_memory_v2 import get_hybrid_memory_v2
+                hybrid_mem = get_hybrid_memory_v2()
+                asyncio.create_task(hybrid_mem.enqueue_sync(session, session_id, mode))
+            except Exception:
+                # Fallback: usar método legacy si existe
+                try:
+                    asyncio.create_task(self._sync_to_supabase(session, session_id, mode))
+                except Exception:
+                    pass  # Silencioso, mode))
             
         except Exception as e:
             session.status = "failed"
+            logger.error("sequential_debate.outer_exception",
+                        session_id=session_id,
+                        error=str(e),
+                        error_type=type(e).__name__)
             # Actualizar estado en BD
             try:
                 async with AsyncSessionLocal() as db_session:
@@ -503,6 +610,70 @@ class SequentialDebateController:
         ])
         
         return "\n".join(verdict_lines)
+    
+    async def _run_tribunal(
+        self,
+        session: DebateSession,
+        db_session: AsyncSession
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Ejecuta el Tribunal de Magistrados sobre el debate completado.
+        
+        Retorna dict con scores o None si falla.
+        """
+        try:
+            # Filtrar turnos completados (mínimo 2)
+            completed_turns = [t for t in session.turns if t.status == "completed"]
+            
+            if len(completed_turns) < 2:
+                return None
+            
+            # Construir síntesis local desde turnos
+            local_synthesis_parts = []
+            for turn in completed_turns:
+                local_synthesis_parts.append(
+                    f"### {turn.agent.name} ({turn.agent.role.value})\n"
+                    f"{turn.response_received}"
+                )
+            local_synthesis = "\n\n".join(local_synthesis_parts)
+            
+            # Para debate secuencial, cloud_synthesis es vacío (solo local)
+            cloud_synthesis = ""
+            
+            # Llamar al Tribunal
+            verdict = await self.tribunal.issue_verdict(
+                session_id=session.id,
+                round_id=session.id,  # Usar session_id como round_id
+                round_number=1,
+                query=session.topic,
+                local_synthesis=local_synthesis,
+                cloud_synthesis=cloud_synthesis,
+                db_session=db_session,
+                on_event=None  # Sin callbacks por ahora
+            )
+            
+            logger.info("sequential_debate.tribunal_verdict_received",
+                       session_id=session.id,
+                       has_verdict_text=bool(verdict.verdict_text if verdict else False),
+                       consensus_reached=verdict.consensus_reached if verdict else None)
+            
+            # Retornar dict serializable
+            return {
+                "verdict_text": verdict.verdict_text,
+                "consensus_reached": verdict.consensus_reached,
+                "iterations_required": verdict.iterations_required,
+                "evidence_score": verdict.evidence_score,
+                "risk_score": verdict.risk_score,
+                "alignment_score": verdict.alignment_score,
+                "dissent_areas": verdict.dissent_areas
+            }
+            
+        except Exception as e:
+            logger.error("sequential_debate.tribunal_failed",
+                        session_id=session.id,
+                        error=str(e),
+                        error_type=type(e).__name__)
+            return None
     
     async def _save_transcript(self, session: DebateSession) -> str:
         """Guarda la transcripción completa del debate en archivo"""
@@ -662,14 +833,14 @@ class SequentialDebateController:
             logger.error("sequential_debate.db_list_error", error=str(e))
             return []
     
-    async def _sync_to_supabase(self, session: DebateSession, session_id: str):
+    async def _sync_to_supabase(self, session: DebateSession, session_id: str, mode: str = "local_only"):
         """Sincroniza debate con Supabase en background"""
         try:
             # Preparar datos para sincronización
             debate_data = {
                 "id": session_id,
                 "topic": session.topic,
-                "mode": "local_only",  # Simplificado, podría venir del create_debate
+                "mode": mode,  # Dinámico según parámetro
                 "status": session.status,
                 "total_turns": len(session.turns),
                 "total_tokens_in": sum(t.tokens_in for t in session.turns),
