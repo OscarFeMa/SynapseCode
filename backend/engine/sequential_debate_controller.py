@@ -12,6 +12,7 @@ from enum import Enum
 import structlog
 
 from sqlalchemy.ext.asyncio import AsyncSession
+import json
 
 from backend.engine.local_engine_manager import LocalEngineManager, EngineType
 from backend.adapters.openrouter import OpenRouterClient
@@ -21,6 +22,7 @@ from backend.database.models import SequentialDebate, SequentialDebateTurn
 from backend.services.supabase_sync import get_supabase_service
 from backend.engine.tribunal import TribunalCouncil
 from backend.engine.convergence import ConvergenceEvaluator
+from backend.engine.quality_monitor import is_response_usable, evaluate_response
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -65,6 +67,7 @@ class DebateTurn:
     tokens_in: int = 0
     tokens_out: int = 0
     latency_ms: int = 0
+    quality_score: float = 1.0
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     status: str = "pending"  # pending, running, completed, failed
@@ -102,7 +105,14 @@ class DebateSession:
         ]
         
         for turn in self.turns:
-            if turn.status == "completed":
+            if turn.status.startswith("completed"):
+                # Filtro de calidad (v2.1)
+                if not is_response_usable(turn.response_received, turn.agent.role.value):
+                    logger.warning("sequential_debate.omitting_low_quality_turn", 
+                                 turn=turn.turn_number, 
+                                 agent=turn.agent.name)
+                    continue
+
                 lines.append(f"\n### Turno {turn.turn_number}: {turn.agent.name} ({turn.agent.role.value})")
                 lines.append(f"**Modelo:** {turn.agent.model} ({turn.agent.provider})")
                 lines.append(f"\n{turn.response_received}")
@@ -139,9 +149,32 @@ class SequentialDebateController:
         on_model_unload: Optional[Callable[[str, str], None]] = None,
         mode: str = "standard"
     ) -> DebateSession:
-        """Crea y ejecuta un debate secuencial con persistencia"""
-        
+        """Crea y ejecuta un debate secuencial con ID autogenerado"""
         session_id = str(uuid.uuid4())
+        return await self.create_debate_with_id(
+            session_id=session_id,
+            topic=topic,
+            agents_config=agents_config,
+            on_turn_start=on_turn_start,
+            on_turn_complete=on_turn_complete,
+            on_model_load=on_model_load,
+            on_model_unload=on_model_unload,
+            mode=mode
+        )
+
+    async def create_debate_with_id(
+        self,
+        session_id: str,
+        topic: str,
+        agents_config: List[DebateAgent],
+        on_turn_start: Optional[Callable[[DebateTurn], None]] = None,
+        on_turn_complete: Optional[Callable[[DebateTurn], None]] = None,
+        on_model_load: Optional[Callable[[str, str], None]] = None,
+        on_model_unload: Optional[Callable[[str, str], None]] = None,
+        mode: str = "standard"
+    ) -> DebateSession:
+        """Crea y ejecuta un debate secuencial con un ID proporcionado"""
+        
         session = DebateSession(
             id=session_id,
             topic=topic,
@@ -220,6 +253,11 @@ class SequentialDebateController:
                     turn.tokens_in = response["tokens_in"]
                     turn.tokens_out = response["tokens_out"]
                     turn.latency_ms = response["latency_ms"]
+                    
+                    # Evaluar calidad (v2.1)
+                    q_score, _ = evaluate_response(turn.response_received, agent_config.role.value)
+                    turn.quality_score = q_score
+                    
                     turn.status = "completed"
                     turn.completed_at = datetime.now()
                     
@@ -265,11 +303,16 @@ class SequentialDebateController:
                                    turn=idx,
                                    fallback_model="llama3:8b")
                         
-                        # Crear agente fallback local
+                        # Crear agente fallback local - asegurar role tiene valor
+                        fallback_role = agent_config.role if hasattr(agent_config, 'role') else AgentRole.REFINER
+                        logger.info("sequential_debate.fallback_creating", 
+                                   session_id=session_id, 
+                                   turn=idx,
+                                   fallback_role=fallback_role.value if hasattr(fallback_role, 'value') else str(fallback_role))
                         fallback_agent = DebateAgent(
                             id=f"{agent_config.id}_fallback",
                             name=f"{agent_config.name} (Fallback Local)",
-                            role=agent_config.role,
+                            role=fallback_role,
                             node="LOCAL",
                             engine="ollama",
                             model="llama3:8b",
@@ -292,6 +335,40 @@ class SequentialDebateController:
                             turn.status = "completed (fallback)"
                             turn.agent = fallback_agent  # Actualizar agente usado
                             turn.completed_at = datetime.now()
+                            
+                            # Actualizar también en base de datos local para Supabase sync
+                            try:
+                                async with AsyncSessionLocal() as db_session:
+                                    from sqlalchemy import update
+                                    await db_session.execute(
+                                        update(SequentialDebateTurn)
+                                        .where(SequentialDebateTurn.debate_id == session_id)
+                                        .where(SequentialDebateTurn.turn_number == turn.turn_number)
+                                        .values(
+                                            agent_id=fallback_agent.id,
+                                            agent_name=fallback_agent.name,
+                                            agent_role=fallback_agent.role.value,
+                                            model=fallback_agent.model,
+                                            provider=fallback_agent.provider,
+                                            node=fallback_agent.node,
+                                            engine=fallback_agent.engine,
+                                            response_received=turn.response_received,
+                                            tokens_in=turn.tokens_in,
+                                            tokens_out=turn.tokens_out,
+                                            latency_ms=turn.latency_ms,
+                                            status=turn.status,
+                                            completed_at=turn.completed_at
+                                        )
+                                    )
+                                    await db_session.commit()
+                                    logger.info("sequential_debate.fallback_db_updated",
+                                               session_id=session_id,
+                                               turn=idx)
+                            except Exception as db_update_error:
+                                logger.error("sequential_debate.fallback_db_update_failed",
+                                            session_id=session_id,
+                                            turn=idx,
+                                            error=str(db_update_error))
                             
                             logger.info("sequential_debate.fallback_success",
                                        session_id=session_id,
@@ -362,12 +439,19 @@ class SequentialDebateController:
                 # Persistir turno en base de datos
                 try:
                     async with AsyncSessionLocal() as db_session:
+                        # Asegurar que agent_role siempre tenga valor
+                        agent_role_value = turn.agent.role.value if hasattr(turn.agent.role, 'value') else str(turn.agent.role)
+                        logger.debug("sequential_debate.saving_turn_db",
+                                    session_id=session_id,
+                                    turn=turn.turn_number,
+                                    agent_role=agent_role_value)
+                        
                         db_turn = SequentialDebateTurn(
                             debate_id=session_id,
                             turn_number=turn.turn_number,
                             agent_id=turn.agent.id,
                             agent_name=turn.agent.name,
-                            agent_role=turn.agent.role.value,
+                            agent_role=agent_role_value,
                             model=turn.agent.model,
                             provider=turn.agent.provider,
                             node=turn.agent.node,
@@ -397,27 +481,40 @@ class SequentialDebateController:
             
             logger.info("sequential_debate.for_loop_finished", session_id=session_id, iterations_completed=idx)
             
-            # Ejecutar Tribunal de Magistrados (si hay suficientes turnos)
+            # Ejecutar Tribunal de Magistrados (si hay suficientes turnos completados)
             tribunal_result = None
-            logger.info("sequential_debate.tribunal_call_start", session_id=session_id)
-            try:
-                async with AsyncSessionLocal() as db_session:
-                    tribunal_result = await self._run_tribunal(session, db_session)
-                    logger.info("sequential_debate.tribunal_call_completed", session_id=session_id)
-                    if tribunal_result:
-                        session.tribunal_verdict = tribunal_result
-                        session.consensus_score = (tribunal_result.get("evidence_score", 50) + 
-                                                 tribunal_result.get("risk_score", 50) + 
-                                                 tribunal_result.get("alignment_score", 50)) / 3
-                        session.convergence_level = "CONSENSUS_REACHED" if tribunal_result.get("consensus_reached") else "PARTIAL_CONSENSUS"
-            except Exception as e:
-                pass  # Silencioso por ahora
+            completed_turns = [t for t in session.turns if t.status == "completed"]
+            
+            if len(completed_turns) >= 2:
+                logger.info("sequential_debate.tribunal_call_start", session_id=session_id, completed_turns=len(completed_turns))
+                try:
+                    async with AsyncSessionLocal() as db_session:
+                        tribunal_result = await self._run_tribunal(session, db_session)
+                        logger.info("sequential_debate.tribunal_call_completed", session_id=session_id)
+                        if tribunal_result:
+                            session.tribunal_verdict = tribunal_result
+                            session.consensus_score = (tribunal_result.get("evidence_score", 50) + 
+                                                     tribunal_result.get("risk_score", 50) + 
+                                                     tribunal_result.get("alignment_score", 50)) / 3
+                            session.convergence_level = "CONSENSUS_REACHED" if tribunal_result.get("consensus_reached") else "PARTIAL_CONSENSUS"
+                except Exception as e:
+                    logger.error("sequential_debate.tribunal_failed", session_id=session_id, error=str(e))
+            else:
+                logger.warning("sequential_debate.tribunal_skipped", session_id=session_id, reason="insufficient_completed_turns", completed=len(completed_turns))
             
             # Generar veredicto final
             if tribunal_result and tribunal_result.get("verdict_text"):
                 session.final_verdict = tribunal_result["verdict_text"]
             else:
                 session.final_verdict = self._generate_verdict(session)
+            
+            # Generar reporte estructurado JSON (v2.1)
+            try:
+                session.structured_report = await self._generate_structured_report(session)
+                logger.info("sequential_debate.structured_report_generated", session_id=session_id)
+            except Exception as e:
+                logger.error("sequential_debate.structured_report_failed", error=str(e))
+                
             session.status = "completed"
             session.completed_at = datetime.now()
             
@@ -434,6 +531,7 @@ class SequentialDebateController:
                         db_debate.total_tokens_out = sum(t.tokens_out for t in session.turns)
                         db_debate.total_latency_ms = sum(t.latency_ms for t in session.turns)
                         db_debate.final_verdict = session.final_verdict
+                        db_debate.structured_report = session.structured_report
                         db_debate.transcript_path = transcript_path
                         db_debate.completed_at = datetime.now()
                         await db_session.commit()
@@ -674,7 +772,93 @@ class SequentialDebateController:
                         error=str(e),
                         error_type=type(e).__name__)
             return None
-    
+            
+    async def _generate_structured_report(self, session: DebateSession) -> Dict[str, Any]:
+        """
+        Genera un informe estructurado JSON resumiendo el debate.
+        Utiliza un modelo local rápido para la extracción.
+        """
+        logger.info("sequential_debate.generating_structured_report", session_id=session.id)
+        
+        # Fallback básico siempre disponible
+        fallback_report = {
+            "summary": f"Debate sobre {session.topic} con {len(session.turns)} turnos.",
+            "consensus_level": 50,
+            "key_findings": [f"Turnos completados: {len([t for t in session.turns if t.status == 'completed'])}"],
+            "risks_identified": [],
+            "action_items": [],
+            "generated_by": "fallback"
+        }
+        
+        # Consolidar todo el debate
+        history = []
+        for t in session.turns:
+            if t.status.startswith("completed"):
+                history.append(f"Agente {t.agent.name}: {t.response_received[:500]}")
+        
+        full_text = "\n\n".join(history)
+        
+        prompt = f"""Analiza el siguiente debate y genera un objeto JSON con el resumen ejecutivo.
+TEMA: {session.topic}
+
+DEBATE:
+{full_text}
+
+INSTRUCCIONES CRÍTICAS:
+1. RESPONDE ÚNICAMENTE CON UN OBJETO JSON VÁLIDO
+2. NO incluyas texto antes o después del JSON
+3. NO uses bloques de código ```json```
+4. El JSON debe tener esta estructura exacta:
+{{
+  "summary": "Resumen de 2 párrafos",
+  "consensus_level": 0-100 (int),
+  "key_findings": ["punto 1", "punto 2"],
+  "risks_identified": ["riesgo 1"],
+  "action_items": ["acción 1"]
+}}
+
+JSON:"""
+
+        try:
+            # Usar Llama3 para la estructuración
+            response_text = ""
+            async for token in self.local_manager.generate(
+                engine_type=EngineType.OLLAMA,
+                model="llama3:8b",
+                prompt=prompt,
+                temperature=0.1,
+                max_tokens=800
+            ):
+                response_text += token
+            
+            # Extraer JSON de la respuesta - manejar múltiples formatos
+            import re
+            
+            # Intentar 1: Buscar JSON directo
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            
+            # Intento 2: Si hay ```json``` bloques, extraer el contenido
+            if not json_match:
+                json_match = re.search(r'```json\s*(\{.*?\})\s*```', response_text, re.DOTALL)
+            
+            if json_match:
+                json_str = json_match.group(1) if json_match.lastindex else json_match.group(0)
+                try:
+                    report_data = json.loads(json_str)
+                    report_data["generated_by"] = "llama3:8b"
+                    logger.info("sequential_debate.structured_report.parsed_successfully", session_id=session.id)
+                    return report_data
+                except json.JSONDecodeError as je:
+                    logger.error("sequential_debate.structured_report.json_parse_error", 
+                                 session_id=session.id, error=str(je), text_preview=json_str[:200])
+                    return fallback_report
+            
+            logger.warning("sequential_debate.structured_report.no_json_found", session_id=session.id, response_preview=response_text[:200])
+            return fallback_report
+        except Exception as e:
+            logger.error("sequential_debate.structured_report.exception", session_id=session.id, error=str(e))
+            return fallback_report
+
     async def _save_transcript(self, session: DebateSession) -> str:
         """Guarda la transcripción completa del debate en archivo"""
         
@@ -1020,5 +1204,48 @@ def get_local_only_config(topic: str) -> List[DebateAgent]:
             system_prompt="Refinamiento final con reasoning. Considera implicaciones profundas. "
                         "Máximo 350 palabras.",
             temperature=0.5
+        )
+    ]
+def get_cloud_ollama_config(topic: str) -> List[DebateAgent]:
+    """Configuración que usa modelos grandes vía Ollama Cloud en el Master"""
+    return [
+        DebateAgent(
+            id="cloud_analyst",
+            name="Analista Senior (Cloud)",
+            role=AgentRole.ANALYST,
+            node="CLOUD",
+            engine="ollama",
+            model="llama3:70b-cloud",  # Modelo grande en la nube de Ollama
+            provider="meta",
+            system_prompt="Realiza un análisis exhaustivo y profundo del tema. Al ser un modelo de alta capacidad, "
+                        "enfócate en matices técnicos y conexiones complejas. Responde en español.",
+            temperature=0.4,
+            max_tokens=1000
+        ),
+        DebateAgent(
+            id="cloud_critic",
+            name="Crítico Experto (Cloud)",
+            role=AgentRole.CRITIC,
+            node="CLOUD",
+            engine="ollama",
+            model="mistral-large-cloud",
+            provider="mistral",
+            system_prompt="Ejerce una crítica rigurosa sobre el análisis previo. Busca fallos estructurales, "
+                        "sesgos cognitivos y omisiones técnicas. Responde en español.",
+            temperature=0.6,
+            max_tokens=800
+        ),
+        DebateAgent(
+            id="cloud_synth",
+            name="Sintetizador Maestro (Cloud)",
+            role=AgentRole.SYNTHESIZER,
+            node="CLOUD",
+            engine="ollama",
+            model="llama3:70b-cloud",
+            provider="meta",
+            system_prompt="Sintetiza las posturas enfrentadas. Genera una resolución de alto nivel que "
+                        "integre la crítica y el análisis original. Responde en español.",
+            temperature=0.3,
+            max_tokens=1200
         )
     ]
