@@ -154,6 +154,8 @@ class AgentCall(Base):
     tokens_in: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     tokens_out: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    quality_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    intervention_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     keep_alive_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -290,6 +292,7 @@ class SequentialDebate(Base):
     total_tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     final_verdict: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    structured_report: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     transcript_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, 
@@ -545,3 +548,43 @@ class ConsensusAgentPosition(Base):
         Index("idx_consensus_positions_agent", "agent_id"),
         Index("idx_consensus_positions_round", "round_id"),
     )
+
+
+class ModelReputation(Base):
+    """
+    Sistema de reputación EMA para modelos.
+    Scores por modelo y rol: TSA, IID, PVT, Efficiency.
+    """
+    __tablename__ = 'model_reputation'
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False, default='unknown')
+    role: Mapped[str] = mapped_column(String(30), nullable=False)
+    
+    # Scores EMA (Exponential Moving Average)
+    tsa_score: Mapped[float] = mapped_column(Float, default=0.5)  # Tasa de Supervivencia de Argumentos
+    iid_score: Mapped[float] = mapped_column(Float, default=0.5)  # Índice de Independencia Dialéctica
+    pvt_score: Mapped[float] = mapped_column(Float, default=0.5)  # Puntuación de Verificación Técnica
+    efficiency_score: Mapped[float] = mapped_column(Float, default=0.5)  # Eficiencia (tokens/ms)
+    
+    # Score compuesto
+    reputation_score: Mapped[float] = mapped_column(Float, default=0.5)
+    
+    # Estadísticas
+    total_debates: Mapped[int] = mapped_column(Integer, default=0)
+    total_turns: Mapped[int] = mapped_column(Integer, default=0)
+    
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Constraint único por modelo+rol
+    __table_args__ = (
+        UniqueConstraint('model', 'role', name='uq_model_role'),
+        Index('idx_reputation_score', 'reputation_score'),
+        Index('idx_reputation_model', 'model'),
+    )
+    
+    def __repr__(self):
+        return f"<ModelReputation {self.model}@{self.role}={self.reputation_score:.2f}>"

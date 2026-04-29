@@ -1,0 +1,26 @@
+{
+  "topic": "Test tribunal integration",
+  "mode": "local_only",
+  "agents": [
+    {
+      "id": "agent1",
+      "name": "Analista",
+      "role": "analyst",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "llama3.2:latest",
+      "provider": "meta",
+      "system_prompt": "Analiza el tema"
+    },
+    {
+      "id": "agent2",
+      "name": "Critico",
+      "role": "critic",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "mistral:latest",
+      "provider": "mistral",
+      "system_prompt": "Critica el analisis"
+    }
+  ]
+}

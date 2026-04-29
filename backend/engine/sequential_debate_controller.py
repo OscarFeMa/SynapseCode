@@ -208,7 +208,27 @@ class SequentialDebateController:
                    num_agents=len(agents_config))
         
         try:
+            # Variable para rastrear el modelo anterior y liberarlo de RAM
+            previous_model = None
+            
             for idx, agent_config in enumerate(agents_config, 1):
+                # Liberar modelo anterior de la RAM del worker antes de cargar el nuevo
+                if previous_model and agent_config.node == "LOCAL" and agent_config.engine == "ollama":
+                    try:
+                        logger.info("sequential_debate.unloading_previous_model",
+                                   session_id=session_id,
+                                   previous_model=previous_model,
+                                   current_agent=agent_config.name)
+                        # Obtener el cliente Ollama del engine manager
+                        ollama_client = self.engine_manager.engines.get(EngineType.OLLAMA)
+                        if ollama_client:
+                            await ollama_client.unload_model(previous_model)
+                    except Exception as e:
+                        logger.warning("sequential_debate.unload_failed",
+                                      session_id=session_id,
+                                      previous_model=previous_model,
+                                      error=str(e))
+                
                 turn = DebateTurn(
                     turn_number=idx,
                     agent=agent_config,
@@ -261,6 +281,10 @@ class SequentialDebateController:
                     turn.status = "completed"
                     turn.completed_at = datetime.now()
                     
+                    # Actualizar el modelo anterior para liberarlo en el siguiente turno
+                    if agent_config.node == "LOCAL" and agent_config.engine == "ollama":
+                        previous_model = agent_config.model
+                    
                     # Actualizar reputación EMA (en background, nunca bloquea)
                     try:
                         from backend.engine.reputation_manager import reputation_manager
@@ -301,7 +325,7 @@ class SequentialDebateController:
                         logger.info("sequential_debate.using_fallback",
                                    session_id=session_id,
                                    turn=idx,
-                                   fallback_model="llama3:8b")
+                                   fallback_model="llama3.2:latest")
                         
                         # Crear agente fallback local - asegurar role tiene valor
                         fallback_role = agent_config.role if hasattr(agent_config, 'role') else AgentRole.REFINER
@@ -315,7 +339,7 @@ class SequentialDebateController:
                             role=fallback_role,
                             node="LOCAL",
                             engine="ollama",
-                            model="llama3:8b",
+                            model="llama3.2:latest",
                             provider="meta",
                             system_prompt=agent_config.system_prompt + "\n\n[Nota: Actúas como respaldo local debido a indisponibilidad del servicio cloud]",
                             temperature=agent_config.temperature,
@@ -824,7 +848,7 @@ JSON:"""
             response_text = ""
             async for token in self.local_manager.generate(
                 engine_type=EngineType.OLLAMA,
-                model="llama3:8b",
+                model="llama3.2:latest",
                 prompt=prompt,
                 temperature=0.1,
                 max_tokens=800
@@ -845,7 +869,7 @@ JSON:"""
                 json_str = json_match.group(1) if json_match.lastindex else json_match.group(0)
                 try:
                     report_data = json.loads(json_str)
-                    report_data["generated_by"] = "llama3:8b"
+                    report_data["generated_by"] = "llama3.2:latest"
                     logger.info("sequential_debate.structured_report.parsed_successfully", session_id=session.id)
                     return report_data
                 except json.JSONDecodeError as je:
@@ -1095,7 +1119,7 @@ def get_standard_debate_config(topic: str) -> List[DebateAgent]:
             role=AgentRole.ANALYST,
             node="LOCAL",
             engine="ollama",
-            model="llama3:8b",
+            model="llama3.2:latest",
             provider="meta",
             system_prompt="Analiza el tema propuesto desde una perspectiva técnica y estructurada. "
                         "Identifica los puntos clave, supuestos y posibles enfoques. "
@@ -1163,7 +1187,7 @@ def get_local_only_config(topic: str) -> List[DebateAgent]:
             role=AgentRole.ANALYST,
             node="LOCAL",
             engine="ollama",
-            model="llama3:8b",
+            model="llama3.2:latest",
             provider="meta",
             system_prompt="Análisis técnico profundo del tema. Enfoque práctico y estructurado. "
                         "Máximo 300 palabras.",

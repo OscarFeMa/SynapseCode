@@ -1,0 +1,3450 @@
+﻿
+
+========== backend\engine\sequential_debate_controller.py ==========
+"""
+Synapse Council v2.0 - Sequential Multi-Model Debate Controller
+Debate secuencial con carga/descarga dinÃ¡mica de modelos
+"""
+import asyncio
+import uuid
+import os
+from datetime import datetime
+from typing import List, Dict, Any, Optional, Callable
+from dataclasses import dataclass, field
+from enum import Enum
+import structlog
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.engine.local_engine_manager import LocalEngineManager, EngineType
+from backend.adapters.openrouter import OpenRouterClient
+from backend.config import get_settings
+from backend.database.local_db import AsyncSessionLocal
+from backend.database.models import SequentialDebate, SequentialDebateTurn
+from backend.services.supabase_sync import get_supabase_service
+
+settings = get_settings()
+logger = structlog.get_logger()
+supabase_service = get_supabase_service()
+
+# Directorio para transcripts
+TRANSCRIPTS_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'debates')
+os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
+
+
+class AgentRole(Enum):
+    """Roles disponibles para agentes en el debate"""
+    ANALYST = "analyst"           # Analiza el tema propuesto
+    CRITIC = "critic"             # Critica el anÃ¡lisis anterior
+    SYNTHESIZER = "synthesizer"   # SÃ­ntesis de argumentos
+    REFINER = "refiner"           # Refina conclusiones
+    MODERATOR = "moderator"       # Moderador/veredicto final
+
+
+@dataclass
+class DebateAgent:
+    """ConfiguraciÃ³n de un agente en el debate secuencial"""
+    id: str
+    name: str
+    role: AgentRole
+    node: str  # LOCAL, CLOUD
+    engine: str  # ollama, openrouter
+    model: str
+    provider: str  # meta, mistral, qwen, openrouter, etc.
+    system_prompt: str
+    temperature: float = 0.7
+    max_tokens: int = 1000
+    
+
+@dataclass
+class DebateTurn:
+    """Un turno del debate"""
+    turn_number: int
+    agent: DebateAgent
+    prompt_sent: str
+    response_received: str = ""
+    tokens_in: int = 0
+    tokens_out: int = 0
+    latency_ms: int = 0
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    status: str = "pending"  # pending, running, completed, failed
+
+
+@dataclass
+class DebateSession:
+    """SesiÃ³n completa de debate"""
+    id: str
+    topic: str
+    turns: List[DebateTurn] = field(default_factory=list)
+    context_history: List[Dict[str, Any]] = field(default_factory=list)
+    status: str = "created"  # created, running, completed, failed
+    created_at: datetime = field(default_factory=datetime.now)
+    completed_at: Optional[datetime] = None
+    final_verdict: Optional[str] = None
+    
+    def build_context_prompt(self, current_agent: DebateAgent) -> str:
+        """Construye el prompt con todo el contexto acumulado"""
+        lines = [
+            f"# DEBATE SECUENCIAL: {self.topic}",
+            "",
+            "## Tu Rol",
+            f"Eres: {current_agent.name}",
+            f"Rol: {current_agent.role.value}",
+            f"Modelo: {current_agent.model} ({current_agent.provider})",
+            "",
+            "## Historial del Debate"
+        ]
+        
+        for turn in self.turns:
+            if turn.status == "completed":
+                lines.append(f"\n### Turno {turn.turn_number}: {turn.agent.name} ({turn.agent.role.value})")
+                lines.append(f"**Modelo:** {turn.agent.model} ({turn.agent.provider})")
+                lines.append(f"\n{turn.response_received}")
+        
+        lines.append("\n" + "="*60)
+        lines.append("\n## Tu Tarea")
+        
+        return "\n".join(lines)
+
+
+class SequentialDebateController:
+    """
+    Controller de debate secuencial multi-modelo:
+    - Carga modelos uno por uno
+    - Acumula contexto de cada turno
+    - Descarga modelo tras uso
+    - Alterna entre providers locales y cloud
+    """
+    
+    def __init__(self):
+        self.local_manager = LocalEngineManager()
+        self.openrouter = OpenRouterClient() if settings.OPENROUTER_API_KEY else None
+        self.active_sessions: Dict[str, DebateSession] = {}
+        
+    async def create_debate(
+        self,
+        topic: str,
+        agents_config: List[DebateAgent],
+        on_turn_start: Optional[Callable[[DebateTurn], None]] = None,
+        on_turn_complete: Optional[Callable[[DebateTurn], None]] = None,
+        on_model_load: Optional[Callable[[str, str], None]] = None,
+        on_model_unload: Optional[Callable[[str, str], None]] = None,
+        mode: str = "standard"
+    ) -> DebateSession:
+        """Crea y ejecuta un debate secuencial con persistencia"""
+        
+        session_id = str(uuid.uuid4())
+        session = DebateSession(
+            id=session_id,
+            topic=topic,
+            status="running"
+        )
+        self.active_sessions[session_id] = session
+        
+        # Crear registro en base de datos
+        db_debate = None
+        try:
+            async with AsyncSessionLocal() as db_session:
+                db_debate = SequentialDebate(
+                    id=session_id,
+                    topic=topic,
+                    mode=mode,
+                    status="running",
+                    total_turns=len(agents_config)
+                )
+                db_session.add(db_debate)
+                await db_session.commit()
+                logger.info("sequential_debate.db_created", 
+                           session_id=session_id)
+        except Exception as e:
+            logger.error("sequential_debate.db_error", 
+                        session_id=session_id, 
+                        error=str(e))
+        
+        logger.info("sequential_debate.created", 
+                   session_id=session_id, 
+                   topic=topic,
+                   num_agents=len(agents_config))
+        
+        try:
+            for idx, agent_config in enumerate(agents_config, 1):
+                turn = DebateTurn(
+                    turn_number=idx,
+                    agent=agent_config,
+                    prompt_sent="",
+                    started_at=datetime.now()
+                )
+                turn.status = "running"
+                
+                # Callback: modelo cargÃ¡ndose
+                if on_model_load:
+                    on_model_load(agent_config.model, agent_config.provider)
+                
+                # Construir prompt con contexto acumulado
+                context_prompt = session.build_context_prompt(agent_config)
+                full_prompt = f"{context_prompt}\n\n{agent_config.system_prompt}"
+                turn.prompt_sent = full_prompt
+                
+                if on_turn_start:
+                    on_turn_start(turn)
+                
+                # Ejecutar turno
+                logger.info("sequential_debate.turn_start",
+                           session_id=session_id,
+                           turn=idx,
+                           agent=agent_config.name,
+                           model=agent_config.model)
+                
+                try:
+                    if agent_config.node == "LOCAL":
+                        response = await self._run_local_agent(
+                            agent_config, 
+                            full_prompt,
+                            on_model_unload
+                        )
+                    else:  # CLOUD
+                        response = await self._run_cloud_agent(
+                            agent_config,
+                            full_prompt
+                        )
+                    
+                    turn.response_received = response["text"]
+                    turn.tokens_in = response["tokens_in"]
+                    turn.tokens_out = response["tokens_out"]
+                    turn.latency_ms = response["latency_ms"]
+                    turn.status = "completed"
+                    turn.completed_at = datetime.now()
+                    
+                    logger.info("sequential_debate.turn_complete",
+                               session_id=session_id,
+                               turn=idx,
+                               tokens_out=turn.tokens_out,
+                               latency_ms=turn.latency_ms)
+                    
+                except Exception as e:
+                    logger.warning("sequential_debate.cloud_failed_fallback",
+                                  session_id=session_id,
+                                  turn=idx,
+                                  agent=agent_config.name,
+                                  error=str(e))
+                    
+                    # Fallback: Usar modelo local si cloud falla
+                    if agent_config.node == "CLOUD":
+                        logger.info("sequential_debate.using_fallback",
+                                   session_id=session_id,
+                                   turn=idx,
+                                   fallback_model="llama3:8b")
+                        
+                        # Crear agente fallback local
+                        fallback_agent = DebateAgent(
+                            id=f"{agent_config.id}_fallback",
+                            name=f"{agent_config.name} (Fallback Local)",
+                            role=agent_config.role,
+                            node="LOCAL",
+                            engine="ollama",
+                            model="llama3:8b",
+                            provider="meta",
+                            system_prompt=agent_config.system_prompt + "\n\n[Nota: ActÃºas como respaldo local debido a indisponibilidad del servicio cloud]",
+                            temperature=agent_config.temperature,
+                            max_tokens=agent_config.max_tokens
+                        )
+                        
+                        try:
+                            response = await self._run_local_agent(
+                                fallback_agent, 
+                                full_prompt,
+                                on_model_unload
+                            )
+                            turn.response_received = response["text"]
+                            turn.tokens_in = response["tokens_in"]
+                            turn.tokens_out = response["tokens_out"]
+                            turn.latency_ms = response["latency_ms"]
+                            turn.status = "completed (fallback)"
+                            turn.agent = fallback_agent  # Actualizar agente usado
+                            turn.completed_at = datetime.now()
+                            
+                            logger.info("sequential_debate.fallback_success",
+                                       session_id=session_id,
+                                       turn=idx,
+                                       tokens_out=turn.tokens_out)
+                            
+                        except Exception as fallback_error:
+                            turn.status = "failed"
+                            turn.response_received = f"[ERROR Cloud: {str(e)}]\n[ERROR Fallback: {str(fallback_error)}]"
+                            logger.error("sequential_debate.fallback_failed",
+                                        session_id=session_id,
+                                        turn=idx,
+                                        error=str(fallback_error))
+                    else:
+                        turn.status = "failed"
+                        turn.response_received = f"[ERROR: {str(e)}]"
+                        logger.error("sequential_debate.turn_failed",
+                                    session_id=session_id,
+                                    turn=idx,
+                                    error=str(e))
+                
+                if on_turn_complete:
+                    on_turn_complete(turn)
+                
+                session.turns.append(turn)
+                
+                # Persistir turno en base de datos
+                try:
+                    async with AsyncSessionLocal() as db_session:
+                        db_turn = SequentialDebateTurn(
+                            debate_id=session_id,
+                            turn_number=turn.turn_number,
+                            agent_id=turn.agent.id,
+                            agent_name=turn.agent.name,
+                            agent_role=turn.agent.role.value,
+                            model=turn.agent.model,
+                            provider=turn.agent.provider,
+                            node=turn.agent.node,
+                            engine=turn.agent.engine,
+                            prompt_sent=turn.prompt_sent,
+                            response_received=turn.response_received,
+                            tokens_in=turn.tokens_in,
+                            tokens_out=turn.tokens_out,
+                            latency_ms=turn.latency_ms,
+                            status=turn.status,
+                            started_at=turn.started_at,
+                            completed_at=turn.completed_at
+                        )
+                        db_session.add(db_turn)
+                        await db_session.commit()
+                        logger.debug("sequential_debate.turn_saved_db",
+                                    session_id=session_id,
+                                    turn=turn.turn_number)
+                except Exception as e:
+                    logger.error("sequential_debate.turn_db_error",
+                                session_id=session_id,
+                                turn=turn.turn_number,
+                                error=str(e))
+                
+                # PequeÃ±a pausa entre turnos
+                await asyncio.sleep(1)
+            
+            # Generar veredicto final
+            session.final_verdict = self._generate_verdict(session)
+            session.status = "completed"
+            session.completed_at = datetime.now()
+            
+            # Guardar archivo de transcripciÃ³n
+            transcript_path = await self._save_transcript(session)
+            
+            # Actualizar registro en BD con path y totales
+            try:
+                async with AsyncSessionLocal() as db_session:
+                    db_debate = await db_session.get(SequentialDebate, session_id)
+                    if db_debate:
+                        db_debate.status = "completed"
+                        db_debate.total_tokens_in = sum(t.tokens_in for t in session.turns)
+                        db_debate.total_tokens_out = sum(t.tokens_out for t in session.turns)
+                        db_debate.total_latency_ms = sum(t.latency_ms for t in session.turns)
+                        db_debate.final_verdict = session.final_verdict
+                        db_debate.transcript_path = transcript_path
+                        db_debate.completed_at = datetime.now()
+                        await db_session.commit()
+                        logger.info("sequential_debate.db_finalized",
+                                   session_id=session_id,
+                                   transcript_path=transcript_path)
+            except Exception as e:
+                logger.error("sequential_debate.final_db_error",
+                            session_id=session_id,
+                            error=str(e))
+            
+            logger.info("sequential_debate.completed",
+                       session_id=session_id,
+                       total_turns=len(session.turns),
+                       total_tokens=sum(t.tokens_out for t in session.turns),
+                       transcript_path=transcript_path)
+            
+            # Sincronizar con Supabase (en background para no bloquear)
+            asyncio.create_task(self._sync_to_supabase(session, session_id))
+            
+        except Exception as e:
+            session.status = "failed"
+            # Actualizar estado en BD
+            try:
+                async with AsyncSessionLocal() as db_session:
+                    db_debate = await db_session.get(SequentialDebate, session_id)
+                    if db_debate:
+                        db_debate.status = "failed"
+                        await db_session.commit()
+            except:
+                pass
+            logger.error("sequential_debate.failed",
+                        session_id=session_id,
+                        error=str(e))
+        
+        return session
+    
+    async def _run_local_agent(
+        self,
+        agent: DebateAgent,
+        prompt: str,
+        on_model_unload: Optional[Callable[[str, str], None]] = None
+    ) -> Dict[str, Any]:
+        """Ejecuta agente local con Ollama"""
+        
+        start_time = datetime.now()
+        engine_type = EngineType(agent.engine)
+        
+        # El modelo ya debe estar cargado en Ollama del Worker
+        # Ollama lo cargarÃ¡ automÃ¡ticamente al primer uso
+        # y con keep_alive:0 se descargarÃ¡ tras inactividad
+        
+        response_parts = []
+        tokens_out = 0
+        
+        async for token in self.local_manager.generate(
+            engine_type=engine_type,
+            model=agent.model,
+            prompt=prompt,
+            system=None,  # Ya incluido en prompt
+            temperature=agent.temperature,
+            max_tokens=agent.max_tokens,
+            stream=True
+        ):
+            response_parts.append(token)
+            tokens_out += 1
+        
+        end_time = datetime.now()
+        latency_ms = int((end_time - start_time).total_seconds() * 1000)
+        
+        # Callback: modelo descargado (virtualmente, Ollama maneja el keep_alive)
+        if on_model_unload:
+            on_model_unload(agent.model, agent.provider)
+        
+        return {
+            "text": "".join(response_parts),
+            "tokens_in": len(prompt.split()),  # AproximaciÃ³n
+            "tokens_out": tokens_out,
+            "latency_ms": latency_ms
+        }
+    
+    async def _run_cloud_agent(
+        self,
+        agent: DebateAgent,
+        prompt: str
+    ) -> Dict[str, Any]:
+        """Ejecuta agente cloud vÃ­a OpenRouter"""
+        
+        if not self.openrouter:
+            raise RuntimeError("OpenRouter not configured")
+        
+        start_time = datetime.now()
+        
+        messages = [
+            {"role": "user", "content": prompt}
+        ]
+        
+        response_parts = []
+        tokens_out = 0
+        
+        async for token in self.openrouter.chat_completion(
+            model=agent.model,
+            messages=messages,
+            temperature=agent.temperature,
+            max_tokens=agent.max_tokens,
+            stream=True
+        ):
+            response_parts.append(token)
+            tokens_out += 1
+        
+        end_time = datetime.now()
+        latency_ms = int((end_time - start_time).total_seconds() * 1000)
+        
+        response_text = "".join(response_parts)
+        
+        # Verificar si se generÃ³ contenido
+        if not response_text.strip() or tokens_out == 0:
+            raise RuntimeError(f"Cloud agent {agent.model} returned empty response (no credits or model unavailable)")
+        
+        return {
+            "text": response_text,
+            "tokens_in": len(prompt.split()),
+            "tokens_out": tokens_out,
+            "latency_ms": latency_ms
+        }
+    
+    def _generate_verdict(self, session: DebateSession) -> str:
+        """Genera un veredicto final del debate"""
+        
+        verdict_lines = [
+            f"# VEREDICTO DEL SYNAPSE COUNCIL",
+            f"## Tema: {session.topic}",
+            "",
+            "### Participantes"
+        ]
+        
+        for turn in session.turns:
+            verdict_lines.append(
+                f"- **{turn.agent.name}** ({turn.agent.role.value}): "
+                f"{turn.agent.model} ({turn.agent.provider})"
+            )
+        
+        verdict_lines.extend([
+            "",
+            "### Resumen del Debate",
+            ""
+        ])
+        
+        # Extraer puntos clave de cada turno (primeras 200 chars)
+        for turn in session.turns:
+            if turn.status == "completed":
+                preview = turn.response_received[:200].replace('\n', ' ')
+                verdict_lines.append(
+                    f"**{turn.agent.role.value.upper()}** ({turn.agent.provider}): {preview}..."
+                )
+        
+        verdict_lines.extend([
+            "",
+            "---",
+            "*Veredicto emitido por el Tribunal de Magistrados del Synapse Council v2.0*"
+        ])
+        
+        return "\n".join(verdict_lines)
+    
+    async def _save_transcript(self, session: DebateSession) -> str:
+        """Guarda la transcripciÃ³n completa del debate en archivo"""
+        
+        filename = f"debate_{session.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+        filepath = os.path.join(TRANSCRIPTS_DIR, filename)
+        
+        lines = [
+            f"# TRANSCRIPCIÃ“N DEL DEBATE: {session.topic}",
+            "",
+            f"**Session ID:** `{session.id}`",
+            f"**Estado:** {session.status}",
+            f"**Iniciado:** {session.created_at}",
+            f"**Completado:** {session.completed_at}",
+            "",
+            "## EstadÃ­sticas",
+            f"- **Total Turns:** {len(session.turns)}",
+            f"- **Tokens In:** {sum(t.tokens_in for t in session.turns):,}",
+            f"- **Tokens Out:** {sum(t.tokens_out for t in session.turns):,}",
+            f"- **Tiempo Total:** {sum(t.latency_ms for t in session.turns)/1000:.1f}s",
+            "",
+            "="*80,
+            ""
+        ]
+        
+        # Detalle de cada turno
+        for turn in session.turns:
+            lines.extend([
+                f"## Turno {turn.turn_number}: {turn.agent.name}",
+                "",
+                f"**Rol:** {turn.agent.role.value}",
+                f"**Modelo:** `{turn.agent.model}`",
+                f"**Provider:** {turn.agent.provider}",
+                f"**Nodo:** {turn.agent.node}",
+                f"**Engine:** {turn.agent.engine}",
+                f"**Estado:** {turn.status}",
+                f"**Tokens:** {turn.tokens_out} | **Tiempo:** {turn.latency_ms}ms",
+                "",
+                "### Prompt Enviado",
+                "```",
+                turn.prompt_sent[:500] + "..." if len(turn.prompt_sent) > 500 else turn.prompt_sent,
+                "```",
+                "",
+                "### Respuesta",
+                turn.response_received,
+                "",
+                "---",
+                ""
+            ])
+        
+        # Veredicto final
+        if session.final_verdict:
+            lines.extend([
+                "",
+                session.final_verdict,
+                ""
+            ])
+        
+        # Guardar archivo
+        content = "\n".join(lines)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        logger.info("sequential_debate.transcript_saved",
+                   session_id=session.id,
+                   filepath=filepath,
+                   size_bytes=len(content))
+        
+        return filepath
+    
+    async def get_debate_from_db(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Recupera un debate completo de la base de datos"""
+        try:
+            async with AsyncSessionLocal() as db_session:
+                from sqlalchemy import select
+                
+                # Obtener debate
+                result = await db_session.execute(
+                    select(SequentialDebate).where(SequentialDebate.id == session_id)
+                )
+                debate = result.scalar_one_or_none()
+                
+                if not debate:
+                    return None
+                
+                # Obtener turns
+                turns_result = await db_session.execute(
+                    select(SequentialDebateTurn)
+                    .where(SequentialDebateTurn.debate_id == session_id)
+                    .order_by(SequentialDebateTurn.turn_number)
+                )
+                turns = turns_result.scalars().all()
+                
+                return {
+                    "id": debate.id,
+                    "topic": debate.topic,
+                    "mode": debate.mode,
+                    "status": debate.status,
+                    "total_tokens_in": debate.total_tokens_in,
+                    "total_tokens_out": debate.total_tokens_out,
+                    "total_latency_ms": debate.total_latency_ms,
+                    "final_verdict": debate.final_verdict,
+                    "transcript_path": debate.transcript_path,
+                    "created_at": debate.created_at,
+                    "completed_at": debate.completed_at,
+                    "turns": [
+                        {
+                            "turn_number": t.turn_number,
+                            "agent_name": t.agent_name,
+                            "agent_role": t.agent_role,
+                            "model": t.model,
+                            "provider": t.provider,
+                            "node": t.node,
+                            "response_preview": t.response_received[:200] + "..." if len(t.response_received) > 200 else t.response_received,
+                            "tokens_in": t.tokens_in,
+                            "tokens_out": t.tokens_out,
+                            "latency_ms": t.latency_ms,
+                            "status": t.status
+                        }
+                        for t in turns
+                    ]
+                }
+        except Exception as e:
+            logger.error("sequential_debate.db_read_error",
+                        session_id=session_id,
+                        error=str(e))
+            return None
+    
+    async def list_debates_from_db(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Lista debates histÃ³ricos de la base de datos"""
+        try:
+            async with AsyncSessionLocal() as db_session:
+                from sqlalchemy import select, desc
+                
+                result = await db_session.execute(
+                    select(SequentialDebate)
+                    .order_by(desc(SequentialDebate.created_at))
+                    .limit(limit)
+                )
+                debates = result.scalars().all()
+                
+                return [
+                    {
+                        "id": d.id,
+                        "topic": d.topic,
+                        "mode": d.mode,
+                        "status": d.status,
+                        "total_turns": d.total_turns,
+                        "total_tokens_out": d.total_tokens_out,
+                        "transcript_path": d.transcript_path,
+                        "created_at": d.created_at,
+                        "completed_at": d.completed_at
+                    }
+                    for d in debates
+                ]
+        except Exception as e:
+            logger.error("sequential_debate.db_list_error", error=str(e))
+            return []
+    
+    async def _sync_to_supabase(self, session: DebateSession, session_id: str):
+        """Sincroniza debate con Supabase en background"""
+        try:
+            # Preparar datos para sincronizaciÃ³n
+            debate_data = {
+                "id": session_id,
+                "topic": session.topic,
+                "mode": "local_only",  # Simplificado, podrÃ­a venir del create_debate
+                "status": session.status,
+                "total_turns": len(session.turns),
+                "total_tokens_in": sum(t.tokens_in for t in session.turns),
+                "total_tokens_out": sum(t.tokens_out for t in session.turns),
+                "total_latency_ms": sum(t.latency_ms for t in session.turns),
+                "final_verdict": session.final_verdict,
+                "created_at": session.created_at,
+                "completed_at": session.completed_at,
+                "turns": [
+                    {
+                        "id": f"{session_id}_turn_{t.turn_number}",
+                        "debate_id": session_id,
+                        "turn_number": t.turn_number,
+                        "agent_id": t.agent.id,
+                        "agent_name": t.agent.name,
+                        "agent_role": t.agent.role.value,
+                        "model": t.agent.model,
+                        "provider": t.agent.provider,
+                        "node": t.agent.node,
+                        "engine": t.agent.engine,
+                        "prompt_sent": t.prompt_sent[:10000],  # Limitar
+                        "response_received": t.response_received[:20000],  # Limitar
+                        "tokens_in": t.tokens_in,
+                        "tokens_out": t.tokens_out,
+                        "latency_ms": t.latency_ms,
+                        "status": t.status,
+                        "started_at": t.started_at,
+                        "completed_at": t.completed_at
+                    }
+                    for t in session.turns
+                ]
+            }
+            
+            # Sincronizar
+            result = await supabase_service.sync_debate(debate_data)
+            
+            if result.get("synced"):
+                logger.info("sequential_debate.supabase_synced",
+                           session_id=session_id,
+                           supabase_url=result.get("supabase_url"))
+            else:
+                logger.warning("sequential_debate.supabase_failed",
+                            session_id=session_id,
+                            error=result.get("error"))
+                            
+        except Exception as e:
+            logger.error("sequential_debate.supabase_exception",
+                        session_id=session_id,
+                        error=str(e))
+    
+    def get_session(self, session_id: str) -> Optional[DebateSession]:
+        """Obtiene una sesiÃ³n de debate activa"""
+        return self.active_sessions.get(session_id)
+    
+    def list_sessions(self) -> List[DebateSession]:
+        """Lista todas las sesiones de debate"""
+        return list(self.active_sessions.values())
+
+
+# Configuraciones predefinidas de debates
+def get_standard_debate_config(topic: str) -> List[DebateAgent]:
+    """ConfiguraciÃ³n estÃ¡ndar: 3 locales + 1 cloud"""
+    return [
+        # 1. AnÃ¡lisis inicial - Meta (llama3)
+        DebateAgent(
+            id="analyst_llama3",
+            name="Analista Meta",
+            role=AgentRole.ANALYST,
+            node="LOCAL",
+            engine="ollama",
+            model="llama3:8b",
+            provider="meta",
+            system_prompt="Analiza el tema propuesto desde una perspectiva tÃ©cnica y estructurada. "
+                        "Identifica los puntos clave, supuestos y posibles enfoques. "
+                        "Responde en espaÃ±ol, mÃ¡ximo 300 palabras.",
+            temperature=0.7,
+            max_tokens=500
+        ),
+        
+        # 2. CrÃ­tica - Mistral AI
+        DebateAgent(
+            id="critic_mistral",
+            name="CrÃ­tico Mistral",
+            role=AgentRole.CRITIC,
+            node="LOCAL",
+            engine="ollama",
+            model="mistral:7b",
+            provider="mistral",
+            system_prompt="Examina crÃ­ticamente el anÃ¡lisis anterior. Identifica debilidades lÃ³gicas, "
+                        "supuestos no verificados y alternativas no consideradas. "
+                        "SÃ© constructivo pero riguroso. Responde en espaÃ±ol, mÃ¡ximo 300 palabras.",
+            temperature=0.8,
+            max_tokens=500
+        ),
+        
+        # 3. SÃ­ntesis - Alibaba (Qwen)
+        DebateAgent(
+            id="synth_qwen",
+            name="Sintetizador Qwen",
+            role=AgentRole.SYNTHESIZER,
+            node="LOCAL",
+            engine="ollama",
+            model="qwen2.5:3b",
+            provider="alibaba",
+            system_prompt="Sintetiza los argumentos presentados hasta ahora. Encuentra puntos de "
+                        "acuerdo y desacuerdo. Propone un marco integrador. "
+                        "Responde en espaÃ±ol, mÃ¡ximo 300 palabras.",
+            temperature=0.6,
+            max_tokens=500
+        ),
+        
+        # 4. Refinamiento - OpenRouter (Cloud)
+        DebateAgent(
+            id="refiner_cloud",
+            name="Refinador Cloud",
+            role=AgentRole.REFINER,
+            node="CLOUD",
+            engine="openrouter",
+            model="anthropic/claude-3.5-haiku",
+            provider="anthropic",
+            system_prompt="Refina y mejora la sÃ­ntesis anterior. Considera perspectivas adicionales "
+                        "y elabora una conclusiÃ³n bien fundamentada. "
+                        "Responde en espaÃ±ol, mÃ¡ximo 400 palabras.",
+            temperature=0.5,
+            max_tokens=600
+        )
+    ]
+
+
+def get_local_only_config(topic: str) -> List[DebateAgent]:
+    """ConfiguraciÃ³n solo local: 4 modelos distintos"""
+    return [
+        DebateAgent(
+            id="analyst_llama3",
+            name="Analista Meta (Llama3)",
+            role=AgentRole.ANALYST,
+            node="LOCAL",
+            engine="ollama",
+            model="llama3:8b",
+            provider="meta",
+            system_prompt="AnÃ¡lisis tÃ©cnico profundo del tema. Enfoque prÃ¡ctico y estructurado. "
+                        "MÃ¡ximo 300 palabras.",
+            temperature=0.7
+        ),
+        DebateAgent(
+            id="critic_mistral",
+            name="CrÃ­tico Mistral",
+            role=AgentRole.CRITIC,
+            node="LOCAL",
+            engine="ollama",
+            model="mistral:7b",
+            provider="mistral",
+            system_prompt="CrÃ­tica constructiva y rigurosa del anÃ¡lisis. Identificar debilidades. "
+                        "MÃ¡ximo 300 palabras.",
+            temperature=0.8
+        ),
+        DebateAgent(
+            id="synth_qwen",
+            name="Sintetizador Qwen (Alibaba)",
+            role=AgentRole.SYNTHESIZER,
+            node="LOCAL",
+            engine="ollama",
+            model="qwen2.5:3b",
+            provider="alibaba",
+            system_prompt="SÃ­ntesis integradora de todos los argumentos. Enfoque oriental pragmatico. "
+                        "MÃ¡ximo 300 palabras.",
+            temperature=0.6
+        ),
+        DebateAgent(
+            id="refiner_deepseek",
+            name="Refinador DeepSeek",
+            role=AgentRole.REFINER,
+            node="LOCAL",
+            engine="ollama",
+            model="deepseek-r1:7b",
+            provider="deepseek",
+            system_prompt="Refinamiento final con reasoning. Considera implicaciones profundas. "
+                        "MÃ¡ximo 350 palabras.",
+            temperature=0.5
+        )
+    ]
+
+
+========== backend\engine\agent_orchestrator.py ==========
+"""
+Synapse Council v2.0 - Agent Orchestrator
+Orquesta llamadas a agentes con paralelismo, persistencia y cross-references
+"""
+import asyncio
+import uuid
+from datetime import datetime
+from typing import Dict, List, Any, Optional, AsyncGenerator, Callable
+from dataclasses import dataclass
+import structlog
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.engine.local_engine_manager import LocalEngineManager, EngineType
+from backend.adapters.openrouter import OpenRouterClient
+from backend.adapters.web_agent import WebAgentClient
+from backend.database.models import AgentCall, CrossReference
+from backend.config import get_settings
+
+settings = get_settings()
+logger = structlog.get_logger()
+
+
+@dataclass
+class AgentConfig:
+    """ConfiguraciÃ³n de un agente"""
+    slot: str
+    node: str  # LOCAL, CLOUD, WEB_AGENT
+    engine: str  # ollama, lm_studio, jan, openrouter, web_agent
+    model: str
+    role_label: str
+    temperature: float = 0.7
+    max_tokens: int = 1000
+
+
+@dataclass
+class AgentResult:
+    """Resultado de una llamada a agente"""
+    call_id: str
+    slot: str
+    node: str
+    status: str  # COMPLETED, FAILED, TIMEOUT
+    response: Optional[str] = None
+    tokens_in: int = 0
+    tokens_out: int = 0
+    latency_ms: int = 0
+    error_message: Optional[str] = None
+
+
+class AgentOrchestrator:
+    """
+    Orquestador de agentes:
+    - Paralelismo con asyncio.gather()
+    - Persistencia en base de datos
+    - Cross-references entre agentes
+    - Manejo de errores por agente
+    """
+    
+    def __init__(self):
+        self._local_manager = None
+        self._openrouter = None
+        self._web_agent = None
+
+    @property
+    def local_manager(self):
+        if self._local_manager is None:
+            self._local_manager = LocalEngineManager()
+        return self._local_manager
+
+    @property
+    def openrouter(self):
+        if self._openrouter is None:
+            self._openrouter = OpenRouterClient() if settings.OPENROUTER_API_KEY else None
+        return self._openrouter
+
+    @property
+    def web_agent(self):
+        if self._web_agent is None:
+            self._web_agent = WebAgentClient(
+                enabled=settings.WEB_AGENT_ENABLED,
+                browser=settings.WEB_AGENT_BROWSER,
+                headless=settings.WEB_AGENT_HEADLESS,
+            )
+        return self._web_agent
+        
+    async def call_agent(
+        self,
+        session_id: str,
+        round_id: str,
+        round_number: int,
+        phase: str,
+        config: AgentConfig,
+        system_prompt: str,
+        user_prompt: str,
+        db_session: AsyncSession,
+        on_token: Optional[Callable[[str], None]] = None
+    ) -> AgentResult:
+        """
+        Llama a un agente individual con persistencia completa
+        """
+        call_id = str(uuid.uuid4())
+        started_at = datetime.utcnow()
+        start_time = asyncio.get_event_loop().time()
+        
+        # Crear registro en DB
+        agent_call = AgentCall(
+            id=call_id,
+            session_id=session_id,
+            round_id=round_id,
+            round_number=round_number,
+            phase=phase,
+            agent_slot=config.slot,
+            node=config.node,
+            engine=config.engine,
+            model_name=config.model,
+            role_label=config.role_label,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            status="STREAMING" if on_token else "PENDING",
+            started_at=started_at,
+        )
+        
+        db_session.add(agent_call)
+        await db_session.commit()
+        
+        logger.info(
+            "agent_call.started",
+            call_id=call_id,
+            session_id=session_id,
+            agent_slot=config.slot,
+            phase=phase,
+        )
+        
+        logger.info("call_agent.starting_generation", slot=config.slot, node=config.node, engine=config.engine, model=config.model)
+        
+        try:
+            # Seleccionar motor y ejecutar
+            response_parts = []
+            
+            if config.node == "LOCAL":
+                engine_type = EngineType(config.engine)
+                logger.info("call_agent.local_engine_selected", engine_type=engine_type.value)
+                
+                # Forzar stream=True siempre para asegurar consumo completo del generador
+                logger.info("call_agent.calling_generate", model=config.model, prompt_preview=user_prompt[:50])
+                token_count = 0
+                async for token in self.local_manager.generate(
+                    engine_type=engine_type,
+                    model=config.model,
+                    prompt=user_prompt,
+                    system=system_prompt,
+                    temperature=config.temperature,
+                    max_tokens=config.max_tokens,
+                    stream=True
+                ):
+                    token_count += 1
+                    response_parts.append(token)
+                    if on_token:
+                        on_token(token)
+                logger.info("call_agent.generate_completed", tokens_yielded=token_count, response_length=len("".join(response_parts)))
+                        
+            elif config.node == "CLOUD":
+                if not self.openrouter:
+                    raise RuntimeError("OpenRouter not configured")
+                    
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ]
+                
+                async for token in self.openrouter.chat_completion(
+                    model=config.model,
+                    messages=messages,
+                    temperature=config.temperature,
+                    max_tokens=config.max_tokens,
+                    stream=on_token is not None
+                ):
+                    response_parts.append(token)
+                    if on_token:
+                        on_token(token)
+                        
+            elif config.node == "WEB_AGENT":
+                # Web Agent usa Playwright (no streaming)
+                result = await self.web_agent.query_chatgpt(user_prompt)
+                response_parts.append(result)
+            
+            # Calcular mÃ©tricas
+            response_text = "".join(response_parts)
+            completed_at = datetime.utcnow()
+            latency_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
+            
+            # EstimaciÃ³n de tokens (len/4 es ~90% preciso vs split que es ~75%)
+            tokens_in = len(system_prompt) // 4 + len(user_prompt) // 4
+            tokens_out = len(response_text) // 4
+            
+            # Actualizar en DB
+            agent_call.status = "COMPLETED"
+            agent_call.response = response_text
+            agent_call.tokens_in = tokens_in
+            agent_call.tokens_out = tokens_out
+            agent_call.latency_ms = latency_ms
+            agent_call.completed_at = completed_at
+            await db_session.commit()
+            
+            logger.info(
+                "agent_call.completed",
+                call_id=call_id,
+                agent_slot=config.slot,
+                latency_ms=latency_ms,
+                tokens_out=tokens_out,
+            )
+            
+            return AgentResult(
+                call_id=call_id,
+                slot=config.slot,
+                node=config.node,
+                status="COMPLETED",
+                response=response_text,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+                latency_ms=latency_ms,
+            )
+            
+        except asyncio.TimeoutError:
+            agent_call.status = "TIMEOUT"
+            agent_call.error_message = "Request timeout"
+            agent_call.completed_at = datetime.utcnow()
+            await db_session.commit()
+            
+            logger.error(
+                "agent_call.timeout",
+                call_id=call_id,
+                agent_slot=config.slot,
+            )
+            
+            return AgentResult(
+                call_id=call_id,
+                slot=config.slot,
+                node=config.node,
+                status="TIMEOUT",
+                error_message="Request timeout",
+            )
+            
+        except Exception as e:
+            error_msg = str(e)
+            agent_call.status = "FAILED"
+            agent_call.error_message = error_msg
+            agent_call.completed_at = datetime.utcnow()
+            await db_session.commit()
+            
+            logger.error(
+                "agent_call.failed",
+                call_id=call_id,
+                agent_slot=config.slot,
+                error=error_msg,
+            )
+            
+            return AgentResult(
+                call_id=call_id,
+                slot=config.slot,
+                node=config.node,
+                status="FAILED",
+                error_message=error_msg,
+            )
+    
+    async def call_agents_parallel(
+        self,
+        session_id: str,
+        round_id: str,
+        round_number: int,
+        phase: str,
+        agent_configs: List[AgentConfig],
+        prompts: Dict[str, tuple],  # {slot: (system_prompt, user_prompt)}
+        db_session: AsyncSession,
+        on_agent_token: Optional[Callable[[str, str], None]] = None  # (slot, token)
+    ) -> Dict[str, AgentResult]:
+        """
+        Llama mÃºltiples agentes secuencialmente (temporalmente para aislar problema de concurrencia)
+        Retorna dict: {slot: AgentResult}
+        """
+
+        output = {}
+        for config in agent_configs:
+            system_prompt, user_prompt = prompts.get(config.slot, ("", ""))
+
+            def token_callback(token: str):
+                if on_agent_token:
+                    on_agent_token(config.slot, token)
+
+            result = await self.call_agent(
+                session_id=session_id,
+                round_id=round_id,
+                round_number=round_number,
+                phase=phase,
+                config=config,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                db_session=db_session,
+                on_token=token_callback if on_agent_token else None
+            )
+
+            output[config.slot] = result
+
+        return output
+    
+    async def create_cross_references(
+        self,
+        consumer_call_id: str,
+        source_call_ids: List[str],
+        context_type: str,
+        db_session: AsyncSession
+    ):
+        """
+        Crea registros de cross-reference en la base de datos
+        """
+        for source_id in source_call_ids:
+            cross_ref = CrossReference(
+                id=str(uuid.uuid4()),
+                consumer_call_id=consumer_call_id,
+                source_call_id=source_id,
+                context_type=context_type,
+            )
+            db_session.add(cross_ref)
+        
+        await db_session.commit()
+        
+        logger.debug(
+            "cross_references.created",
+            consumer=consumer_call_id,
+            sources=len(source_call_ids),
+            type=context_type,
+        )
+    
+    def check_failure_threshold(
+        self,
+        results: Dict[str, AgentResult],
+        threshold_percent: float = 0.5
+    ) -> bool:
+        """
+        Verifica si se superÃ³ el umbral de fallos (>50% por defecto)
+        Retorna True si se debe abortar la sesiÃ³n
+        """
+        if not results:
+            return True
+        
+        total = len(results)
+        failed = sum(1 for r in results.values() if r.status in ["FAILED", "TIMEOUT"])
+        
+        failure_rate = failed / total
+        should_abort = failure_rate > threshold_percent
+        
+        if should_abort:
+            logger.error(
+                "failure_threshold_exceeded",
+                failed=failed,
+                total=total,
+                rate=failure_rate,
+            )
+        
+        return should_abort
+
+
+========== backend\engine\prompts.py ==========
+"""
+Synapse Council v2.0 - Prompts System
+System prompts para cada rol de agente
+"""
+from typing import Dict, Optional
+
+
+class PromptBuilder:
+    """Constructor de prompts para cada fase del debate"""
+    
+    # â”€â”€â”€ FASE 1: ANALISTAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    
+    ANALYST_LOCAL_A = """Eres {role_label}, un analista experto en razonamiento estructurado.
+Tu Ã¡ngulo de anÃ¡lisis especÃ­fico es: Viabilidad prÃ¡ctica, recursos necesarios, y riesgos de implementaciÃ³n tÃ©cnica.
+
+MANDATO:
+- Riguroso: basa cada afirmaciÃ³n en argumentos lÃ³gicos o evidencia tÃ©cnica
+- EspecÃ­fico: evita generalidades; ofrece observaciones concretas sobre implementaciÃ³n
+- Estructurado: usa las secciones indicadas
+- Honesto sobre la incertidumbre tÃ©cnica
+
+RESTRICCIONES:
+- No repitas lo implÃ­cito en la pregunta
+- No hagas afirmaciones sin respaldo tÃ©cnico
+- Limita tu respuesta a {max_tokens} tokens
+
+FORMATO DE RESPUESTA:
+## AnÃ¡lisis Principal
+[Tu anÃ¡lisis tÃ©cnico detallado]
+
+## Puntos Clave
+- [Punto 1 con justificaciÃ³n tÃ©cnica]
+- [Punto 2 con justificaciÃ³n tÃ©cnica]
+
+## Propuestas o Recomendaciones
+- [RecomendaciÃ³n especÃ­fica 1]
+- [RecomendaciÃ³n especÃ­fica 2]
+
+## Ãreas de Incertidumbre
+[Lo que no puedes afirmar con certeza tÃ©cnica]
+
+PREGUNTA A ANALIZAR:
+{query}
+"""
+
+    ANALYST_LOCAL_B = """Eres {role_label}, un analista experto en razonamiento estructurado.
+Tu Ã¡ngulo de anÃ¡lisis especÃ­fico es: Impacto estratÃ©gico a largo plazo, efectos sistÃ©micos, y tendencias.
+
+MANDATO:
+- Perspectiva temporal: considera consecuencias a 5-10 aÃ±os
+- AnÃ¡lisis sistÃ©mico: identifica efectos en cadena
+- Basado en precedentes histÃ³ricos similares
+- EstratÃ©gico, no tÃ¡ctico
+
+RESTRICCIONES:
+- No repitas lo implÃ­cito en la pregunta
+- Evita predicciones sin base histÃ³rica
+- Limita tu respuesta a {max_tokens} tokens
+
+FORMATO DE RESPUESTA:
+## AnÃ¡lisis Principal
+[Tu anÃ¡lisis estratÃ©gico]
+
+## Puntos Clave
+- [Tendencia o efecto sistÃ©mico 1]
+- [Tendencia o efecto sistÃ©mico 2]
+
+## Escenarios Futuros
+- [Escenario optimista y condiciones]
+- [Escenario pesimista y condiciones]
+
+## Ãreas de Incertidumbre
+[Variables desconocidas que afectan predicciones]
+
+PREGUNTA A ANALIZAR:
+{query}
+"""
+
+    ANALYST_CLOUD_A = """Eres {role_label}, un analista experto en razonamiento estructurado.
+Tu Ã¡ngulo de anÃ¡lisis especÃ­fico es: Precedentes histÃ³ricos, mejores prÃ¡cticas de la industria, y casos de estudio.
+
+MANDATO:
+- Evidencia empÃ­rica: cita casos reales de implementaciones similares
+- Benchmarking: compara con estÃ¡ndares de la industria
+- Lecciones aprendidas de Ã©xitos y fracasos documentados
+
+RESTRICCIONES:
+- No invents casos de estudio
+- Distingue entre correlaciÃ³n y causalidad
+- Limita tu respuesta a {max_tokens} tokens
+
+FORMATO DE RESPUESTA:
+## AnÃ¡lisis Principal
+[Tu anÃ¡lisis basado en evidencia]
+
+## Casos de Estudio Relevantes
+- [Caso 1: contexto, resultado, lecciÃ³n]
+- [Caso 2: contexto, resultado, lecciÃ³n]
+
+## Mejores PrÃ¡cticas de la Industria
+- [PrÃ¡ctica 1 con referencia]
+- [PrÃ¡ctica 2 con referencia]
+
+## Ãreas de Incertidumbre
+[Limitaciones de la evidencia disponible]
+
+PREGUNTA A ANALIZAR:
+{query}
+"""
+
+    ANALYST_CLOUD_B = """Eres {role_label}, un analista experto en razonamiento estructurado.
+Tu Ã¡ngulo de anÃ¡lisis especÃ­fico es: Factores humanos, organizacionales, dinÃ¡micas de adopciÃ³n, y resistencia al cambio.
+
+MANDATO:
+- Enfoque en personas: stakeholders, usuarios, equipos afectados
+- DinÃ¡micas organizacionales: poder, cultura, incentivos
+- Proceso de adopciÃ³n: barreras y facilitadores
+
+RESTRICCIONES:
+- No subestimes la resistencia al cambio
+- Evita generalizaciones sobre "usuarios"
+- Limita tu respuesta a {max_tokens} tokens
+
+FORMATO DE RESPUESTA:
+## AnÃ¡lisis Principal
+[Tu anÃ¡lisis organizacional]
+
+## Stakeholders Clave
+- [Grupo 1: intereses, preocupaciones, influencia]
+- [Grupo 2: intereses, preocupaciones, influencia]
+
+## Factores de AdopciÃ³n
+- Facilitadores: [lista]
+- Barreras: [lista]
+
+## Ãreas de Incertidumbre
+[Aspectos culturales desconocidos]
+
+PREGUNTA A ANALIZAR:
+{query}
+"""
+
+    # â”€â”€â”€ FASE 2: CRÃTICOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    
+    CRITIC_LOCAL_A = """Eres {role_label}, un revisor crÃ­tico especializado en evaluaciÃ³n de razonamientos tÃ©cnicos.
+
+MANDATO:
+- Identifica falacias lÃ³gicas o razonamientos circulares
+- SeÃ±ala supuestos no declarados o injustificados tÃ©cnicamente
+- Detecta inconsistencias internas en el razonamiento tÃ©cnico
+- Identifica lo que el anÃ¡lisis ignorÃ³, minimizÃ³ o sobreestimÃ³
+- Valida explÃ­citamente lo que estÃ¡ bien razonado
+
+RESTRICCIONES:
+- No reescribas el anÃ¡lisis completo, evalÃºalo
+- SÃ© especÃ­fico: cita las partes concretas que criticas
+- MantÃ©n un tono constructivo pero exigente
+- Limita tu respuesta a {max_tokens} tokens
+
+ANÃLISIS A EVALUAR:
+{target_analysis}
+
+FORMATO DE RESPUESTA:
+## Validaciones
+[Lo que aceptas como correctamente razonado]
+
+## CrÃ­ticas Principales
+- [CrÃ­tica 1 con cita especÃ­fica del texto]
+- [CrÃ­tica 2 con cita especÃ­fica del texto]
+
+## CrÃ­ticas Menores
+- [Observaciones menores]
+
+## Enmiendas Propuestas
+[Correcciones especÃ­ficas sugeridas]
+
+## Veredicto
+ACEPTABLE / RECHAZABLE / ACEPTABLE_CON_RESERVAS
+"""
+
+    CRITIC_LOCAL_B = """Eres {role_label}, un revisor crÃ­tico especializado en evaluaciÃ³n de razonamientos estratÃ©gicos.
+
+MANDATO:
+- EvalÃºa la solidez del razonamiento a largo plazo
+- Identifica sesgos de confirmaciÃ³n en predicciones
+- Detecta sobreoptimismo o pesimismo excesivo
+- Verifica si se consideraron alternativas viables
+
+ANÃLISIS A EVALUAR:
+{target_analysis}
+
+FORMATO DE RESPUESTA:
+## Validaciones
+## CrÃ­ticas Principales
+## CrÃ­ticas Menores
+## Enmiendas Propuestas
+## Veredicto
+"""
+
+    CRITIC_CLOUD_A = """Eres {role_label}, un revisor crÃ­tico especializado en evaluaciÃ³n de evidencia empÃ­rica.
+
+MANDATO:
+- Verifica que los casos de estudio sean relevantes y actuales
+- Detecta cherry-picking (selecciÃ³n sesgada de evidencia)
+- Identifica falacias de autoridad sin sustento
+- EvalÃºa la calidad metodolÃ³gica de referencias
+
+ANÃLISIS A EVALUAR:
+{target_analysis}
+
+FORMATO DE RESPUESTA:
+## Validaciones
+## CrÃ­ticas Principales
+## CrÃ­ticas Menores
+## Enmiendas Propuestas
+## Veredicto
+"""
+
+    CRITIC_CLOUD_B = """Eres {role_label}, un revisor crÃ­tico especializado en evaluaciÃ³n de factores humanos.
+
+MANDATO:
+- EvalÃºa si el anÃ¡lisis organizacional es realista
+- Identifica estereotipos sobre "usuarios" o "empleados"
+- Detecta subestimaciÃ³n de resistencia al cambio
+- Verifica consideraciÃ³n de diversidad de stakeholders
+
+ANÃLISIS A EVALUAR:
+{target_analysis}
+
+FORMATO DE RESPUESTA:
+## Validaciones
+## CrÃ­ticas Principales
+## CrÃ­ticas Menores
+## Enmiendas Propuestas
+## Veredicto
+"""
+
+    # â”€â”€â”€ FASE 3: SÃNTESIS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    
+    SYNTHESIS_LOCAL = """Eres {role_label}, un sintetizador experto en integraciÃ³n de perspectivas.
+
+MANDATO:
+- Integra los anÃ¡lisis locales con sus crÃ­ticas recibidas
+- Identifica convergencias entre analistas locales
+- Reconoce disensos legÃ­timos sin forzar consenso
+- Prioriza argumentos tÃ©cnicamente sÃ³lidos
+- Construye una posiciÃ³n integrada coherente
+
+CONTEXTO:
+AnÃ¡lisis locales originales + crÃ­ticas de la nube sobre estos anÃ¡lisis
+
+{local_analyses}
+
+{cloud_critiques}
+
+FORMATO DE RESPUESTA:
+## SÃ­ntesis Local
+[PosiciÃ³n integrada del nodo local]
+
+## Convergencias Identificadas
+- [Punto de acuerdo con justificaciÃ³n]
+
+## Disensos LegÃ­timos
+- [Diferencia no resoluble con argumentos de ambos lados]
+
+## PosiciÃ³n Final Local
+[ConclusiÃ³n integrada del nodo local]
+"""
+
+    SYNTHESIS_CLOUD = """Eres {role_label}, un sintetizador experto en integraciÃ³n de perspectivas.
+
+MANDATO:
+- Integra los anÃ¡lisis en la nube con sus crÃ­ticas recibidas
+- Identifica convergencias entre analistas cloud
+- Reconoce disensos legÃ­timos sin forzar consenso
+- Prioriza evidencia empÃ­rica sobre especulaciÃ³n
+- Construye una posiciÃ³n integrada coherente
+
+CONTEXTO:
+AnÃ¡lisis cloud originales + crÃ­ticas locales sobre estos anÃ¡lisis
+
+{cloud_analyses}
+
+{local_critiques}
+
+FORMATO DE RESPUESTA:
+## SÃ­ntesis Cloud
+[PosiciÃ³n integrada del nodo cloud]
+
+## Convergencias Identificadas
+## Disensos LegÃ­timos
+## PosiciÃ³n Final Cloud
+"""
+
+    @classmethod
+    def build_analyst_prompt(
+        cls,
+        agent_slot: str,
+        query: str,
+        role_label: str,
+        max_tokens: int = 1000,
+        context: Optional[str] = None
+    ) -> str:
+        """Construye prompt para analistas"""
+        
+        prompts = {
+            "analyst_local_a": cls.ANALYST_LOCAL_A,
+            "analyst_local_b": cls.ANALYST_LOCAL_B,
+            "analyst_cloud_a": cls.ANALYST_CLOUD_A,
+            "analyst_cloud_b": cls.ANALYST_CLOUD_B,
+        }
+        
+        template = prompts.get(agent_slot, cls.ANALYST_LOCAL_A)
+        
+        prompt = template.format(
+            role_label=role_label,
+            query=query,
+            max_tokens=max_tokens
+        )
+        
+        # Agregar contexto de rondas previas si existe
+        if context:
+            prompt += f"\n\n## Contexto de Rondas Previas\n{context}\n"
+        
+        return prompt
+    
+    @classmethod
+    def build_critic_prompt(
+        cls,
+        agent_slot: str,
+        target_analysis: str,
+        role_label: str,
+        max_tokens: int = 800
+    ) -> str:
+        """Construye prompt para crÃ­ticos"""
+        
+        prompts = {
+            "critic_local_a": cls.CRITIC_LOCAL_A,
+            "critic_local_b": cls.CRITIC_LOCAL_B,
+            "critic_cloud_a": cls.CRITIC_CLOUD_A,
+            "critic_cloud_b": cls.CRITIC_CLOUD_B,
+        }
+        
+        template = prompts.get(agent_slot, cls.CRITIC_LOCAL_A)
+        
+        return template.format(
+            role_label=role_label,
+            target_analysis=target_analysis,
+            max_tokens=max_tokens
+        )
+    
+    @classmethod
+    def build_synthesis_prompt(
+        cls,
+        node: str,  # LOCAL o CLOUD
+        analyses: Dict[str, str],
+        critiques: Dict[str, str],
+        max_tokens: int = 1200,
+        role_label: str = "Sintetizador"
+    ) -> str:
+        """Construye prompt para sÃ­ntesis de nodo"""
+
+        if node == "LOCAL":
+            template = cls.SYNTHESIS_LOCAL
+        else:
+            template = cls.SYNTHESIS_CLOUD
+
+        # Formatear anÃ¡lisis y crÃ­ticas
+        analyses_text = "\n\n".join([
+            f"### AnÃ¡lisis de {name}:\n{content}"
+            for name, content in analyses.items()
+        ])
+
+        critiques_text = "\n\n".join([
+            f"### CrÃ­tica de {name}:\n{content}"
+            for name, content in critiques.items()
+        ])
+
+        return template.format(
+            role_label=role_label,
+            local_analyses=analyses_text if node == "LOCAL" else "",
+            cloud_analyses=analyses_text if node == "CLOUD" else "",
+            local_critiques=critiques_text if node == "CLOUD" else "",
+            cloud_critiques=critiques_text if node == "LOCAL" else "",
+            max_tokens=max_tokens
+        )
+
+    # â”€â”€â”€ FASE 4: TRIBUNAL DE MAGISTRADOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    MAGISTRATE_EVIDENCE = """Eres el Magistrado de Evidencias del Synapse Council.
+
+MANDATO:
+ActÃºas como auditor tÃ©cnico absoluto. Tu funciÃ³n es rechazar cualquier argumento
+que no estÃ© respaldado por lÃ³gica formal o evidencia verificable.
+
+VALIDAS:
+- Argumentos con datos concretos y verificables
+- CÃ³digo funcional o pseudo-cÃ³digo lÃ³gicamente vÃ¡lido
+- Referencias tÃ©cnicas verificables y actuales
+- Inferencias lÃ³gicamente vÃ¡lidas desde premisas verdaderas
+
+RECHAZAS:
+- RetÃ³rica vacÃ­a sin sustento tÃ©cnico
+- Afirmaciones sin respaldo empÃ­rico o lÃ³gico
+- Apelaciones a la autoridad sin evidencia
+- Correlaciones presentadas como causalidad
+- Supuestos no declarados en cadenas argumentativas
+
+CONTEXTO DEL DEBATE:
+Query original: {query}
+
+SÃ­ntesis Local:
+{local_synthesis}
+
+SÃ­ntesis Cloud:
+{cloud_synthesis}
+
+INSTRUCCIÃ“N:
+Analiza la propuesta de sentencia del Magistrado de AlineaciÃ³n (si se proporciona)
+o evalÃºa directamente las sÃ­ntesis. Emite tu objeciÃ³n de bloqueo si encuentras
+fallos tÃ©cnicos graves que invaliden el razonamiento.
+
+FORMATO DE RESPUESTA:
+## ObjeciÃ³n de Bloqueo: [SÃ/NO]
+[SÃ si hay fallo tÃ©cnico grave que invalide el veredicto, NO si es aceptable]
+
+## Argumentos Validados
+- [Lista de argumentos que aceptas y por quÃ©]
+
+## Argumentos Rechazados
+- [Lista de argumentos que rechazas y por quÃ©]
+
+## Evidencia Faltante
+[QuÃ© datos/cÃ³digo/referencias necesitarÃ­as para validar completamente]
+
+## PuntuaciÃ³n TÃ©cnica: [0-100]
+[EvaluaciÃ³n de rigor tÃ©cnico del razonamiento]
+"""
+
+    MAGISTRATE_RISK = """Eres el Magistrado de Riesgos del Synapse Council.
+
+MANDATO:
+ActÃºas como el "Abogado del Diablo". Identificas vulnerabilidades de seguridad,
+costes ocultos y deudas tÃ©cnicas que los modelos en la nube suelen omitir por
+cortesÃ­a corporativa o sesgo de complacencia.
+
+IDENTIFICAS:
+- Vulnerabilidades de seguridad explotables
+- Costes ocultos de implementaciÃ³n (infraestructura, mantenimiento, escalado)
+- Deuda tÃ©cnica a corto, medio y largo plazo
+- Dependencias peligrosas o vendor lock-in
+- Riesgos de compliance legal y regulatorio
+- Puntos de fallo Ãºnico (SPOF) no considerados
+- Escenarios de riesgo catastrÃ³fico (cola de la distribuciÃ³n)
+
+CONTEXTO DEL DEBATE:
+Query original: {query}
+
+SÃ­ntesis Local:
+{local_synthesis}
+
+SÃ­ntesis Cloud:
+{cloud_synthesis}
+
+INSTRUCCIÃ“N:
+Analiza la propuesta de sentencia del Magistrado de AlineaciÃ³n (si se proporciona)
+y evalÃºa los riesgos no considerados. Emite objeciÃ³n de bloqueo si los riesgos
+crÃ­ticos no estÃ¡n suficientemente mitigados.
+
+FORMATO DE RESPUESTA:
+## ObjeciÃ³n de Bloqueo: [SÃ/NO]
+[SÃ si hay riesgo crÃ­tico sin mitigaciÃ³n adecuada]
+
+## Riesgos Identificados
+### CrÃ­ticos (podrÃ­an invalidar la propuesta)
+- [Riesgo 1]: [Severidad, probabilidad, mitigaciÃ³n propuesta]
+
+### Altos (requieren atenciÃ³n inmediata)
+- [Riesgo 2]: [DescripciÃ³n y mitigaciÃ³n]
+
+### Medios (considerar en implementaciÃ³n)
+- [Riesgo 3]: [DescripciÃ³n]
+
+### Bajos (monitorear)
+- [Riesgo 4]
+
+## Mitigaciones Propuestas
+[Para cada riesgo crÃ­tico y alto]
+
+## PuntuaciÃ³n de Riesgo: [0-100]
+[0 = riesgo catastrÃ³fico no mitigado, 100 = riesgos bien gestionados]
+"""
+
+    MAGISTRATE_ALIGNMENT = """Eres el Magistrado de AlineaciÃ³n del Synapse Council.
+
+MANDATO:
+Aseguras que el veredicto sea pragmÃ¡tico, accionable y resuelva directamente
+el problema de negocio planteado originalmente. Eres el puente entre el rigor
+tÃ©cnico y la utilidad real para el usuario.
+
+GARANTIZAS:
+- El veredicto responde directamente a la pregunta original del usuario
+- Es accionable (el usuario puede ejecutar pasos concretos)
+- Considera el contexto y constraints del usuario
+- El lenguaje es claro, sin jerga acadÃ©mica innecesaria
+- Incluye criterios de Ã©xito medibles
+
+DEBES INTEGRAR:
+- Las objeciones vÃ¡lidas del Magistrado de Evidencias
+- Las mitigaciones propuestas por el Magistrado de Riesgos
+- No ignores crÃ­ticas tÃ©cnicas por mantener la simplicidad
+
+NO PUEDES:
+- Emitir veredicto sin considerar objeciones pendientes
+- Proponer soluciones que no respondan al query original
+- Omitir riesgos crÃ­ticos identificados
+
+CONTEXTO DEL DEBATE:
+Query original: {query}
+
+SÃ­ntesis Local:
+{local_synthesis}
+
+SÃ­ntesis Cloud:
+{cloud_synthesis}
+
+{evidence_input}
+{risk_input}
+
+INSTRUCCIÃ“N:
+Redacta el borrador de sentencia final. Si hay objeciones de bloqueo activas,
+debes indicar cÃ³mo las integrarÃ­as en una nueva versiÃ³n.
+
+FORMATO DE RESPUESTA:
+## Veredicto Final
+[Respuesta directa, clara y accionable al query original]
+
+## Fundamentos
+[Resumen de los argumentos tÃ©cnicos que sustentan el veredicto]
+
+## Pasos Accionables
+1. [Paso concreto 1]
+2. [Paso concreto 2]
+3. [Paso concreto 3]
+
+## Criterios de Ã‰xito
+[CÃ³mo medir si la implementaciÃ³n funciona]
+
+## Riesgos Asumidos (con justificaciÃ³n)
+[QuÃ© riesgos se aceptan y por quÃ© vale la pena]
+
+## Disentimiento Persistente
+[Si no hay consenso completo, quÃ© aspectos quedan en desacuerdo]
+
+## IteraciÃ³n PCO: [1/3]
+[NÃºmero de iteraciÃ³n del Protocolo de Consenso Forzado]
+"""
+
+    @classmethod
+    def build_magistrate_prompt(
+        cls,
+        role: str,  # evidence | risk | alignment
+        query: str,
+        local_synthesis: str,
+        cloud_synthesis: str,
+        evidence_input: Optional[str] = None,
+        risk_input: Optional[str] = None,
+        iteration: int = 1,
+        max_tokens: int = 1500
+    ) -> str:
+        """Construye prompt para magistrados del Tribunal"""
+        
+        templates = {
+            "evidence": cls.MAGISTRATE_EVIDENCE,
+            "risk": cls.MAGISTRATE_RISK,
+            "alignment": cls.MAGISTRATE_ALIGNMENT,
+        }
+        
+        template = templates.get(role, cls.MAGISTRATE_ALIGNMENT)
+        
+        # Formatear inputs condicionales
+        evidence_section = ""
+        if evidence_input:
+            evidence_section = f"\n## Objeciones del Magistrado de Evidencias:\n{evidence_input}\n"
+        
+        risk_section = ""
+        if risk_input:
+            risk_section = f"\n## EvaluaciÃ³n del Magistrado de Riesgos:\n{risk_input}\n"
+        
+        return template.format(
+            query=query,
+            local_synthesis=local_synthesis,
+            cloud_synthesis=cloud_synthesis,
+            evidence_input=evidence_section,
+            risk_input=risk_section,
+            iteration=iteration,
+            max_tokens=max_tokens
+        )
+
+
+========== backend\engine\tribunal.py ==========
+"""
+Synapse Council v2.0 - Tribunal de Magistrados
+Implementa el Protocolo de Consenso Forzado (PCO) con 3 magistrados:
+- Magistrado de Evidencias (auditor tÃ©cnico)
+- Magistrado de Riesgos (abogado del diablo)
+- Magistrado de AlineaciÃ³n (product owner)
+
+EjecuciÃ³n SIEMPRE en LOCAL (PC B) para soberanÃ­a neuronal.
+"""
+import re
+import uuid
+from datetime import datetime
+from typing import Dict, Any, Optional, Tuple, Callable
+from dataclasses import dataclass
+import structlog
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.engine.agent_orchestrator import AgentOrchestrator, AgentConfig
+from backend.engine.prompts import PromptBuilder
+from backend.database.models import AgentCall
+from backend.config import get_settings
+
+settings = get_settings()
+logger = structlog.get_logger()
+
+
+@dataclass
+class MagistrateOpinion:
+    """OpiniÃ³n de un magistrado"""
+    role: str
+    call_id: str
+    blocking: bool
+    response: str
+    score: int  # 0-100
+    iteration: int
+
+
+@dataclass
+class TribunalVerdict:
+    """Veredicto final del Tribunal"""
+    verdict_text: str
+    consensus_reached: bool
+    iterations_required: int
+    magistrate_opinions: Dict[str, MagistrateOpinion]
+    evidence_score: int
+    risk_score: int
+    alignment_score: int
+    dissent_areas: Optional[str] = None
+
+
+class TribunalCouncil:
+    """
+    Tribunal de 3 Magistrados con Protocolo de Consenso Forzado (PCO):
+    
+    1. AlineaciÃ³n propone borrador
+    2. Evidencias y Riesgos emiten objeciones de bloqueo
+    3. Si hay objeciÃ³n crÃ­tica â†’ feedback a AlineaciÃ³n â†’ correcciÃ³n
+    4. MÃ¡ximo 3 iteraciones
+    5. Si no hay acuerdo â†’ resoluciÃ³n por mÃ©ritos (dominio con mayor peso)
+    
+    SIEMPRE se ejecuta en LOCAL (PC B) para garantizar soberanÃ­a.
+    """
+    
+    MAX_ITERATIONS = 3
+    
+    # ConfiguraciÃ³n de magistrados (todos LOCAL en PC B)
+    MAGISTRATES = {
+        "evidence": AgentConfig(
+            slot="magistrate_evidence",
+            node="LOCAL",
+            engine="ollama",  # Motor mÃ¡s robusto para validaciÃ³n tÃ©cnica
+            model="llama3.2:latest",
+            role_label="Magistrado de Evidencias",
+            temperature=0.2,  # Baja temperatura para rigor
+            max_tokens=1500
+        ),
+        "risk": AgentConfig(
+            slot="magistrate_risk",
+            node="LOCAL",
+            engine="lm_studio",
+            model="local-model",
+            role_label="Magistrado de Riesgos",
+            temperature=0.3,
+            max_tokens=1500
+        ),
+        "alignment": AgentConfig(
+            slot="magistrate_alignment",
+            node="LOCAL",
+            engine="ollama",  # Usar mejor motor disponible
+            model="llama3.2:latest",
+            role_label="Magistrado de AlineaciÃ³n",
+            temperature=0.4,
+            max_tokens=2000
+        ),
+    }
+    
+    def __init__(self):
+        self.orchestrator = AgentOrchestrator()
+        self.prompt_builder = PromptBuilder()
+    
+    async def issue_verdict(
+        self,
+        session_id: str,
+        round_id: str,
+        round_number: int,
+        query: str,
+        local_synthesis: str,
+        cloud_synthesis: str,
+        db_session: AsyncSession,
+        on_event: Optional[Callable[[str, Any], None]] = None
+    ) -> TribunalVerdict:
+        """
+        Emite veredicto mediante Protocolo de Consenso Forzado
+        """
+        logger.info(
+            "tribunal.verdict_start",
+            session_id=session_id,
+            round_number=round_number,
+        )
+        
+        if on_event:
+            on_event("tribunal_started", {"round_number": round_number})
+        
+        opinions_history: Dict[str, list] = {
+            "evidence": [],
+            "risk": [],
+            "alignment": []
+        }
+        
+        for iteration in range(1, self.MAX_ITERATIONS + 1):
+            logger.info(
+                "tribunal.iteration",
+                session_id=session_id,
+                iteration=iteration,
+            )
+            
+            if on_event:
+                on_event("tribunal_iteration", {
+                    "iteration": iteration,
+                    "max_iterations": self.MAX_ITERATIONS
+                })
+            
+            # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+            # PASO 1: AlineaciÃ³n propone borrador
+            # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+            
+            evidence_input = opinions_history["evidence"][-1].response if opinions_history["evidence"] else None
+            risk_input = opinions_history["risk"][-1].response if opinions_history["risk"] else None
+            
+            alignment_prompt = self.prompt_builder.build_magistrate_prompt(
+                role="alignment",
+                query=query,
+                local_synthesis=local_synthesis,
+                cloud_synthesis=cloud_synthesis,
+                evidence_input=evidence_input,
+                risk_input=risk_input,
+                iteration=iteration,
+                max_tokens=self.MAGISTRATES["alignment"].max_tokens
+            )
+            
+            alignment_result = await self.orchestrator.call_agent(
+                session_id=session_id,
+                round_id=round_id,
+                round_number=round_number,
+                phase="TRIBUNAL",
+                config=self.MAGISTRATES["alignment"],
+                system_prompt="",
+                user_prompt=alignment_prompt,
+                db_session=db_session,
+                on_token=lambda t: on_event("tribunal_token", {"role": "alignment", "token": t}) if on_event else None
+            )
+            
+            alignment_opinion = MagistrateOpinion(
+                role="alignment",
+                call_id=alignment_result.call_id,
+                blocking=False,  # AlineaciÃ³n no bloquea
+                response=alignment_result.response or "",
+                score=self._extract_score(alignment_result.response or ""),
+                iteration=iteration
+            )
+            opinions_history["alignment"].append(alignment_opinion)
+            
+            if on_event:
+                on_event("magistrate_complete", {
+                    "role": "alignment",
+                    "iteration": iteration,
+                    "status": alignment_result.status
+                })
+            
+            # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+            # PASO 2: Evidencias y Riesgos evalÃºan EN PARALELO
+            # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+            
+            # Preparar prompts
+            evidence_prompt = self.prompt_builder.build_magistrate_prompt(
+                role="evidence",
+                query=query,
+                local_synthesis=local_synthesis,
+                cloud_synthesis=cloud_synthesis,
+                max_tokens=self.MAGISTRATES["evidence"].max_tokens
+            )
+            
+            risk_prompt = self.prompt_builder.build_magistrate_prompt(
+                role="risk",
+                query=query,
+                local_synthesis=local_synthesis,
+                cloud_synthesis=cloud_synthesis,
+                max_tokens=self.MAGISTRATES["risk"].max_tokens
+            )
+            
+            # Ejecutar ambos magistrados en paralelo
+            evidence_result, risk_result = await asyncio.gather(
+                self.orchestrator.call_agent(
+                    session_id=session_id,
+                    round_id=round_id,
+                    round_number=round_number,
+                    phase="TRIBUNAL",
+                    config=self.MAGISTRATES["evidence"],
+                    system_prompt="",
+                    user_prompt=evidence_prompt,
+                    db_session=db_session,
+                    on_token=lambda t: on_event("tribunal_token", {"role": "evidence", "token": t}) if on_event else None
+                ),
+                self.orchestrator.call_agent(
+                    session_id=session_id,
+                    round_id=round_id,
+                    round_number=round_number,
+                    phase="TRIBUNAL",
+                    config=self.MAGISTRATES["risk"],
+                    system_prompt="",
+                    user_prompt=risk_prompt,
+                    db_session=db_session,
+                    on_token=lambda t: on_event("tribunal_token", {"role": "risk", "token": t}) if on_event else None
+                ),
+                return_exceptions=True
+            )
+            
+            # Helper para procesar resultado
+            def parse_magistrate_result(result, role_name):
+                from backend.engine.agent_orchestrator import AgentResult
+                if isinstance(result, Exception):
+                    logger.error(f"tribunal.magistrate_failed", role=role_name, error=str(result))
+                    return AgentResult(call_id="", slot=role_name, node="UNKNOWN", status="FAILED", response="FALLO_DE_SISTEMA: 0/100")
+                return result
+            
+            # Procesar resultado de Evidencias
+            evidence_result_parsed = parse_magistrate_result(evidence_result, "evidence")
+            evidence_blocking = self._has_blocking_objection(evidence_result_parsed.response or "")
+            evidence_opinion = MagistrateOpinion(
+                role="evidence",
+                call_id=evidence_result_parsed.call_id,
+                blocking=evidence_blocking,
+                response=evidence_result_parsed.response or "",
+                score=self._extract_score(evidence_result_parsed.response or ""),
+                iteration=iteration
+            )
+            opinions_history["evidence"].append(evidence_opinion)
+            
+            if on_event:
+                on_event("tribunal_objection", {
+                    "role": "evidence",
+                    "blocking": evidence_blocking,
+                    "score": evidence_opinion.score
+                })
+            
+            # Procesar resultado de Riesgos
+            risk_result_parsed = parse_magistrate_result(risk_result, "risk")
+            risk_blocking = self._has_blocking_objection(risk_result_parsed.response or "")
+            risk_opinion = MagistrateOpinion(
+                role="risk",
+                call_id=risk_result_parsed.call_id,
+                blocking=risk_blocking,
+                response=risk_result_parsed.response or "",
+                score=self._extract_score(risk_result_parsed.response or ""),
+                iteration=iteration
+            )
+            opinions_history["risk"].append(risk_opinion)
+            
+            if on_event:
+                on_event("tribunal_objection", {
+                    "role": "risk",
+                    "blocking": risk_blocking,
+                    "score": risk_opinion.score
+                })
+            
+            # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+            # PASO 3: Â¿Hay consenso?
+            # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+            
+            if not evidence_blocking and not risk_blocking:
+                # âœ… CONSENSO ALCANZADO
+                logger.info(
+                    "tribunal.consensus_reached",
+                    session_id=session_id,
+                    iterations=iteration,
+                )
+                
+                if on_event:
+                    on_event("tribunal_consensus", {"iterations": iteration})
+                
+                return TribunalVerdict(
+                    verdict_text=alignment_opinion.response,
+                    consensus_reached=True,
+                    iterations_required=iteration,
+                    magistrate_opinions={
+                        "evidence": evidence_opinion,
+                        "risk": risk_opinion,
+                        "alignment": alignment_opinion
+                    },
+                    evidence_score=evidence_opinion.score,
+                    risk_score=risk_opinion.score,
+                    alignment_score=alignment_opinion.score,
+                    dissent_areas=None
+                )
+            
+            # Hay objeciones, continuar a siguiente iteraciÃ³n
+            logger.info(
+                "tribunal.objections_found",
+                session_id=session_id,
+                iteration=iteration,
+                evidence_blocks=evidence_blocking,
+                risk_blocks=risk_blocking,
+            )
+        
+        # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        # PASO 4: Sin consenso tras 3 iteraciones â†’ ResoluciÃ³n por mÃ©ritos
+        # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        
+        logger.info(
+            "tribunal.no_consensus",
+            session_id=session_id,
+            max_iterations=self.MAX_ITERATIONS,
+        )
+        
+        if on_event:
+            on_event("tribunal_no_consensus", {"max_iterations": self.MAX_ITERATIONS})
+        
+        # Determinar veredicto final por mÃ©ritos
+        # Priorizar la perspectiva del magistrado con mayor score en su dominio
+        final_alignment = opinions_history["alignment"][-1]
+        final_evidence = opinions_history["evidence"][-1]
+        final_risk = opinions_history["risk"][-1]
+        
+        # Construir veredicto compuesto
+        verdict_text = f"""{final_alignment.response}
+
+---
+
+## NOTA DEL TRIBUNAL
+Este veredicto se emitiÃ³ sin consenso completo tras {self.MAX_ITERATIONS} iteraciones del Protocolo de Consenso Forzado.
+
+**Disentimientos pendientes:**
+
+**Magistrado de Evidencias** (Score TÃ©cnico: {final_evidence.score}/100):
+{final_evidence.response[:500]}...
+
+**Magistrado de Riesgos** (Score de Riesgo: {final_risk.score}/100):
+{final_risk.response[:500]}...
+
+**ResoluciÃ³n aplicada:** Veredicto del Magistrado de AlineaciÃ³n con notas de disentimiento.
+"""
+        
+        dissent_areas = self._extract_dissent_areas(
+            final_evidence.response,
+            final_risk.response
+        )
+        
+        return TribunalVerdict(
+            verdict_text=verdict_text,
+            consensus_reached=False,
+            iterations_required=self.MAX_ITERATIONS,
+            magistrate_opinions={
+                "evidence": final_evidence,
+                "risk": final_risk,
+                "alignment": final_alignment
+            },
+            evidence_score=final_evidence.score,
+            risk_score=final_risk.score,
+            alignment_score=final_alignment.score,
+            dissent_areas=dissent_areas
+        )
+    
+    def _has_blocking_objection(self, response: str) -> bool:
+        """
+        Detecta si hay objeciÃ³n de bloqueo en la respuesta
+        Busca patrones como "ObjeciÃ³n de Bloqueo: SÃ" o similar
+        """
+        if not response:
+            return False
+        
+        # Patrones de objeciÃ³n
+        blocking_patterns = [
+            r"##\s*ObjeciÃ³n de Bloqueo:\s*SÃ",
+            r"##\s*ObjeciÃ³n de Bloqueo:\s*SI",
+            r"##\s*ObjeciÃ³n de Bloqueo:\s*Yes",
+            r"ObjeciÃ³n de Bloqueo:\s*SÃ",
+            r"ObjeciÃ³n de Bloqueo:\s*SI",
+            r"Bloqueo:\s*SÃ",
+        ]
+        
+        response_upper = response.upper()
+        
+        for pattern in blocking_patterns:
+            if re.search(pattern, response_upper):
+                return True
+        
+        # HeurÃ­stica: si score tÃ©cnico < 50, considerar como bloqueo parcial
+        score = self._extract_score(response)
+        if score < 30:
+            return True
+        
+        return False
+    
+    def _extract_score(self, response: str) -> int:
+        """Extrae puntuaciÃ³n numÃ©rica de la respuesta (0-100)"""
+        if not response:
+            return 50
+        
+        patterns = [
+            r"PuntuaciÃ³n\s+TÃ©cnica[^:]*:\s*(\d+)",
+            r"PuntuaciÃ³n\s+de\s+Riesgo[^:]*:\s*(\d+)",
+            r"(?:Score|PuntuaciÃ³n)[^:]*:\s*(\d+)\s*/\s*100",
+            r"(?:Score|PuntuaciÃ³n)[^:]*:\s*(\d+)",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, response, re.IGNORECASE)
+            if match:
+                try:
+                    score = int(match.group(1))
+                    return max(0, min(100, score))  # Clamp 0-100
+                except (ValueError, IndexError):
+                    continue
+        
+        return 50  # Default neutral
+    
+    def _extract_dissent_areas(self, evidence_response: str, risk_response: str) -> str:
+        """Extrae Ã¡reas de disentimiento de las respuestas"""
+        dissent_parts = []
+        
+        # De Evidencias
+        if "Argumentos Rechazados" in evidence_response:
+            try:
+                section = evidence_response.split("## Argumentos Rechazados")[1]
+                section = section.split("##")[0]
+                dissent_parts.append(f"Evidencias rechaza: {section[:300]}")
+            except IndexError:
+                pass
+        
+        # De Riesgos
+        if "Riesgos CrÃ­ticos" in risk_response:
+            try:
+                section = risk_response.split("### CrÃ­ticos")[1]
+                section = section.split("###")[0]
+                dissent_parts.append(f"Riesgos identificados: {section[:300]}")
+            except IndexError:
+                pass
+        
+        return "\n".join(dissent_parts) if dissent_parts else "Disenso no detallado explÃ­citamente"
+
+
+========== backend\engine\convergence.py ==========
+"""
+Synapse Council v2.0 - Convergence Evaluator
+EvalÃºa si se ha alcanzado convergencia entre rondas para detener el debate.
+
+HeurÃ­sticas:
+1. Similitud temÃ¡tica entre sÃ­ntesis local y cloud
+2. Acuerdo en puntos clave
+3. ReducciÃ³n de Ã¡reas de disenso
+4. Estabilidad de conclusiones entre rondas
+"""
+import re
+from typing import Dict, Any, Optional, List, Tuple
+from dataclasses import dataclass
+import structlog
+
+logger = structlog.get_logger()
+
+
+@dataclass
+class ConvergenceResult:
+    """Resultado de evaluaciÃ³n de convergencia"""
+    consensus_reached: bool
+    consensus_level: str  # CONSENSUS_REACHED | PARTIAL_CONSENSUS | DIVERGENT
+    similarity_score: float  # 0.0 - 1.0
+    should_stop: bool
+    focus_for_next_round: Optional[str]
+    detail: Dict[str, Any]
+
+
+class ConvergenceEvaluator:
+    """
+    Evaluador de convergencia entre rondas de debate.
+    Determina si se debe continuar o detener el debate.
+    """
+    
+    # Umbrales de convergencia
+    SIMILARITY_THRESHOLD = 0.75  # 75% de similitud = consenso
+    PARTIAL_THRESHOLD = 0.50     # 50% = consenso parcial
+    MAX_ROUNDS_DEFAULT = 3
+    
+    def __init__(self):
+        pass  # Stateless: el historial se pasa como parÃ¡metro
+    
+    def evaluate(
+        self,
+        local_synthesis: str,
+        cloud_synthesis: str,
+        round_number: int,
+        max_rounds: int = MAX_ROUNDS_DEFAULT,
+        tribunal_verdict: Optional[Dict] = None,
+        previous_syntheses: Optional[List[Tuple[str, str]]] = None
+    ) -> ConvergenceResult:
+        """
+        EvalÃºa convergencia entre sÃ­ntesis local y cloud.
+        Retorna recomendaciÃ³n de continuar o detener.
+        """
+        logger.info(
+            "convergence.evaluating",
+            round_number=round_number,
+            max_rounds=max_rounds,
+        )
+        
+        # Calcular similitud temÃ¡tica
+        similarity = self._calculate_similarity(local_synthesis, cloud_synthesis)
+        
+        # Extraer puntos clave
+        local_points = self._extract_key_points(local_synthesis)
+        cloud_points = self._extract_key_points(cloud_synthesis)
+        
+        # Calcular acuerdo en puntos clave
+        agreement_ratio = self._calculate_point_agreement(local_points, cloud_points)
+        
+        # Detectar Ã¡reas de disenso
+        dissent_areas = self._identify_dissent_areas(
+            local_synthesis, cloud_synthesis, local_points, cloud_points
+        )
+        
+        # Evaluar estabilidad con rondas previas
+        stability_score = self._evaluate_stability(
+            local_synthesis, cloud_synthesis, previous_syntheses or []
+        )
+        
+        # Calcular score compuesto
+        composite_score = (
+            similarity * 0.4 +
+            agreement_ratio * 0.3 +
+            stability_score * 0.3
+        )
+        
+        # Determinar nivel de consenso
+        if composite_score >= self.SIMILARITY_THRESHOLD:
+            consensus_level = "CONSENSUS_REACHED"
+            consensus_reached = True
+        elif composite_score >= self.PARTIAL_THRESHOLD:
+            consensus_level = "PARTIAL_CONSENSUS"
+            consensus_reached = False
+        else:
+            consensus_level = "DIVERGENT"
+            consensus_reached = False
+        
+        # Â¿Detener o continuar?
+        should_stop = self._should_stop(
+            consensus_reached=consensus_reached,
+            consensus_level=consensus_level,
+            round_number=round_number,
+            max_rounds=max_rounds,
+            stability_score=stability_score
+        )
+        
+        # Generar focus para siguiente ronda si continÃºa
+        focus_next = None
+        if not should_stop and dissent_areas:
+            focus_next = self._generate_focus(dissent_areas, round_number)
+        
+        # No almacenar estado: el caller gestiona el historial
+        
+        detail = {
+            "similarity_score": round(similarity, 3),
+            "agreement_ratio": round(agreement_ratio, 3),
+            "stability_score": round(stability_score, 3),
+            "composite_score": round(composite_score, 3),
+            "local_key_points": local_points[:5],
+            "cloud_key_points": cloud_points[:5],
+            "dissent_areas": dissent_areas[:3] if dissent_areas else [],
+        }
+        
+        logger.info(
+            "convergence.result",
+            round_number=round_number,
+            consensus_level=consensus_level,
+            composite_score=round(composite_score, 3),
+            should_stop=should_stop,
+        )
+        
+        return ConvergenceResult(
+            consensus_reached=consensus_reached,
+            consensus_level=consensus_level,
+            similarity_score=composite_score,
+            should_stop=should_stop,
+            focus_for_next_round=focus_next,
+            detail=detail
+        )
+    
+    def _calculate_similarity(self, text1: str, text2: str) -> float:
+        """
+        Calcula similitud semÃ¡ntica simple entre textos.
+        Usa overlap de tÃ©rminos clave como heurÃ­stica.
+        """
+        if not text1 or not text2:
+            return 0.0
+        
+        # Extraer tÃ©rminos significativos (palabras de >4 caracteres)
+        def extract_terms(text: str) -> set:
+            words = re.findall(r'\b[a-zA-ZÃ¡Ã©Ã­Ã³ÃºÃ±ÃÃ‰ÃÃ“ÃšÃ‘]{4,}\b', text.lower())
+            # Filtrar stopwords comunes
+            stopwords = {'este', 'esta', 'esto', 'para', 'como', 'pero', 'son', 'con', 'por', 'los', 'las', 'una', 'del', 'sido'}
+            return set(w for w in words if w not in stopwords)
+        
+        terms1 = extract_terms(text1)
+        terms2 = extract_terms(text2)
+        
+        if not terms1 or not terms2:
+            return 0.0
+        
+        # Jaccard similarity
+        intersection = len(terms1 & terms2)
+        union = len(terms1 | terms2)
+        
+        return intersection / union if union > 0 else 0.0
+    
+    def _extract_key_points(self, text: str) -> List[str]:
+        """Extrae puntos clave del texto (lÃ­neas con bullets o numeraciÃ³n)"""
+        if not text:
+            return []
+        
+        points = []
+        
+        # Buscar lÃ­neas que empiezan con -, *, nÃºmero, o ##
+        patterns = [
+            r'^[\s]*[-*][\s]+(.+)$',
+            r'^[\s]*\d+\.[\s]+(.+)$',
+            r'^##[\s]*(.+)$',
+        ]
+        
+        for line in text.split('\n'):
+            line = line.strip()
+            for pattern in patterns:
+                match = re.match(pattern, line, re.MULTILINE)
+                if match:
+                    point = match.group(1).strip()
+                    if len(point) > 10:  # Ignorar lÃ­neas muy cortas
+                        points.append(point[:100])  # Truncar puntos largos
+                    break
+        
+        return points
+    
+    def _calculate_point_agreement(
+        self,
+        local_points: List[str],
+        cloud_points: List[str]
+    ) -> float:
+        """Calcula ratio de acuerdo entre puntos clave"""
+        if not local_points or not cloud_points:
+            return 0.0
+        
+        # Contar puntos similares (heurÃ­stica simple)
+        matches = 0
+        for lp in local_points:
+            lp_lower = lp.lower()
+            for cp in cloud_points:
+                # Si comparten palabras significativas
+                cp_lower = cp.lower()
+                lp_words = set(lp_lower.split())
+                cp_words = set(cp_lower.split())
+                
+                if len(lp_words) > 0:
+                    overlap = len(lp_words & cp_words) / len(lp_words)
+                    if overlap > 0.5:  # 50% de palabras en comÃºn
+                        matches += 1
+                        break
+        
+        max_points = max(len(local_points), len(cloud_points))
+        return matches / max_points if max_points > 0 else 0.0
+    
+    def _identify_dissent_areas(
+        self,
+        local_synthesis: str,
+        cloud_synthesis: str,
+        local_points: List[str],
+        cloud_points: List[str]
+    ) -> List[str]:
+        """Identifica Ã¡reas donde hay disenso explÃ­cito"""
+        dissent = []
+        
+        # Buscar secciones de disenso o incertidumbre
+        dissent_patterns = [
+            r'##?\s*Disenso',
+            r'##?\s*Disentimiento',
+            r'##?\s*Divergencia',
+            r'##?\s*Ãreas de Incertidumbre',
+            r'##?\s*Desacuerdo',
+        ]
+        
+        for text in [local_synthesis, cloud_synthesis]:
+            for pattern in dissent_patterns:
+                matches = re.finditer(pattern, text, re.IGNORECASE)
+                for match in matches:
+                    # Extraer contenido hasta siguiente ##
+                    start = match.start()
+                    rest = text[start:]
+                    next_section = rest.find('\n##', 10)
+                    if next_section == -1:
+                        section_content = rest
+                    else:
+                        section_content = rest[:next_section]
+                    
+                    if len(section_content) > 20:
+                        dissent.append(section_content[:200].strip())
+        
+        # Si no hay secciones explÃ­citas, inferir de puntos no coincidentes
+        if not dissent and local_points and cloud_points:
+            local_set = set(p.lower()[:30] for p in local_points)
+            cloud_set = set(p.lower()[:30] for p in cloud_points)
+            
+            unique_local = local_set - cloud_set
+            unique_cloud = cloud_set - local_set
+            
+            if unique_local:
+                dissent.append(f"Local argumenta: {list(unique_local)[0]}...")
+            if unique_cloud:
+                dissent.append(f"Cloud argumenta: {list(unique_cloud)[0]}...")
+        
+        return dissent[:3]  # Limitar a 3 Ã¡reas principales
+    
+    def _evaluate_stability(
+        self,
+        current_local: str,
+        current_cloud: str,
+        previous_syntheses: List[Tuple[str, str]]
+    ) -> float:
+        """EvalÃºa estabilidad respecto a rondas previas"""
+        if not previous_syntheses:
+            return 0.5  # Neutral en primera ronda
+        
+        # Comparar con ronda anterior
+        prev_local, prev_cloud = previous_syntheses[-1]
+        
+        local_sim = self._calculate_similarity(current_local, prev_local)
+        cloud_sim = self._calculate_similarity(current_cloud, prev_cloud)
+        
+        # Promedio de estabilidad
+        return (local_sim + cloud_sim) / 2
+    
+    def _should_stop(
+        self,
+        consensus_reached: bool,
+        consensus_level: str,
+        round_number: int,
+        max_rounds: int,
+        stability_score: float
+    ) -> bool:
+        """
+        Determina si se debe detener el debate.
+        """
+        # Siempre detener si se alcanzÃ³ consenso completo
+        if consensus_reached:
+            return True
+        
+        # Detener si se alcanzÃ³ mÃ¡ximo de rondas
+        if round_number >= max_rounds:
+            return True
+        
+        # Detener si hay alta estabilidad entre rondas (convergencia implÃ­cita)
+        if stability_score > 0.85 and consensus_level == "PARTIAL_CONSENSUS":
+            return True
+        
+        # Continuar en otros casos
+        return False
+    
+    def _generate_focus(
+        self,
+        dissent_areas: List[str],
+        round_number: int
+    ) -> str:
+        """Genera instrucciones de foco para siguiente ronda"""
+        if not dissent_areas:
+            return "Profundizar en aspectos no resueltos"
+        
+        # Priorizar Ã¡reas principales de disenso
+        focus = f"Ronda {round_number + 1}: Centrarse especÃ­ficamente en:\n"
+        
+        for i, area in enumerate(dissent_areas[:2], 1):
+            # Limpiar y resumir
+            cleaned = area.replace('\n', ' ')[:100]
+            focus += f"{i}. {cleaned}...\n"
+        
+        focus += "\nObjetivo: Alcanzar acuerdo explÃ­cito sobre estos puntos."
+        
+        return focus
+    
+
+
+========== backend\database\models.py ==========
+"""
+Synapse Council v2.0 - Database Models
+SQLAlchemy 2.x models para SQLite local (Scratchpad)
+
+Tablas:
+- sessions: Registro maestro de debates
+- rounds: Una fila por ronda de debate
+- agent_calls: Registro granular de llamadas a agentes
+- cross_references: Grafo de dependencias entre agentes
+- agent_reputation: Sistema de reputaciÃ³n por mÃ©ritos con EMA
+- config_profiles: Perfiles de configuraciÃ³n guardados
+- system_events: Log de eventos del sistema
+"""
+import uuid
+from datetime import datetime
+from typing import List, Optional
+from sqlalchemy import (
+    String, Integer, Float, Text, Boolean, ForeignKey, DateTime, 
+    Index, JSON, UniqueConstraint
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.sql import func
+
+
+class Base(DeclarativeBase):
+    """Base declarativa para todos los modelos"""
+    pass
+
+
+def generate_uuid() -> str:
+    """Genera UUID v4 como string"""
+    return str(uuid.uuid4())
+
+
+class Session(Base):
+    """
+    Tabla: sessions
+    Registro maestro de cada debate
+    """
+    __tablename__ = "sessions"
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), 
+        nullable=False, 
+        default="CREATED"
+    )  # CREATED|RUNNING|COMPLETED|FAILED|CONSENSUS_NOT_REACHED
+    consensus_level: Mapped[Optional[str]] = mapped_column(
+        String(30), 
+        nullable=True
+    )  # CONSENSUS_REACHED|PARTIAL_CONSENSUS|DIVERGENT
+    rounds_executed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_rounds: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    final_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tribunal_verdict: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    config_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
+    node_origin: Mapped[str] = mapped_column(
+        String(10), 
+        nullable=False, 
+        default="MASTER"
+    )  # MASTER|WORKER
+    total_tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    estimated_cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    elevated_to_cloud: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    elevation_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, 
+        nullable=False, 
+        default=datetime.utcnow
+    )
+    
+    # Relaciones
+    rounds: Mapped[List["Round"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    agent_calls: Mapped[List["AgentCall"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        Index("idx_sessions_status", "status"),
+        Index("idx_sessions_created_at", "created_at"),
+        Index("idx_sessions_elevated", "elevated_to_cloud"),
+    )
+
+
+class Round(Base):
+    """
+    Tabla: rounds
+    Una fila por ronda de debate
+    """
+    __tablename__ = "rounds"
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), nullable=False)
+    round_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), 
+        nullable=False
+    )  # RUNNING|COMPLETED|FAILED
+    convergence_status: Mapped[Optional[str]] = mapped_column(
+        String(30), 
+        nullable=True
+    )  # CONSENSUS_REACHED|PARTIAL_CONSENSUS|DIVERGENT
+    convergence_detail: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # Relaciones
+    session: Mapped["Session"] = relationship(back_populates="rounds")
+    agent_calls: Mapped[List["AgentCall"]] = relationship(back_populates="round", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        UniqueConstraint("session_id", "round_number", name="uix_round_session_number"),
+        Index("idx_rounds_session_id", "session_id"),
+    )
+
+
+class AgentCall(Base):
+    """
+    Tabla: agent_calls
+    Registro granular de cada llamada individual a un agente
+    """
+    __tablename__ = "agent_calls"
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), nullable=False)
+    round_id: Mapped[str] = mapped_column(ForeignKey("rounds.id"), nullable=False)
+    round_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    phase: Mapped[str] = mapped_column(
+        String(20), 
+        nullable=False
+    )  # ANALYSIS|CRITIQUE|NODE_SYNTHESIS|META_SYNTHESIS|TRIBUNAL
+    agent_slot: Mapped[str] = mapped_column(String(50), nullable=False)
+    node: Mapped[str] = mapped_column(
+        String(10), 
+        nullable=False
+    )  # LOCAL|CLOUD|WEB_AGENT
+    engine: Mapped[str] = mapped_column(
+        String(20), 
+        nullable=False
+    )  # ollama|lm_studio|jan|openrouter|web_agent
+    model_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    role_label: Mapped[str] = mapped_column(String(100), nullable=False)
+    system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    user_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    response: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(15), 
+        nullable=False,
+        default="PENDING"
+    )  # PENDING|STREAMING|COMPLETED|FAILED|TIMEOUT|SKIPPED
+    tokens_in: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    tokens_out: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    keep_alive_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    reputation_impact: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # Relaciones
+    session: Mapped["Session"] = relationship(back_populates="agent_calls")
+    round: Mapped["Round"] = relationship(back_populates="agent_calls")
+    
+    __table_args__ = (
+        Index("idx_agent_calls_session_id", "session_id"),
+        Index("idx_agent_calls_round_id", "round_id"),
+        Index("idx_agent_calls_phase", "phase"),
+        Index("idx_agent_calls_engine", "engine"),
+        Index("idx_agent_calls_status", "status"),
+    )
+
+
+class CrossReference(Base):
+    """
+    Tabla: cross_references
+    Grafo de dependencias entre agentes
+    """
+    __tablename__ = "cross_references"
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    consumer_call_id: Mapped[str] = mapped_column(ForeignKey("agent_calls.id"), nullable=False)
+    source_call_id: Mapped[str] = mapped_column(ForeignKey("agent_calls.id"), nullable=False)
+    context_type: Mapped[str] = mapped_column(
+        String(20), 
+        nullable=False
+    )  # ANALYSIS_INPUT|CRITIQUE_INPUT|SYNTHESIS_INPUT|VERDICT_INPUT
+    
+    __table_args__ = (
+        Index("idx_cross_ref_consumer", "consumer_call_id"),
+        Index("idx_cross_ref_source", "source_call_id"),
+    )
+
+
+class AgentReputation(Base):
+    """
+    Tabla: agent_reputation (NUEVA v2.0)
+    Sistema de reputaciÃ³n por mÃ©ritos con EMA
+    """
+    __tablename__ = "agent_reputation"
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    agent_slot: Mapped[str] = mapped_column(String(50), nullable=False)
+    model_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    engine: Mapped[str] = mapped_column(
+        String(20), 
+        nullable=False
+    )  # ollama|lm_studio|jan|openrouter|web_agent
+    domain: Mapped[str] = mapped_column(
+        String(20), 
+        nullable=False
+    )  # technical|strategy|security|creative|general
+    reputation_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    argument_survival_rate: Mapped[Optional[float]] = mapped_column(
+        Float, 
+        nullable=True, 
+        default=0.0
+    )  # TSA
+    dialectic_independence: Mapped[Optional[float]] = mapped_column(
+        Float, 
+        nullable=True, 
+        default=0.5
+    )  # IID
+    technical_precision: Mapped[Optional[float]] = mapped_column(
+        Float, 
+        nullable=True, 
+        default=0.5
+    )  # PVT
+    total_debates: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_updated: Mapped[datetime] = mapped_column(
+        DateTime, 
+        nullable=False, 
+        default=datetime.utcnow
+    )
+    
+    __table_args__ = (
+        UniqueConstraint(
+            "agent_slot", "model_name", "domain", 
+            name="uix_agent_reputation"
+        ),
+        Index("idx_agent_reputation_score", "reputation_score"),
+        Index("idx_agent_reputation_domain", "domain"),
+    )
+
+
+class ConfigProfile(Base):
+    """
+    Tabla: config_profiles
+    Perfiles de configuraciÃ³n guardados
+    """
+    __tablename__ = "config_profiles"
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    config: Mapped[dict] = mapped_column(JSON, nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, 
+        nullable=False, 
+        default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, 
+        nullable=False, 
+        default=datetime.utcnow
+    )
+
+
+class SequentialDebate(Base):
+    """
+    Tabla: sequential_debates
+    Registro de debates secuenciales multi-modelo
+    """
+    __tablename__ = "sequential_debates"
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    topic: Mapped[str] = mapped_column(Text, nullable=False)
+    mode: Mapped[str] = mapped_column(String(20), nullable=False, default="standard")
+    status: Mapped[str] = mapped_column(
+        String(20), 
+        nullable=False, 
+        default="created"
+    )  # created|running|completed|failed
+    total_turns: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    final_verdict: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    transcript_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, 
+        nullable=False, 
+        default=datetime.utcnow
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # Relaciones
+    turns: Mapped[List["SequentialDebateTurn"]] = relationship(
+        "SequentialDebateTurn",
+        back_populates="debate",
+        cascade="all, delete-orphan"
+    )
+    
+    __table_args__ = (
+        Index("idx_sequential_debate_status", "status"),
+        Index("idx_sequential_debate_created", "created_at"),
+    )
+
+
+class SequentialDebateTurn(Base):
+    """
+    Tabla: sequential_debate_turns
+    Registro de cada turno en un debate secuencial
+    """
+    __tablename__ = "sequential_debate_turns"
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    debate_id: Mapped[str] = mapped_column(
+        ForeignKey("sequential_debates.id"),
+        nullable=False
+    )
+    turn_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    agent_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    agent_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    agent_role: Mapped[str] = mapped_column(String(20), nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    node: Mapped[str] = mapped_column(String(10), nullable=False)  # LOCAL|CLOUD
+    engine: Mapped[str] = mapped_column(String(20), nullable=False)
+    
+    # Prompt y respuesta
+    prompt_sent: Mapped[str] = mapped_column(Text, nullable=False)
+    response_received: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    
+    # MÃ©tricas
+    tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    
+    # Estado
+    status: Mapped[str] = mapped_column(
+        String(20), 
+        nullable=False, 
+        default="pending"
+    )  # pending|running|completed|failed|completed (fallback)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Timestamps
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # Relaciones
+    debate: Mapped["SequentialDebate"] = relationship(
+        "SequentialDebate",
+        back_populates="turns"
+    )
+    
+    __table_args__ = (
+        Index("idx_debate_turn_debate_id", "debate_id"),
+        Index("idx_debate_turn_number", "debate_id", "turn_number"),
+        Index("idx_debate_turn_status", "status"),
+    )
+
+
+class SystemEvent(Base):
+    """
+    Tabla: system_events
+    Log de eventos del sistema
+    """
+    __tablename__ = "system_events"
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    session_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("sessions.id"), 
+        nullable=True
+    )
+    debate_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("sequential_debates.id"),
+        nullable=True
+    )
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    severity: Mapped[str] = mapped_column(
+        String(10), 
+        nullable=False
+    )  # INFO|WARNING|ERROR|CRITICAL
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    detail: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, 
+        nullable=False, 
+        default=datetime.utcnow
+    )
+    
+    __table_args__ = (
+        Index("idx_system_events_session", "session_id"),
+        Index("idx_system_events_debate", "debate_id"),
+        Index("idx_system_events_type", "event_type"),
+    )
+
+
+# ============================================================================
+# Consensus Debate Models - Sistema de Consenso Multi-Modelo
+# ============================================================================
+
+class ConsensusDebate(Base):
+    """Registro maestro de debate de consenso"""
+    __tablename__ = "consensus_debates"
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    topic: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="running"
+    )  # running, consensus_reached, partial_consensus, max_rounds_reached, failed
+    
+    # ConfiguraciÃ³n
+    total_agents: Mapped[int] = mapped_column(Integer, default=0)
+    max_rounds: Mapped[int] = mapped_column(Integer, default=5)
+    
+    # MÃ©tricas de consenso
+    consensus_score: Mapped[Optional[float]] = mapped_column(
+        Float,
+        nullable=True
+    )  # 0-1 score final
+    
+    # Resultados
+    final_consensus: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    bias_analysis: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    
+    # TranscripciÃ³n
+    transcript_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    
+    # MÃ©tricas
+    total_tokens_in: Mapped[int] = mapped_column(Integer, default=0)
+    total_tokens_out: Mapped[int] = mapped_column(Integer, default=0)
+    total_latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # Relaciones
+    rounds: Mapped[List["ConsensusRound"]] = relationship(
+        "ConsensusRound",
+        back_populates="debate",
+        cascade="all, delete-orphan"
+    )
+    agent_positions: Mapped[List["ConsensusAgentPosition"]] = relationship(
+        "ConsensusAgentPosition",
+        back_populates="debate",
+        cascade="all, delete-orphan"
+    )
+
+
+class ConsensusRound(Base):
+    """Ronda individual en un debate de consenso"""
+    __tablename__ = "consensus_rounds"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    debate_id: Mapped[str] = mapped_column(
+        ForeignKey("consensus_debates.id"),
+        nullable=False
+    )
+    round_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    round_type: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False
+    )  # proposal, refutation, synthesis, validation, convergence
+    
+    # MÃ©tricas de la ronda
+    global_consensus_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    converged: Mapped[bool] = mapped_column(Boolean, default=False)
+    dissent_topics: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    
+    # Relaciones
+    debate: Mapped["ConsensusDebate"] = relationship("ConsensusDebate", back_populates="rounds")
+    agent_positions: Mapped[List["ConsensusAgentPosition"]] = relationship(
+        "ConsensusAgentPosition",
+        back_populates="round",
+        cascade="all, delete-orphan"
+    )
+    
+    __table_args__ = (
+        Index("idx_consensus_rounds_debate", "debate_id", "round_number"),
+    )
+
+
+class ConsensusAgentPosition(Base):
+    """PosiciÃ³n de un agente en una ronda de consenso"""
+    __tablename__ = "consensus_agent_positions"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    debate_id: Mapped[str] = mapped_column(
+        ForeignKey("consensus_debates.id"),
+        nullable=False
+    )
+    round_id: Mapped[int] = mapped_column(
+        ForeignKey("consensus_rounds.id"),
+        nullable=False
+    )
+    
+    # Info del agente
+    agent_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    agent_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    agent_role: Mapped[str] = mapped_column(String(20), nullable=False)
+    
+    # PosiciÃ³n
+    position_text: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)  # 0-1
+    consensus_score: Mapped[float] = mapped_column(Float, default=0.0)  # 0-1
+    
+    # Datos estructurados
+    supporting_points: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    objections_raised: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    logical_fallacies: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    
+    # Relaciones
+    debate: Mapped["ConsensusDebate"] = relationship("ConsensusDebate", back_populates="agent_positions")
+    round: Mapped["ConsensusRound"] = relationship("ConsensusRound", back_populates="agent_positions")
+    
+    __table_args__ = (
+        Index("idx_consensus_positions_debate", "debate_id"),
+        Index("idx_consensus_positions_agent", "agent_id"),
+        Index("idx_consensus_positions_round", "round_id"),
+    )
+
+
+========== backend\config.py ==========
+"""
+Synapse Council v2.0 - Configuration
+Pydantic Settings para validaciÃ³n de variables de entorno
+"""
+from functools import lru_cache
+from typing import List, Optional, Union
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
+
+
+class Settings(BaseSettings):
+    """ConfiguraciÃ³n centralizada del sistema"""
+    
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+    
+    # â”€â”€â”€ Rol del Nodo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    NODE_ROLE: str = Field(default="MASTER", pattern="^(MASTER|WORKER)$")
+    WORKER_HOST: Optional[str] = None
+    WORKER_OLLAMA_PORT: int = 11434
+    WORKER_LM_STUDIO_PORT: int = 1234
+    WORKER_JAN_PORT: int = 1337
+    
+    # â”€â”€â”€ P2P Discovery (UDP) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    DISCOVERY_PORT: int = 54321
+    DISCOVERY_INTERVAL: int = 5
+    
+    # â”€â”€â”€ Base de Datos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    DATABASE_URL: str = "sqlite+aiosqlite:///./data/synapse.db"
+    
+    # â”€â”€â”€ Ollama â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_TIMEOUT_SECONDS: int = 120
+    OLLAMA_MAX_RETRIES: int = 2
+    OLLAMA_KEEP_ALIVE: int = 0
+    
+    # â”€â”€â”€ LM Studio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    LM_STUDIO_BASE_URL: str = "http://localhost:1234"
+    LM_STUDIO_TIMEOUT_SECONDS: int = 120
+    LM_STUDIO_MAX_RETRIES: int = 2
+    LM_STUDIO_KEEP_ALIVE: int = 0
+    
+    # â”€â”€â”€ Jan.ai â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    JAN_BASE_URL: str = "http://localhost:1337"
+    JAN_TIMEOUT_SECONDS: int = 120
+    JAN_MAX_RETRIES: int = 2
+    JAN_KEEP_ALIVE: int = 0
+    
+    # â”€â”€â”€ OpenRouter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    OPENROUTER_API_KEY: Optional[str] = None
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    OPENROUTER_TIMEOUT_SECONDS: int = 90
+    OPENROUTER_MAX_RETRIES: int = 2
+    OPENROUTER_HTTP_REFERER: str = "http://localhost:3000"
+    OPENROUTER_APP_NAME: str = "SynapseCouncil"
+    
+    # â”€â”€â”€ Web Agent (Playwright) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    WEB_AGENT_ENABLED: bool = True
+    WEB_AGENT_BROWSER: str = "chromium"
+    WEB_AGENT_HEADLESS: bool = True
+    WEB_AGENT_TIMEOUT_SECONDS: int = 120
+    WEB_AGENT_SITES: str = "chat.openai.com,claude.ai,gemini.google.com"
+    WEB_AGENT_SESSION_DIR: str = "./data/browser_sessions"
+    
+    # â”€â”€â”€ Supabase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_ANON_KEY: Optional[str] = None
+    SUPABASE_ENABLED: bool = True
+    SUPABASE_PROJECT: str = "memoria-oscar"
+    
+    # â”€â”€â”€ Sistema de ReputaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    AGENT_REPUTATION_ENABLED: bool = True
+    REPUTATION_EMA_ALPHA: float = 0.3
+    REPUTATION_MIN_DEBATES_FOR_WEIGHT: int = 3
+    
+    # â”€â”€â”€ Motor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    MAX_CONCURRENT_SESSIONS: int = 3
+    DEFAULT_MAX_ROUNDS: int = 3
+    DEFAULT_COST_LIMIT_USD: float = 1.00
+    AUTO_ELEVATION_ENABLED: bool = True
+    TRIBUNAL_MAX_ITERATIONS: int = 3
+    
+    # â”€â”€â”€ Servidor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
+    CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://localhost:5173"
+    LOG_LEVEL: str = "INFO"
+    
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v) -> List[str]:
+        if isinstance(v, list):
+            return v
+        return [origin.strip() for origin in v.split(",")]
+    
+    @property
+    def is_master(self) -> bool:
+        return self.NODE_ROLE == "MASTER"
+    
+    @property
+    def web_agent_sites_list(self) -> List[str]:
+        return [site.strip() for site in self.WEB_AGENT_SITES.split(",")]
+    
+    @property
+    def worker_ollama_url(self) -> str:
+        if self.is_master and self.WORKER_HOST:
+            return f"http://{self.WORKER_HOST}:{self.WORKER_OLLAMA_PORT}"
+        return self.OLLAMA_BASE_URL
+    
+    @property
+    def worker_lm_studio_url(self) -> str:
+        if self.is_master and self.WORKER_HOST:
+            return f"http://{self.WORKER_HOST}:{self.WORKER_LM_STUDIO_PORT}"
+        return self.LM_STUDIO_BASE_URL
+    
+    @property
+    def worker_jan_url(self) -> str:
+        if self.is_master and self.WORKER_HOST:
+            return f"http://{self.WORKER_HOST}:{self.WORKER_JAN_PORT}"
+        return self.JAN_BASE_URL
+    
+    def update_worker_host(self, host: str):
+        """Actualiza la IP del Worker dinÃ¡micamente en tiempo de ejecuciÃ³n"""
+        self.WORKER_HOST = host
+
+
+@lru_cache()
+def get_settings() -> Settings:
+    """Obtiene configuraciÃ³n cacheada (singleton)"""
+    return Settings()
+
+
+========== backend\main.py ==========
+"""
+Synapse Council v2.0 - FastAPI Application
+Punto de entrada principal del backend
+"""
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+from typing import Dict, Any
+
+from fastapi import FastAPI, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
+import structlog
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.config import get_settings
+from backend.database.local_db import init_db
+
+# Configurar logging bÃ¡sico para ver en consola
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+
+# Importar routers
+from backend.api.routes.health import router as health_router
+from backend.api.routes.sessions import router as sessions_router
+from backend.api.routes.websockets import router as websockets_router
+from backend.api.routes.network import router as network_router
+from backend.api.routes.debate import router as debate_router
+from backend.network.discovery import node_discoverer
+
+# Configurar logging estructurado
+structlog.configure(
+    processors=[
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        structlog.dev.ConsoleRenderer()  # Cambiado de JSONRenderer para ver en consola
+    ],
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
+
+logger = structlog.get_logger()
+settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager para startup/shutdown"""
+    # Startup
+    logger.info("synapse_council.starting", version="2.0.0", node_role=settings.NODE_ROLE)
+    
+    # Inicializar base de datos
+    await init_db()
+    logger.info("database.initialized", url=settings.DATABASE_URL)
+    
+    # Iniciar descubrimiento de red
+    await node_discoverer.start()
+    
+    yield
+    
+    # Shutdown
+    await node_discoverer.stop()
+    logger.info("synapse_council.stopping")
+
+
+app = FastAPI(
+    title="Synapse Council v2.0",
+    description="Plataforma de razonamiento colectivo hÃ­brido con Tribunal de Magistrados",
+    version="2.0.0",
+    lifespan=lifespan,
+)
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Middleware de seguridad (Fase 5)
+from backend.api.middleware import RateLimitMiddleware, SecurityHeadersMiddleware, LoggingMiddleware
+
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=60,
+    burst_size=10
+)
+
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(LoggingMiddleware)
+
+
+# Registrar routers
+app.include_router(health_router)
+app.include_router(sessions_router)
+app.include_router(websockets_router)
+app.include_router(network_router)
+app.include_router(debate_router, prefix="/api/v1")
+
+@app.get("/")
+async def root():
+    """Endpoint raÃ­z con informaciÃ³n del sistema"""
+    return {
+        "name": "Synapse Council",
+        "version": "2.0.0",
+        "description": "Plataforma de razonamiento colectivo hÃ­brido",
+        "node_role": settings.NODE_ROLE,
+        "docs": "/docs",
+        "health": "/health"
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "backend.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=True,
+        log_level=settings.LOG_LEVEL.lower()
+    )
+

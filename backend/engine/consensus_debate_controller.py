@@ -125,20 +125,26 @@ class ConsensusDebateController:
         on_round_complete: Optional[Callable[[ConsensusRoundData], None]] = None,
         on_consensus_update: Optional[Callable[[float, str], None]] = None
     ) -> ConsensusSession:
-        """
-        Crea y ejecuta un debate de consenso con validación cruzada.
-        
-        Args:
-            topic: Tema a debatir
-            agents_config: Lista de agentes (mínimo 3 recomendado)
-            on_round_complete: Callback cuando termina una ronda
-            on_consensus_update: Callback con score de consenso y estado
-            
-        Returns:
-            ConsensusSession con todo el proceso de consenso
-        """
-        
+        """Crea y ejecuta un debate de consenso con ID autogenerado"""
         session_id = str(uuid.uuid4())
+        return await self.create_consensus_debate_with_id(
+            session_id=session_id,
+            topic=topic,
+            agents_config=agents_config,
+            on_round_complete=on_round_complete,
+            on_consensus_update=on_consensus_update
+        )
+
+    async def create_consensus_debate_with_id(
+        self,
+        session_id: str,
+        topic: str,
+        agents_config: List[DebateAgent],
+        on_round_complete: Optional[Callable[[ConsensusRoundData], None]] = None,
+        on_consensus_update: Optional[Callable[[float, str], None]] = None
+    ) -> ConsensusSession:
+        """Crea y ejecuta un debate de consenso con ID proporcionado"""
+        
         logger.info("consensus_debate.starting",
                    session_id=session_id,
                    topic=topic,
@@ -313,7 +319,7 @@ class ConsensusDebateController:
         """Genera posición con reintentos y fallback entre modelos"""
         
         # Modelos fallback por si el principal falla
-        fallback_models = ["llama3:8b", "mistral:7b", "qwen2.5:3b"]
+        fallback_models = ["llama3.2:latest", "mistral:7b", "qwen2.5:3b"]
         
         last_error = None
         

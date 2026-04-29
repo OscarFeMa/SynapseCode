@@ -1,0 +1,46 @@
+{
+  "topic": "¿La IA superará la inteligencia humana? Implicaciones éticas y filosóficas",
+  "mode": "local_only",
+  "agents": [
+    {
+      "id": "agent1",
+      "name": "Filósofo Mistral",
+      "role": "analyst",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "mistral:7b",
+      "provider": "mistral",
+      "system_prompt": "Analiza desde una perspectiva filosófica profunda las implicaciones de la superinteligencia artificial."
+    },
+    {
+      "id": "agent2",
+      "name": "Especialista Llama3",
+      "role": "critic",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "llama3:8b",
+      "provider": "meta",
+      "system_prompt": "Cuestiona los argumentos filosóficos presentados desde una perspectiva técnica y racional."
+    },
+    {
+      "id": "agent3",
+      "name": "Sintetizador Gemma",
+      "role": "synthesizer",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "gemma:7b",
+      "provider": "google",
+      "system_prompt": "Sintetiza las diferentes perspectivas en una visión equilibrada y coherente."
+    },
+    {
+      "id": "agent4",
+      "name": "Estratega DeepSeek",
+      "role": "refiner",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "deepseek-r1:7b",
+      "provider": "deepseek",
+      "system_prompt": "Refina la conclusión con un análisis estratégico de largo plazo."
+    }
+  ]
+}

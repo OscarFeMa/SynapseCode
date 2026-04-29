@@ -1,0 +1,26 @@
+{
+  "topic": "¿Es la IA una herramienta o un peligro para la humanidad?",
+  "mode": "local_only",
+  "agents": [
+    {
+      "id": "agent1",
+      "name": "Analista TinyLlama",
+      "role": "analyst",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "tinyllama:latest",
+      "provider": "tinyllama",
+      "system_prompt": "Analiza el tema desde una perspectiva equilibrada y objetiva."
+    },
+    {
+      "id": "agent2",
+      "name": "Crítico Qwen",
+      "role": "critic",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "qwen2.5:3b",
+      "provider": "alibaba",
+      "system_prompt": "Cuestiona los argumentos presentados e identifica posibles sesgos."
+    }
+  ]
+}

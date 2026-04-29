@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     
     # ─── Rol del Nodo ─────────────────────────────────────────
     NODE_ROLE: str = Field(default="MASTER", pattern="^(MASTER|WORKER)$")
-    WORKER_HOST: Optional[str] = None
+    WORKER_HOST: Optional[str] = "192.168.1.44"  # IP del worker remoto
     WORKER_OLLAMA_PORT: int = 11434
     WORKER_LM_STUDIO_PORT: int = 1234
     WORKER_JAN_PORT: int = 1337
@@ -28,12 +28,17 @@ class Settings(BaseSettings):
     DISCOVERY_PORT: int = 54321
     DISCOVERY_INTERVAL: int = 5
     
+    # ─── Heartbeat (basado en Pensamiento Coral) ─────────────
+    HEARTBEAT_INTERVAL: int = 5
+    HEARTBEAT_TIMEOUT: int = 15
+    TCP_COMMAND_PORT: int = 54322
+    
     # ─── Base de Datos ────────────────────────────────────────
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/synapse.db"
     
     # ─── Ollama ───────────────────────────────────────────────
     OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_TIMEOUT_SECONDS: int = 120
+    OLLAMA_TIMEOUT_SECONDS: int = 600
     OLLAMA_MAX_RETRIES: int = 2
     OLLAMA_KEEP_ALIVE: int = 0
     
@@ -51,11 +56,25 @@ class Settings(BaseSettings):
     
     # ─── OpenRouter ───────────────────────────────────────────
     OPENROUTER_API_KEY: Optional[str] = None
+    OPENROUTER_ENABLED: bool = True
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_TIMEOUT_SECONDS: int = 90
     OPENROUTER_MAX_RETRIES: int = 2
     OPENROUTER_HTTP_REFERER: str = "http://localhost:3000"
     OPENROUTER_APP_NAME: str = "SynapseCouncil"
+
+    # ─── Google Gemini ────────────────────────────────────────
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_ENABLED: bool = True
+
+    # ─── Groq ─────────────────────────────────────────────────
+    GROQ_API_KEY: Optional[str] = None
+    GROQ_ENABLED: bool = True
+
+    # ─── DeepSeek ─────────────────────────────────────────────
+    DEEPSEEK_API_KEY: Optional[str] = None
+    DEEPSEEK_ENABLED: bool = True
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
     
     # ─── Web Agent (Playwright) ───────────────────────────────
     WEB_AGENT_ENABLED: bool = True
@@ -83,11 +102,17 @@ class Settings(BaseSettings):
     AUTO_ELEVATION_ENABLED: bool = True
     TRIBUNAL_MAX_ITERATIONS: int = 3
     
+    # ─── Feature Flags (Mejoras v2.1) ─────────────────────────
+    INTERVENTION_TAXONOMY_ENABLED: bool = True
+    QUALITY_MONITOR_ENABLED: bool = True
+    HYBRID_MEMORY_V2_ENABLED: bool = True
+    
     # ─── Servidor ─────────────────────────────────────────────
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://localhost:5173"
     LOG_LEVEL: str = "INFO"
+    RELOAD: bool = False
     
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
@@ -131,3 +156,6 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Obtiene configuración cacheada (singleton)"""
     return Settings()
+
+# Instancia global para import directo
+settings = get_settings()

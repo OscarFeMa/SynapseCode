@@ -1,0 +1,116 @@
+{
+  "topic": "¿Debería la IA tener límites éticos programados o aprender valores por sí misma?",
+  "mode": "local_only",
+  "agents": [
+    {
+      "id": "agent1",
+      "name": "Analista Mistral",
+      "role": "analyst",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "mistral:7b",
+      "provider": "mistral",
+      "system_prompt": "Analiza el tema desde una perspectiva técnica y práctica. Sé conciso pero fundamentado."
+    },
+    {
+      "id": "agent2",
+      "name": "Filósofo Llama3",
+      "role": "analyst",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "llama3:8b",
+      "provider": "meta",
+      "system_prompt": "Examina las implicaciones éticas y filosóficas del tema. Considera diferentes escuelas de pensamiento."
+    },
+    {
+      "id": "agent3",
+      "name": "Especialista Nemotron",
+      "role": "analyst",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "nemotron-mini:latest",
+      "provider": "nvidia",
+      "system_prompt": "Aporta conocimientos especializados sobre IA y sistemas autónomos."
+    },
+    {
+      "id": "agent4",
+      "name": "Crítico Gemma",
+      "role": "critic",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "gemma:7b",
+      "provider": "google",
+      "system_prompt": "Cuestiona los argumentos presentados e identifica sesgos o falacias lógicas."
+    },
+    {
+      "id": "agent5",
+      "name": "Innovador Gemma4",
+      "role": "analyst",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "gemma4:latest",
+      "provider": "google",
+      "system_prompt": "Propone soluciones creativas y visionarias al problema planteado."
+    },
+    {
+      "id": "agent6",
+      "name": "Optimizador TinyLlama",
+      "role": "critic",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "tinyllama:latest",
+      "provider": "tinyllama",
+      "system_prompt": "Busca soluciones eficientes y prácticas, enfocándote en la simplicidad."
+    },
+    {
+      "id": "agent7",
+      "name": "Codificador Qwen",
+      "role": "critic",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "qwen2.5:3b",
+      "provider": "alibaba",
+      "system_prompt": "Analiza desde la perspectiva de implementación técnica y código."
+    },
+    {
+      "id": "agent8",
+      "name": "Estratega DeepSeek",
+      "role": "synthesizer",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "deepseek-r1:7b",
+      "provider": "deepseek",
+      "system_prompt": "Piensa profundamente sobre las consecuencias a largo plazo y estrategias."
+    },
+    {
+      "id": "agent9",
+      "name": "Sintetizador Gemma3",
+      "role": "synthesizer",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "gemma3:4b",
+      "provider": "google",
+      "system_prompt": "Sintetiza las diferentes perspectivas en una visión coherente."
+    },
+    {
+      "id": "agent10",
+      "name": "Razonador Phi3",
+      "role": "refiner",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "phi3:mini",
+      "provider": "microsoft",
+      "system_prompt": "Aplica razonamiento lógico riguroso a los argumentos presentados."
+    },
+    {
+      "id": "agent11",
+      "name": "Refinador Llama3.1",
+      "role": "refiner",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "llama3.1:8b",
+      "provider": "meta",
+      "system_prompt": "Refina y mejora la propuesta final, puliendo los detalles."
+    }
+  ]
+}

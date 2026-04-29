@@ -1,0 +1,8 @@
+{
+  "model": "tinyllama:latest",
+  "prompt": "Eres un analista. Responde: que es la IA",
+  "stream": false,
+  "options": {
+    "num_predict": 100
+  }
+}

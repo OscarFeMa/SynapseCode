@@ -18,6 +18,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.engine.agent_orchestrator import AgentOrchestrator, AgentConfig
+from backend.database.local_db import AsyncSessionLocal
 from backend.engine.prompts import PromptBuilder
 from backend.database.models import AgentCall
 from backend.config import get_settings
@@ -71,7 +72,7 @@ class TribunalCouncil:
             slot="magistrate_evidence",
             node="LOCAL",
             engine="ollama",
-            model="llama3:8b",
+            model="llama3.2:latest",
             role_label="Magistrado de Evidencias",
             temperature=0.2,
             max_tokens=1500
@@ -89,7 +90,7 @@ class TribunalCouncil:
             slot="magistrate_alignment",
             node="LOCAL",
             engine="ollama",
-            model="llama3:8b",
+            model="llama3.2:latest",
             role_label="Magistrado de Alineación",
             temperature=0.4,
             max_tokens=2000
@@ -210,30 +211,25 @@ class TribunalCouncil:
                 max_tokens=self.MAGISTRATES["risk"].max_tokens
             )
             
-            # Ejecutar ambos magistrados en paralelo
+            # Función helper para llamar a agente con su propia sesión (evita errores de concurrencia en SQLAlchemy)
+            async def call_with_own_session(config, prompt, role):
+                async with AsyncSessionLocal() as session:
+                    return await self.orchestrator.call_agent(
+                        session_id=session_id,
+                        round_id=round_id,
+                        round_number=round_number,
+                        phase="TRIBUNAL",
+                        config=config,
+                        system_prompt="",
+                        user_prompt=prompt,
+                        db_session=session,
+                        on_token=lambda t: on_event("tribunal_token", {"role": role, "token": t}) if on_event else None
+                    )
+
+            # Ejecutar ambos magistrados en paralelo con sesiones INDEPENDIENTES
             evidence_result, risk_result = await asyncio.gather(
-                self.orchestrator.call_agent(
-                    session_id=session_id,
-                    round_id=round_id,
-                    round_number=round_number,
-                    phase="TRIBUNAL",
-                    config=self.MAGISTRATES["evidence"],
-                    system_prompt="",
-                    user_prompt=evidence_prompt,
-                    db_session=db_session,
-                    on_token=lambda t: on_event("tribunal_token", {"role": "evidence", "token": t}) if on_event else None
-                ),
-                self.orchestrator.call_agent(
-                    session_id=session_id,
-                    round_id=round_id,
-                    round_number=round_number,
-                    phase="TRIBUNAL",
-                    config=self.MAGISTRATES["risk"],
-                    system_prompt="",
-                    user_prompt=risk_prompt,
-                    db_session=db_session,
-                    on_token=lambda t: on_event("tribunal_token", {"role": "risk", "token": t}) if on_event else None
-                ),
+                call_with_own_session(self.MAGISTRATES["evidence"], evidence_prompt, "evidence"),
+                call_with_own_session(self.MAGISTRATES["risk"], risk_prompt, "risk"),
                 return_exceptions=True
             )
             
@@ -390,14 +386,17 @@ Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} itera
         if not response:
             return False
         
-        # Patrones de objeción
+        # Patrones de objeción con soporte para variaciones de encoding y acentos
         blocking_patterns = [
             r"##\s*Objeción de Bloqueo:\s*SÍ",
             r"##\s*Objeción de Bloqueo:\s*SI",
+            r"##\s*Objecion de Bloqueo:\s*Sí",
+            r"##\s*Objecion de Bloqueo:\s*Si",
             r"##\s*Objeción de Bloqueo:\s*Yes",
-            r"Objeción de Bloqueo:\s*SÍ",
-            r"Objeción de Bloqueo:\s*SI",
-            r"Bloqueo:\s*SÍ",
+            r"Objeción de Bloqueo:\s*S[ÍIÍií]",
+            r"Objecion de Bloqueo:\s*S[Iií]",
+            r"Bloqueo:\s*S[ÍIÍií]",
+            r"Blocking Objection:\s*Yes",
         ]
         
         response_upper = response.upper()

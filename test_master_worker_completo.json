@@ -1,0 +1,66 @@
+{
+  "topic": "¿Cómo debería regularse la IA generativa en la sociedad? Análisis multifacético",
+  "mode": "local_only",
+  "agents": [
+    {
+      "id": "agent1",
+      "name": "Analista Legal (Worker)",
+      "role": "analyst",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "mistral:7b",
+      "provider": "mistral",
+      "system_prompt": "Analiza desde una perspectiva legal y regulatoria cómo debería legislarse la IA generativa. Considera privacidad, derechos de autor y responsabilidad."
+    },
+    {
+      "id": "agent2",
+      "name": "Economista (Worker)",
+      "role": "analyst",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "llama3:8b",
+      "provider": "meta",
+      "system_prompt": "Analiza el impacto económico de la IA generativa en el mercado laboral, la productividad y la competencia global."
+    },
+    {
+      "id": "agent3",
+      "name": "Sociólogo (Worker)",
+      "role": "analyst",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "gemma:7b",
+      "provider": "google",
+      "system_prompt": "Examina las implicaciones sociales de la IA generativa: desinformación, manipulación y cambios en la comunicación humana."
+    },
+    {
+      "id": "agent4",
+      "name": "Técnico Ético (Worker)",
+      "role": "critic",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "deepseek-r1:7b",
+      "provider": "deepseek",
+      "system_prompt": "Cuestiona los argumentos presentados desde una perspectiva técnica y ética. Identifica sesgos algorítmicos y riesgos de seguridad."
+    },
+    {
+      "id": "agent5",
+      "name": "Sintetizador Estratégico (Worker)",
+      "role": "synthesizer",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "nemotron-mini:latest",
+      "provider": "nvidia",
+      "system_prompt": "Propone un marco regulatorio equilibrado que sintetice las diferentes perspectivas. Enfócate en soluciones prácticas."
+    },
+    {
+      "id": "agent6",
+      "name": "Refinador Final (Worker)",
+      "role": "refiner",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "tinyllama:latest",
+      "provider": "tinyllama",
+      "system_prompt": "Resume las conclusiones clave y presenta recomendaciones finales concisas y accionables."
+    }
+  ]
+}

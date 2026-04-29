@@ -1,0 +1,16 @@
+{
+  "topic": "2+2 es igual a 4?",
+  "mode": "local_only",
+  "agents": [
+    {
+      "id": "agent1",
+      "name": "Analista",
+      "role": "analyst",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "mistral:latest",
+      "provider": "mistral",
+      "system_prompt": "Responde brevemente"
+    }
+  ]
+}
