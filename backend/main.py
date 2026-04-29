@@ -29,7 +29,10 @@ from backend.api.routes.sessions import router as sessions_router
 from backend.api.routes.websockets import router as websockets_router
 from backend.api.routes.network import router as network_router
 from backend.api.routes.debate import router as debate_router
+from backend.api.routes.system import router as system_router
 from backend.network.discovery import node_discoverer
+from backend.network.heartbeat import HeartbeatManager
+from backend.network.tcp_handshake import TCPHandshake
 
 # Configurar logging estructurado
 structlog.configure(
@@ -53,10 +56,16 @@ structlog.configure(
 logger = structlog.get_logger()
 settings = get_settings()
 
+# Instancia global de heartbeat manager
+heartbeat_manager: HeartbeatManager = None
+tcp_handshake: TCPHandshake = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager para startup/shutdown"""
+    global heartbeat_manager, tcp_handshake
+    
     # Startup
     logger.info("synapse_council.starting", version="2.0.0", node_role=settings.NODE_ROLE)
     
@@ -64,13 +73,63 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("database.initialized", url=settings.DATABASE_URL)
     
+    # Iniciar memoria híbrida v2 (condicional)
+    try:
+        from backend.memory.hybrid_memory_v2 import get_hybrid_memory_v2
+        hybrid_mem = get_hybrid_memory_v2()
+        await hybrid_mem.start()
+        logger.info("hybrid_memory_v2.started")
+    except Exception as e:
+        logger.warning("hybrid_memory_v2.start_failed", error=str(e))
+    
     # Iniciar descubrimiento de red
     await node_discoverer.start()
+    
+    # Iniciar TCP handshake (basado en Pensamiento Coral)
+    tcp_handshake = TCPHandshake(role=settings.NODE_ROLE)
+    
+    # Iniciar heartbeat (basado en Pensamiento Coral)
+    if settings.is_master:
+        heartbeat_manager = HeartbeatManager(
+            role="MASTER",
+            interval=settings.HEARTBEAT_INTERVAL,
+            timeout=settings.HEARTBEAT_TIMEOUT
+        )
+        heartbeat_manager.start()
+        logger.info("heartbeat.started", role="MASTER")
+    else:
+        # Worker inicia heartbeat cuando conoce la IP del Master
+        heartbeat_manager = HeartbeatManager(
+            role="WORKER",
+            interval=settings.HEARTBEAT_INTERVAL,
+            timeout=settings.HEARTBEAT_TIMEOUT
+        )
+        logger.info("heartbeat.initialized", role="WORKER")
     
     yield
     
     # Shutdown
     await node_discoverer.stop()
+    
+    # Detener heartbeat
+    if heartbeat_manager:
+        heartbeat_manager.stop()
+        logger.info("heartbeat.stopped")
+    
+    # Cerrar TCP handshake
+    if tcp_handshake:
+        tcp_handshake.close()
+        logger.info("tcp_handshake.closed")
+    
+    # Detener memoria híbrida
+    try:
+        from backend.memory.hybrid_memory_v2 import get_hybrid_memory_v2
+        hybrid_mem = get_hybrid_memory_v2()
+        await hybrid_mem.stop()
+        logger.info("hybrid_memory_v2.stopped")
+    except Exception as e:
+        logger.warning("hybrid_memory_v2.stop_failed", error=str(e))
+    
     logger.info("synapse_council.stopping")
 
 
@@ -109,6 +168,12 @@ app.include_router(sessions_router)
 app.include_router(websockets_router)
 app.include_router(network_router)
 app.include_router(debate_router, prefix="/api/v1")
+app.include_router(system_router, prefix="/api/v1")
+
+# Debug router (importación local para evitar imports circulares)
+from backend.api.routes.debug import router as debug_router
+app.include_router(debug_router)
+logger.info("debug_router.enabled")
 
 @app.get("/")
 async def root():
@@ -129,6 +194,6 @@ if __name__ == "__main__":
         "backend.main:app",
         host=settings.HOST,
         port=settings.PORT,
-        reload=True,
-        log_level=settings.LOG_LEVEL.lower()
+        reload=settings.RELOAD,
+        workers=1
     )

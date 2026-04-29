@@ -3,7 +3,7 @@ Synapse Council v2.0 - Sequential Debate API Routes
 Endpoints para debate secuencial multi-modelo
 """
 import asyncio
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from datetime import datetime
@@ -13,13 +13,125 @@ from backend.engine.sequential_debate_controller import (
     DebateAgent,
     AgentRole,
     get_standard_debate_config,
-    get_local_only_config
+    get_local_only_config,
+    get_cloud_ollama_config
 )
+from backend.engine.ultra_debate_controller import UltraDebateController
 
 router = APIRouter(prefix="/debate", tags=["Sequential Debate"])
 
-# Controller singleton
+# Controller singletons
 debate_controller = SequentialDebateController()
+ultra_controller = UltraDebateController()
+
+class DebateRequest(BaseModel):
+    """Request para crear un debate"""
+    topic: str
+    mode: str = "standard"  # standard, local_only, custom
+    max_turns: Optional[int] = None
+    include_cloud: bool = True
+    agents: Optional[List[Dict[str, Any]]] = None  # Configuración personalizada de agentes
+
+
+class DebateAgentResponse(BaseModel):
+    """Respuesta de agente en el debate"""
+    turn_number: int
+    agent_name: str
+    role: str
+    model: str
+    provider: str
+    node: str
+    response_preview: str
+    tokens_in: int
+    tokens_out: int
+    latency_ms: int
+    status: str
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+
+
+class DebateResponse(BaseModel):
+    """Respuesta completa del debate"""
+    session_id: str
+    topic: str
+    status: str
+    turns: List[DebateAgentResponse]
+    final_verdict: Optional[str]
+    total_tokens_in: int
+    total_tokens_out: int
+    total_latency_ms: int
+    created_at: datetime
+    completed_at: Optional[datetime]
+
+
+class DebateStatusResponse(BaseModel):
+    """Estado de una sesión de debate"""
+    session_id: str
+    status: str
+    current_turn: Optional[int]
+    total_turns: int
+    topic: str
+
+
+
+@router.get("/list")
+async def list_debates():
+    """Lista todas las sesiones de debate activas (en memoria)"""
+    sessions = debate_controller.list_sessions()
+    return {
+        "count": len(sessions),
+        "sessions": [
+            {
+                "session_id": s.id,
+                "topic": s.topic,
+                "status": s.status,
+                "turns_completed": len([t for t in s.turns if t.status == "completed"]),
+                "total_turns": len(s.turns),
+                "created_at": s.created_at
+            }
+            for s in sessions
+        ]
+    }
+
+def build_debate_response(session) -> DebateResponse:
+    """Helper para construir la respuesta estandarizada"""
+    turns_response = []
+    for turn in session.turns:
+        # Manejar tanto DebateTurn (dataclass) como dict (desde BD)
+        if hasattr(turn, "turn_number"):
+            # Dataclass
+            role_val = turn.agent.role.value if hasattr(turn.agent.role, "value") else turn.agent.role
+            turns_response.append(DebateAgentResponse(
+                turn_number=turn.turn_number,
+                agent_name=turn.agent.name,
+                role=str(role_val),
+                model=turn.agent.model,
+                provider=turn.agent.provider,
+                node=turn.agent.node,
+                response_preview=turn.response_received[:200] + "..." if len(turn.response_received) > 200 else turn.response_received,
+                tokens_in=turn.tokens_in,
+                tokens_out=turn.tokens_out,
+                latency_ms=turn.latency_ms,
+                status=turn.status,
+                started_at=turn.started_at,
+                completed_at=turn.completed_at
+            ))
+        else:
+            # Dict
+            turns_response.append(DebateAgentResponse(**turn))
+            
+    return DebateResponse(
+        session_id=session.id,
+        topic=session.topic,
+        status=session.status,
+        turns=turns_response,
+        final_verdict=session.final_verdict,
+        total_tokens_in=sum(t.tokens_in for t in session.turns),
+        total_tokens_out=sum(t.tokens_out for t in session.turns),
+        total_latency_ms=sum(t.latency_ms for t in session.turns),
+        created_at=session.created_at,
+        completed_at=session.completed_at
+    )
 
 # Import Supabase service
 from backend.services.supabase_sync import get_supabase_service
@@ -115,68 +227,110 @@ async def sync_debate_to_cloud(session_id: str):
         )
 
 
-class DebateRequest(BaseModel):
-    """Request para crear un debate"""
-    topic: str
-    mode: str = "standard"  # standard, local_only, custom
-    max_turns: Optional[int] = None
-    include_cloud: bool = True
 
 
-class DebateAgentResponse(BaseModel):
-    """Respuesta de agente en el debate"""
-    turn_number: int
-    agent_name: str
-    role: str
-    model: str
-    provider: str
-    node: str
-    response_preview: str
-    tokens_in: int
-    tokens_out: int
-    latency_ms: int
-    status: str
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
-
-
-class DebateResponse(BaseModel):
-    """Respuesta completa del debate"""
-    session_id: str
-    topic: str
-    status: str
-    turns: List[DebateAgentResponse]
-    final_verdict: Optional[str]
-    total_tokens_in: int
-    total_tokens_out: int
-    total_latency_ms: int
-    created_at: datetime
-    completed_at: Optional[datetime]
-
-
-class DebateStatusResponse(BaseModel):
-    """Estado de una sesión de debate"""
-    session_id: str
-    status: str
-    current_turn: Optional[int]
-    total_turns: int
-    topic: str
-
-
-@router.post("/create", response_model=DebateResponse)
-async def create_debate(request: DebateRequest):
-    """
-    Crea y ejecuta un debate secuencial multi-modelo.
+@router.get("/history/list")
+async def list_debate_history(limit: int = 50):
+    """Lista debates históricos desde la base de datos"""
     
-    - **standard**: 3 locales (Meta, Mistral, Alibaba) + 1 cloud (Anthropic)
-    - **local_only**: 4 locales (Meta, Mistral, Alibaba, DeepSeek)
-    - Los modelos se cargan/descargan secuencialmente
-    - Cada agente ve el contexto acumulado del debate
+    debates = await debate_controller.list_debates_from_db(limit=limit)
+    return {
+        "count": len(debates),
+        "debates": debates
+    }
+
+
+@router.get("/reputation")
+async def list_reputations(min_turns: int = 1) -> Dict[str, Any]:
     """
+    Lista reputaciones de todos los modelos.
+    Requiere: AGENT_REPUTATION_ENABLED=true en .env
+    """
+    try:
+        from backend.engine.reputation_manager import reputation_manager
+        reps = await reputation_manager.list_all(min_turns=min_turns)
+        return {
+            "status": "ok",
+            "count": len(reps),
+            "reputations": reps
+        }
+    except Exception as e:
+        # logger.error("reputation.list_error", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Error listing reputations: {str(e)}")
+
+
+@router.get("/reputation/{model}/{role}")
+async def get_reputation(model: str, role: str) -> Dict[str, Any]:
+    """
+    Obtiene reputación específica de un modelo para un rol.
+    """
+    try:
+        from backend.engine.reputation_manager import reputation_manager
+        rep = await reputation_manager.get_reputation(model, role)
+        
+        if rep is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No reputation found for {model}@{role}"
+            )
+        
+        return {
+            "status": "ok",
+            "reputation": rep
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        # logger.error("reputation.get_error", model=model, role=role, error=str(e))
+        raise HTTPException(status_code=500, detail=f"Error getting reputation: {str(e)}")
+
+
+
+
+@router.post("/create", status_code=202)
+async def create_debate(request: DebateRequest, background_tasks: BackgroundTasks):
+    """
+    Crea y ejecuta un debate secuencial multi-modelo (Asincrono).
+    Retorna session_id inmediatamente.
+    """
+    
+    # 1. Crear ID y sesion base para que sea visible inmediatamente
+    import uuid
+    session_id = str(uuid.uuid4())
     
     # Seleccionar configuración
-    if request.mode == "local_only":
+    if request.agents:
+        # Usar configuración personalizada del usuario
+        agents = []
+        for agent_data in request.agents:
+            agent = DebateAgent(
+                id=agent_data.get("id", f"agent_{len(agents)}"),
+                name=agent_data.get("name", "Agent"),
+                role=AgentRole(agent_data.get("role", "analyst")),
+                node=agent_data.get("node", "LOCAL"),
+                engine=agent_data.get("engine", "ollama"),
+                model=agent_data.get("model", "llama3.2:latest"),
+                provider=agent_data.get("provider", "meta"),
+                system_prompt=agent_data.get("system_prompt", ""),
+                temperature=agent_data.get("temperature", 0.7),
+                max_tokens=agent_data.get("max_tokens", 500)
+            )
+            agents.append(agent)
+    elif request.mode == "local_only":
         agents = get_local_only_config(request.topic)
+    elif request.mode == "cloud_ollama":
+        agents = get_cloud_ollama_config(request.topic)
+    elif request.mode == "ultra_crossing":
+        # 1. Crear la sesión en el controlador de Ultra (esto la inicializa en memoria)
+        # Nota: create_ultra_debate_with_id es async pero bloquea hasta el final
+        
+        async def run_ultra():
+            # Ejecutar el debate (esto toma tiempo)
+            await ultra_controller.create_ultra_debate_with_id(session_id, request.topic)
+        
+        # Registrar solo en ultra_controller (la API ya busca allí)
+        background_tasks.add_task(run_ultra)
+        return {"session_id": session_id, "topic": request.topic, "status": "accepted", "mode": "ultra_crossing"}
     else:
         agents = get_standard_debate_config(request.topic)
     
@@ -188,86 +342,63 @@ async def create_debate(request: DebateRequest):
     if not request.include_cloud:
         agents = [a for a in agents if a.node == "LOCAL"]
     
-    # Ejecutar debate
-    session = await debate_controller.create_debate(
-        topic=request.topic,
-        agents_config=agents,
-        on_turn_start=lambda turn: print(f"🎭 Turno {turn.turn_number}: {turn.agent.name} ({turn.agent.model})"),
-        on_turn_complete=lambda turn: print(f"✅ Completado: {turn.tokens_out} tokens en {turn.latency_ms}ms"),
-        on_model_load=lambda model, provider: print(f"📥 Cargando: {model} ({provider})"),
-        on_model_unload=lambda model, provider: print(f"📤 Descargando: {model} ({provider})")
-    )
+    # Tarea en segundo plano
+    async def run_debate():
+        await debate_controller.create_debate_with_id(
+            session_id=session_id,
+            topic=request.topic,
+            agents_config=agents,
+            on_turn_start=lambda turn: print(f"Turn {turn.turn_number}: {turn.agent.name} ({turn.agent.model})"),
+            on_turn_complete=lambda turn: print(f"Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"),
+            on_model_load=lambda model, provider: print(f"Loading: {model} ({provider})"),
+            on_model_unload=lambda model, provider: print(f"Unloading: {model} ({provider})")
+        )
+
+    background_tasks.add_task(run_debate)
     
-    # Construir respuesta
-    turns_response = []
-    for turn in session.turns:
-        turns_response.append(DebateAgentResponse(
-            turn_number=turn.turn_number,
-            agent_name=turn.agent.name,
-            role=turn.agent.role.value,
-            model=turn.agent.model,
-            provider=turn.agent.provider,
-            node=turn.agent.node,
-            response_preview=turn.response_received[:200] + "..." if len(turn.response_received) > 200 else turn.response_received,
-            tokens_in=turn.tokens_in,
-            tokens_out=turn.tokens_out,
-            latency_ms=turn.latency_ms,
-            status=turn.status,
-            started_at=turn.started_at,
-            completed_at=turn.completed_at
-        ))
-    
-    return DebateResponse(
-        session_id=session.id,
-        topic=session.topic,
-        status=session.status,
-        turns=turns_response,
-        final_verdict=session.final_verdict,
-        total_tokens_in=sum(t.tokens_in for t in session.turns),
-        total_tokens_out=sum(t.tokens_out for t in session.turns),
-        total_latency_ms=sum(t.latency_ms for t in session.turns),
-        created_at=session.created_at,
-        completed_at=session.completed_at
-    )
+    return {
+        "session_id": session_id, 
+        "topic": request.topic, 
+        "status": "accepted", 
+        "mode": request.mode,
+        "total_turns": len(agents)
+    }
 
 
-@router.get("/{session_id}", response_model=DebateResponse)
-async def get_debate(session_id: str):
-    """Obtiene el estado completo de una sesión de debate"""
+
+
+@router.get("/{session_id}/report")
+async def get_debate_report(session_id: str):
+    """Obtiene el informe estructurado JSON de un debate"""
     
+    # Intentar desde memoria
     session = debate_controller.get_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Debate session not found")
+    if session:
+        if hasattr(session, 'structured_report') and session.structured_report:
+            return {
+                "session_id": session_id,
+                "structured_report": session.structured_report,
+                "source": "memory"
+            }
+        else:
+            # Loguear que la sesión existe pero no tiene el reporte
+            print(f"Session {session_id} found in memory but without structured report")
     
-    turns_response = []
-    for turn in session.turns:
-        turns_response.append(DebateAgentResponse(
-            turn_number=turn.turn_number,
-            agent_name=turn.agent.name,
-            role=turn.agent.role.value,
-            model=turn.agent.model,
-            provider=turn.agent.provider,
-            node=turn.agent.node,
-            response_preview=turn.response_received[:200] + "..." if len(turn.response_received) > 200 else turn.response_received,
-            tokens_in=turn.tokens_in,
-            tokens_out=turn.tokens_out,
-            latency_ms=turn.latency_ms,
-            status=turn.status,
-            started_at=turn.started_at,
-            completed_at=turn.completed_at
-        ))
+    # Intentar desde BD
+    debate = await debate_controller.get_debate_from_db(session_id)
+    if debate:
+        if debate.get('structured_report'):
+            return {
+                "session_id": session_id,
+                "structured_report": debate['structured_report'],
+                "source": "database"
+            }
+        else:
+            print(f"Debate {session_id} found in DB but without structured report")
     
-    return DebateResponse(
-        session_id=session.id,
-        topic=session.topic,
-        status=session.status,
-        turns=turns_response,
-        final_verdict=session.final_verdict,
-        total_tokens_in=sum(t.tokens_in for t in session.turns),
-        total_tokens_out=sum(t.tokens_out for t in session.turns),
-        total_latency_ms=sum(t.latency_ms for t in session.turns),
-        created_at=session.created_at,
-        completed_at=session.completed_at
+    raise HTTPException(
+        status_code=404, 
+        detail=f"Structured report not found for session {session_id}. Session may still be running or report generation failed."
     )
 
 
@@ -374,36 +505,6 @@ async def get_debate_transcript(session_id: str):
     raise HTTPException(status_code=404, detail="Debate session not found in memory or database")
 
 
-@router.get("/list")
-async def list_debates():
-    """Lista todas las sesiones de debate activas (en memoria)"""
-    
-    sessions = debate_controller.list_sessions()
-    return {
-        "count": len(sessions),
-        "sessions": [
-            {
-                "session_id": s.id,
-                "topic": s.topic,
-                "status": s.status,
-                "turns_completed": len([t for t in s.turns if t.status == "completed"]),
-                "total_turns": len(s.turns),
-                "created_at": s.created_at
-            }
-            for s in sessions
-        ]
-    }
-
-
-@router.get("/history/list")
-async def list_debate_history(limit: int = 50):
-    """Lista debates históricos desde la base de datos"""
-    
-    debates = await debate_controller.list_debates_from_db(limit=limit)
-    return {
-        "count": len(debates),
-        "debates": debates
-    }
 
 
 @router.get("/history/{session_id}")
@@ -474,30 +575,54 @@ class ConsensusRequest(BaseModel):
     max_rounds: Optional[int] = 5
 
 
-@router.post("/consensus/create")
-async def create_consensus_debate(request: ConsensusRequest):
+@router.post("/consensus/create", status_code=202)
+async def create_consensus_debate(request: ConsensusRequest, background_tasks: BackgroundTasks):
     """
-    Crea debate de CONSENSO con validación cruzada multi-modelo.
+    Crea debate de CONSENSO (Asincrono).
     """
-    print(f"🧠 DEBATE DE CONSENSO: {request.topic}")
+    import uuid
+    session_id = str(uuid.uuid4())
     
     agents = get_consensus_debate_config(request.topic)
     
     if request.max_rounds:
         consensus_controller.MAX_ROUNDS = request.max_rounds
     
-    session = await consensus_controller.create_consensus_debate(
-        topic=request.topic,
-        agents_config=agents,
-        on_round_complete=lambda r: print(f"Ronda {r.round_number}: {r.global_consensus_score:.1%}"),
-        on_consensus_update=lambda s, st: print(f"Consenso: {s:.1%} [{st}]")
-    )
+    async def run_consensus():
+        await consensus_controller.create_consensus_debate_with_id(
+            session_id=session_id,
+            topic=request.topic,
+            agents_config=agents,
+            on_round_complete=lambda r: print(f"Round {r.round_number}: {r.global_consensus_score:.1%}"),
+            on_consensus_update=lambda s, st: print(f"Consensus: {s:.1%} [{st}]")
+        )
+
+    background_tasks.add_task(run_consensus)
     
     return {
-        "session_id": session.id,
-        "topic": session.topic,
-        "status": session.status,
-        "consensus_score": session.consensus_score,
-        "rounds_count": len(session.rounds),
-        "final_consensus": session.final_consensus[:500] if session.final_consensus else None
+        "session_id": session_id,
+        "topic": request.topic,
+        "status": "accepted",
+        "total_agents": len(agents)
     }
+
+
+# ============================================================================
+# ENDPOINTS DE REPUTACIÓN EMA
+# ============================================================================
+
+@router.get("/{session_id}", response_model=DebateResponse)
+async def get_debate(session_id: str):
+    """Obtiene el estado completo de una sesión de debate"""
+    
+    # Primero buscar en debate_controller (standard, local_only, cloud_ollama)
+    session = debate_controller.get_session(session_id)
+    if session:
+        return build_debate_response(session)
+    
+    # Si no está, buscar en ultra_controller (ultra_crossing)
+    session = ultra_controller.active_sessions.get(session_id)
+    if session:
+        return build_debate_response(session)
+    
+    raise HTTPException(status_code=404, detail="Debate session not found")

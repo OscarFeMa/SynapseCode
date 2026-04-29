@@ -123,13 +123,17 @@ class SupabaseSyncService:
             # 2. Insertar/Actualizar turns
             turns = debate_data.get('turns', [])
             for turn in turns:
+                import uuid
+                # Generar UUID determinista para el turno (debate_id + turn_number)
+                turn_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{debate_id}_turn_{turn.get('turn_number')}"))
+                
                 turn_record = {
-                    "id": turn.get('id', f"{debate_id}_turn_{turn.get('turn_number')}"),
+                    "id": turn_uuid,
                     "debate_id": debate_id,
                     "turn_number": turn.get('turn_number'),
                     "agent_id": turn.get('agent_id', 'unknown'),
                     "agent_name": turn.get('agent_name'),
-                    "agent_role": turn.get('agent_role'),
+                    "agent_role": turn.get('agent_role', 'analyst'),  # Valor por defecto para evitar null
                     "model": turn.get('model'),
                     "provider": turn.get('provider'),
                     "node": turn.get('node', 'LOCAL'),
@@ -142,8 +146,7 @@ class SupabaseSyncService:
                     "status": turn.get('status', 'completed'),
                     "error_message": turn.get('error_message'),
                     "started_at": turn.get('started_at', datetime.utcnow()).isoformat() if isinstance(turn.get('started_at'), datetime) else turn.get('started_at'),
-                    "completed_at": turn.get('completed_at', datetime.utcnow()).isoformat() if isinstance(turn.get('completed_at'), datetime) else turn.get('completed_at'),
-                    "synced_at": datetime.utcnow().isoformat()
+                    "completed_at": turn.get('completed_at', datetime.utcnow()).isoformat() if isinstance(turn.get('completed_at'), datetime) else turn.get('completed_at')
                 }
                 
                 turn_response = await client.post(
@@ -156,7 +159,8 @@ class SupabaseSyncService:
                     logger.warning("supabase_sync.turn_failed",
                                 debate_id=debate_id,
                                 turn=turn.get('turn_number'),
-                                status=turn_response.status_code)
+                                status=turn_response.status_code,
+                                error=turn_response.text[:500])
             
             logger.info("supabase_sync.success",
                        debate_id=debate_id,
