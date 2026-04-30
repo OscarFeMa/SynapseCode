@@ -135,7 +135,7 @@ class SupabaseSyncService:
                     "agent_name": turn.get('agent_name'),
                     "agent_role": turn.get('agent_role', 'analyst'),  # Valor por defecto para evitar null
                     "model": turn.get('model'),
-                    "provider": turn.get('provider'),
+                    "provider": turn.get('provider') or 'unknown',
                     "node": turn.get('node', 'LOCAL'),
                     "engine": turn.get('engine', 'ollama'),
                     "prompt_sent": turn.get('prompt_sent', '')[:10000],  # Limitar tamaño
