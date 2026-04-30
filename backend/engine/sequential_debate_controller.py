@@ -40,6 +40,8 @@ class AgentRole(Enum):
     SYNTHESIZER = "synthesizer"   # Síntesis de argumentos
     REFINER = "refiner"           # Refina conclusiones
     MODERATOR = "moderator"       # Moderador/veredicto final
+    VALIDATOR = "validator"       # Valida argumentos y evidencia
+    CONSENSUS = "consensus"       # Busca puntos de acuerdo
 
 
 @dataclass
@@ -74,11 +76,43 @@ class DebateTurn:
 
 
 @dataclass
+class CruzamientoCritico:
+    """Representa una respuesta crítica entre dos agentes"""
+    from_agent: str           # Agente que responde
+    to_agent: str             # Agente al que se responde
+    target_argument: str      # Argumento específico que se critica/valida
+    response: str             # Respuesta crítica
+    iteration: int            # Número de iteración
+    timestamp: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class IteracionDebate:
+    """Una iteración completa del debate con múltiples fases"""
+    iteration_number: int
+    phase: str               # analysis, criticism, validation, consensus
+    turns: List[DebateTurn] = field(default_factory=list)
+    cruzamientos: List[CruzamientoCritico] = field(default_factory=list)
+    consensus_points: List[str] = field(default_factory=list)
+    disagreement_points: List[str] = field(default_factory=list)
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    
+    def get_context_summary(self) -> str:
+        """Genera un resumen del contexto acumulado en esta iteración"""
+        summary = []
+        for turn in self.turns:
+            summary.append(f"{turn.agent.name} ({turn.agent.role.value}): {turn.response_received[:200]}...")
+        return "\n\n".join(summary)
+
+
+@dataclass
 class DebateSession:
-    """Sesión completa de debate"""
+    """Sesión completa de debate con soporte para iteraciones"""
     id: str
     topic: str
     turns: List[DebateTurn] = field(default_factory=list)
+    iterations: List[IteracionDebate] = field(default_factory=list)
     context_history: List[Dict[str, Any]] = field(default_factory=list)
     status: str = "created"  # created, running, completed, failed
     created_at: datetime = field(default_factory=datetime.now)
@@ -90,6 +124,23 @@ class DebateSession:
     consensus_score: float = 0.0
     convergence_level: str = 'UNKNOWN'
     structured_report: Optional[Dict[str, Any]] = None
+    
+    # Configuración de iteraciones
+    current_iteration: int = 0
+    max_iterations: int = 3
+    consensus_reached: bool = False
+    
+    def get_iteration_context(self, iteration_num: int) -> str:
+        """Obtiene el contexto acumulado hasta una iteración específica"""
+        context_parts = []
+        for i, iteration in enumerate(self.iterations[:iteration_num], 1):
+            context_parts.append(f"=== ITERACIÓN {i} ({iteration.phase}) ===")
+            context_parts.append(iteration.get_context_summary())
+            if iteration.cruzamientos:
+                context_parts.append("--- Cruzamientos Críticos ---")
+                for cruz in iteration.cruzamientos:
+                    context_parts.append(f"{cruz.from_agent} → {cruz.to_agent}: {cruz.response[:150]}...")
+        return "\n\n".join(context_parts)
     
     def build_context_prompt(self, current_agent: DebateAgent) -> str:
         """Construye el prompt con todo el contexto acumulado"""
@@ -134,6 +185,7 @@ class SequentialDebateController:
     
     def __init__(self):
         self.local_manager = LocalEngineManager()
+        self.engine_manager = LocalEngineManager()  # Para acceso a engines por tipo
         self.openrouter = OpenRouterClient() if settings.OPENROUTER_API_KEY else None
         self.active_sessions: Dict[str, DebateSession] = {}
         self.tribunal = TribunalCouncil()
@@ -1106,6 +1158,492 @@ JSON:"""
     def list_sessions(self) -> List[DebateSession]:
         """Lista todas las sesiones de debate"""
         return list(self.active_sessions.values())
+    
+    async def run_iterative_debate(
+        self,
+        session_id: str,
+        topic: str,
+        agents_config: List[DebateAgent],
+        max_iterations: int = 3,
+        on_iteration_complete: Optional[Callable[[IteracionDebate], None]] = None,
+        on_cruzamiento: Optional[Callable[[CruzamientoCritico], None]] = None,
+        mode: str = "iterative"
+    ) -> DebateSession:
+        """
+        Ejecuta un debate iterativo avanzado con múltiples fases:
+        1. Análisis: Cada agente presenta su perspectiva inicial
+        2. Cruzamiento Crítico: Los agentes se responden entre sí
+        3. Validación: Se verifican argumentos y evidencias
+        4. Consenso: Se buscan puntos de acuerdo
+        
+        El contexto se mantiene entre iteraciones, permitiendo refinamiento progresivo.
+        """
+        
+        session = DebateSession(
+            id=session_id,
+            topic=topic,
+            status="running",
+            max_iterations=max_iterations
+        )
+        self.active_sessions[session_id] = session
+        
+        logger.info("sequential_debate.iterative_started",
+                   session_id=session_id,
+                   topic=topic,
+                   max_iterations=max_iterations,
+                   num_agents=len(agents_config))
+        
+        try:
+            # ITERACIONES PRINCIPALES
+            for iteration_num in range(1, max_iterations + 1):
+                session.current_iteration = iteration_num
+                
+                logger.info("sequential_debate.iteration_start",
+                           session_id=session_id,
+                           iteration=iteration_num)
+                
+                # Crear nueva iteración
+                current_iteration = IteracionDebate(
+                    iteration_number=iteration_num,
+                    phase="analysis" if iteration_num == 1 else "refinement",
+                    started_at=datetime.now()
+                )
+                
+                # FASE 1: ANÁLISIS/REFINAMIENTO (todos los agentes participan)
+                await self._run_analysis_phase(
+                    session, current_iteration, agents_config, iteration_num
+                )
+                
+                # FASE 2: CRUZAMIENTOS CRÍTICOS (si no es la primera iteración)
+                if iteration_num > 1:
+                    await self._run_cruzamientos_phase(
+                        session, current_iteration, agents_config, on_cruzamiento
+                    )
+                
+                # FASE 3: VALIDACIÓN (cada agente valida los argumentos)
+                await self._run_validation_phase(
+                    session, current_iteration, agents_config
+                )
+                
+                # FASE 4: BÚSQUEDA DE CONSENSO
+                if iteration_num == max_iterations or self._check_consensus_ready(current_iteration):
+                    await self._run_consensus_phase(
+                        session, current_iteration, agents_config
+                    )
+                    session.consensus_reached = True
+                
+                # Finalizar iteración
+                current_iteration.completed_at = datetime.now()
+                session.iterations.append(current_iteration)
+                
+                if on_iteration_complete:
+                    on_iteration_complete(current_iteration)
+                
+                logger.info("sequential_debate.iteration_complete",
+                           session_id=session_id,
+                           iteration=iteration_num,
+                           turns=len(current_iteration.turns),
+                           cruzamientos=len(current_iteration.cruzamientos))
+                
+                # Si se alcanzó consenso, terminar
+                if session.consensus_reached and iteration_num < max_iterations:
+                    logger.info("sequential_debate.consensus_reached_early",
+                               session_id=session_id,
+                               iteration=iteration_num)
+                    break
+            
+            # GENERAR VEREDICTO FINAL
+            session.status = "completed"
+            session.completed_at = datetime.now()
+            
+            # Usar el tribunal para generar veredicto estructurado
+            try:
+                tribunal_result = await self.tribunal.deliberate(session)
+                session.tribunal_verdict = tribunal_result
+                
+                # Generar reporte estructurado
+                structured_report = await self._generate_structured_report(session)
+                session.structured_report = structured_report
+                
+                logger.info("sequential_debate.iterative_completed",
+                           session_id=session_id,
+                           total_iterations=len(session.iterations),
+                           total_turns=len(session.turns))
+                
+            except Exception as e:
+                logger.error("sequential_debate.tribunal_error",
+                            session_id=session_id, error=str(e))
+            
+            # Guardar transcripción
+            await self._save_transcript(session)
+            
+            return session
+            
+        except Exception as e:
+            session.status = "failed"
+            logger.error("sequential_debate.iterative_failed",
+                        session_id=session_id, error=str(e))
+            raise
+    
+    async def _run_analysis_phase(
+        self,
+        session: DebateSession,
+        iteration: IteracionDebate,
+        agents_config: List[DebateAgent],
+        iteration_num: int
+    ):
+        """Ejecuta la fase de análisis donde cada agente presenta su perspectiva"""
+        
+        previous_model = None
+        
+        for idx, agent_config in enumerate(agents_config, 1):
+            # Liberar modelo anterior
+            if previous_model and agent_config.node == "LOCAL" and agent_config.engine == "ollama":
+                try:
+                    ollama_client = self.engine_manager.engines.get(EngineType.OLLAMA)
+                    if ollama_client:
+                        await ollama_client.unload_model(previous_model)
+                except Exception as e:
+                    logger.warning("sequential_debate.unload_failed", error=str(e))
+            
+            # Construir prompt con contexto de iteraciones previas
+            context = ""
+            if iteration_num > 1:
+                context = session.get_iteration_context(iteration_num - 1)
+            
+            prompt = self._build_iterative_prompt(
+                session.topic, agent_config, iteration_num, context
+            )
+            
+            turn = DebateTurn(
+                turn_number=len(session.turns) + 1,
+                agent=agent_config,
+                prompt_sent=prompt,
+                started_at=datetime.now()
+            )
+            turn.status = "running"
+            
+            logger.info("sequential_debate.analysis_turn_start",
+                       session_id=session.id,
+                       iteration=iteration_num,
+                       agent=agent_config.name,
+                       role=agent_config.role.value)
+            
+            try:
+                # Ejecutar el turno
+                response = await self._run_local_agent(agent_config, prompt, None)
+                
+                turn.response_received = response["text"]
+                turn.tokens_in = response["tokens_in"]
+                turn.tokens_out = response["tokens_out"]
+                turn.latency_ms = response["latency_ms"]
+                turn.status = "completed"
+                turn.completed_at = datetime.now()
+                
+                # Actualizar tracking
+                if agent_config.node == "LOCAL" and agent_config.engine == "ollama":
+                    previous_model = agent_config.model
+                
+                session.turns.append(turn)
+                iteration.turns.append(turn)
+                
+                logger.info("sequential_debate.analysis_turn_complete",
+                           session_id=session.id,
+                           agent=agent_config.name,
+                           tokens_out=turn.tokens_out)
+                
+            except Exception as e:
+                turn.status = "failed"
+                turn.response_received = f"[Error: {str(e)}]"
+                logger.error("sequential_debate.analysis_turn_failed",
+                            session_id=session.id,
+                            agent=agent_config.name,
+                            error=str(e))
+    
+    async def _run_cruzamientos_phase(
+        self,
+        session: DebateSession,
+        iteration: IteracionDebate,
+        agents_config: List[DebateAgent],
+        on_cruzamiento: Optional[Callable[[CruzamientoCritico], None]]
+    ):
+        """Ejecuta fase de cruzamientos críticos entre agentes"""
+        
+        # Cada agente responde a los argumentos de los demás
+        for responder_agent in agents_config:
+            # Seleccionar agentes a los que responder (todos excepto sí mismo)
+            target_agents = [a for a in agents_config if a.id != responder_agent.id]
+            
+            for target_agent in target_agents:
+                # Buscar el turno del agente objetivo en esta iteración
+                target_turn = None
+                for turn in iteration.turns:
+                    if turn.agent.id == target_agent.id:
+                        target_turn = turn
+                        break
+                
+                if not target_turn:
+                    continue
+                
+                # Extraer argumento clave del agente objetivo
+                target_argument = target_turn.response_received[:300]
+                
+                # Construir prompt de cruzamiento
+                cruz_prompt = self._build_cruzamiento_prompt(
+                    session.topic, responder_agent, target_agent, target_argument
+                )
+                
+                try:
+                    response = await self._run_local_agent(responder_agent, cruz_prompt, None)
+                    
+                    cruzamiento = CruzamientoCritico(
+                        from_agent=responder_agent.name,
+                        to_agent=target_agent.name,
+                        target_argument=target_argument,
+                        response=response["text"],
+                        iteration=iteration.iteration_number
+                    )
+                    
+                    iteration.cruzamientos.append(cruzamiento)
+                    
+                    if on_cruzamiento:
+                        on_cruzamiento(cruzamiento)
+                    
+                    logger.info("sequential_debate.cruzamiento_complete",
+                               session_id=session.id,
+                               from_agent=responder_agent.name,
+                               to_agent=target_agent.name)
+                    
+                except Exception as e:
+                    logger.warning("sequential_debate.cruzamiento_failed",
+                                  session_id=session.id,
+                                  from_agent=responder_agent.name,
+                                  to_agent=target_agent.name,
+                                  error=str(e))
+    
+    async def _run_validation_phase(
+        self,
+        session: DebateSession,
+        iteration: IteracionDebate,
+        agents_config: List[DebateAgent]
+    ):
+        """Fase de validación donde agentes verifican argumentos"""
+        
+        # Crear agentes validadores (cambio de rol temporal)
+        validators = []
+        for agent_config in agents_config:
+            validator = DebateAgent(
+                id=f"validator_{agent_config.id}",
+                name=f"Validador {agent_config.name}",
+                role=AgentRole.VALIDATOR,
+                node=agent_config.node,
+                engine=agent_config.engine,
+                model=agent_config.model,
+                provider=agent_config.provider,
+                system_prompt="Valida la coherencia lógica, evidencia y solidez de los argumentos presentados.",
+                temperature=0.3,
+                max_tokens=500
+            )
+            validators.append(validator)
+        
+        # Cada validador revisa todos los argumentos de la iteración
+        for validator in validators:
+            arguments_to_validate = "\n\n".join([
+                f"{turn.agent.name}: {turn.response_received[:250]}"
+                for turn in iteration.turns
+            ])
+            
+            validation_prompt = f"""# FASE DE VALIDACIÓN
+
+Tema: {session.topic}
+
+## Argumentos a Validar:
+{arguments_to_validate}
+
+## Tu Tarea como Validador
+1. Identifica fortalezas en los argumentos
+2. Señala debilidades lógicas o falta de evidencia
+3. Evalúa la coherencia entre las diferentes perspectivas
+4. Asigna una puntuación de validez (1-10) a cada argumento
+
+Responde de manera concisa y constructiva."""
+            
+            try:
+                response = await self._run_local_agent(validator, validation_prompt, None)
+                
+                # Extraer puntos de acuerdo y desacuerdo
+                validation_text = response["text"]
+                
+                # Análisis simple para identificar consensos y disensos
+                if "consenso" in validation_text.lower() or "acuerdo" in validation_text.lower():
+                    iteration.consensus_points.append(f"Validador {validator.name}: {validation_text[:200]}")
+                
+                if "desacuerdo" in validation_text.lower() or "discrepancia" in validation_text.lower():
+                    iteration.disagreement_points.append(f"Validador {validator.name}: {validation_text[:200]}")
+                
+                logger.info("sequential_debate.validation_complete",
+                           session_id=session.id,
+                           validator=validator.name)
+                
+            except Exception as e:
+                logger.warning("sequential_debate.validation_failed",
+                              session_id=session.id,
+                              validator=validator.name,
+                              error=str(e))
+    
+    async def _run_consensus_phase(
+        self,
+        session: DebateSession,
+        iteration: IteracionDebate,
+        agents_config: List[DebateAgent]
+    ):
+        """Fase final de búsqueda de consenso"""
+        
+        # Crear agente consensuador
+        consensus_agent = DebateAgent(
+            id="consensus_builder",
+            name="Consensuador",
+            role=AgentRole.CONSENSUS,
+            node="LOCAL",
+            engine="ollama",
+            model="mistral:7b",
+            provider="mistral",
+            system_prompt="Tu objetivo es identificar puntos de acuerdo y proponer un marco de consenso.",
+            temperature=0.4,
+            max_tokens=800
+        )
+        
+        # Compilar todo el contexto
+        full_context = session.get_iteration_context(iteration.iteration_number)
+        
+        consensus_prompt = f"""# FASE DE CONSENSO
+
+Tema: {session.topic}
+
+## Contexto del Debate:
+{full_context}
+
+## Puntos de Acuerdo Identificados:
+{"\n".join(iteration.consensus_points) if iteration.consensus_points else "Aún no se han identificado puntos de acuerdo claros."}
+
+## Puntos de Desacuerdo:
+{"\n".join(iteration.disagreement_points) if iteration.disagreement_points else "No hay desacuerdos significativos registrados."}
+
+## Tu Tarea
+1. Identifica los puntos de acuerdo fundamentales entre todos los participantes
+2. Propone un marco de consenso que integre las perspectivas válidas
+3. Señala áreas donde es necesario más debate o investigación
+4. Formula recomendaciones concretas basadas en el consenso alcanzado
+
+Este es el momento de sintetizar todo el debate en conclusiones accionables."""
+        
+        try:
+            response = await self._run_local_agent(consensus_agent, consensus_prompt, None)
+            
+            # Agregar como un turno especial de consenso
+            consensus_turn = DebateTurn(
+                turn_number=len(session.turns) + 1,
+                agent=consensus_agent,
+                prompt_sent=consensus_prompt,
+                response_received=response["text"],
+                tokens_in=response["tokens_in"],
+                tokens_out=response["tokens_out"],
+                latency_ms=response["latency_ms"],
+                status="completed",
+                started_at=datetime.now(),
+                completed_at=datetime.now()
+            )
+            
+            session.turns.append(consensus_turn)
+            iteration.turns.append(consensus_turn)
+            iteration.consensus_points.append(response["text"])
+            
+            logger.info("sequential_debate.consensus_complete",
+                       session_id=session.id,
+                       iteration=iteration.iteration_number,
+                       tokens_out=response["tokens_out"])
+            
+        except Exception as e:
+            logger.error("sequential_debate.consensus_failed",
+                        session_id=session.id, error=str(e))
+    
+    def _check_consensus_ready(self, iteration: IteracionDebate) -> bool:
+        """Verifica si hay indicios de que se puede alcanzar consenso"""
+        # Si hay más puntos de acuerdo que desacuerdo, y son sustanciales
+        return len(iteration.consensus_points) > len(iteration.disagreement_points) and len(iteration.consensus_points) >= 2
+    
+    def _build_iterative_prompt(self, topic: str, agent: DebateAgent, iteration: int, context: str) -> str:
+        """Construye prompt para fase iterativa"""
+        
+        role_specific_instructions = {
+            AgentRole.ANALYST: "Presenta tu análisis inicial del tema desde tu perspectiva especializada.",
+            AgentRole.CRITIC: "Identifica debilidades en los argumentos presentados y ofrece contrapuntos constructivos.",
+            AgentRole.VALIDATOR: "Verifica la solidez lógica y factual de los argumentos.",
+            AgentRole.CONSENSUS: "Busca puntos de acuerdo y propone síntesis.",
+            AgentRole.SYNTHESIZER: "Integra las diferentes perspectivas en una visión coherente.",
+            AgentRole.REFINER: "Refina y mejora las propuestas existentes."
+        }
+        
+        instruction = role_specific_instructions.get(
+            agent.role, 
+            "Contribuye con tu perspectiva única al debate."
+        )
+        
+        context_section = ""
+        if context and iteration > 1:
+            context_section = f"""
+## Contexto de Iteraciones Previas
+{context}
+
+## Instrucción Especial
+Esta es la iteración {iteration}. Debes:
+1. Considerar los argumentos previos
+2. Refinar o matizar tu posición según el debate
+3. Responder directamente a las críticas si las hay
+4. Avanzar hacia un consenso sin sacrificar la rigurosidad
+"""
+        
+        return f"""# DEBATE ITERATIVO - Iteración {iteration}
+
+Tema: {topic}
+
+## Tu Identidad
+Eres: {agent.name}
+Rol: {agent.role.value}
+Modelo: {agent.model} ({agent.provider})
+
+## Tu Especialización
+{agent.system_prompt}
+
+{context_section}
+
+## Tu Tarea en esta Iteración
+{instruction}
+
+Proporciona un análisis detallado, fundamentado y constructivo."""
+    
+    def _build_cruzamiento_prompt(self, topic: str, responder: DebateAgent, target: DebateAgent, target_argument: str) -> str:
+        """Construye prompt para cruzamiento crítico"""
+        
+        return f"""# CRUZAMIENTO CRÍTICO
+
+Tema: {topic}
+
+## Tu Identidad
+Eres: {responder.name} ({responder.role.value})
+
+## Argumento a Responder
+**{target.name}** dice:
+"{target_argument}"
+
+## Tu Tarea
+Responde directamente a este argumento:
+1. Identifica sus fortalezas y debilidades
+2. Ofrece contra-argumentos específicos si hay debilidades
+3. Construye sobre las fortalezas si las hay
+4. Mantén un tono respetuoso pero riguroso
+
+Tu respuesta debe ser concisa (150-250 tokens) y enfocada en este argumento específico."""
 
 
 # Configuraciones predefinidas de debates
