@@ -199,7 +199,8 @@ wscat -c ws://localhost:8000/ws/sessions/<session_id>
 | **2** | Múltiples rondas, Tribunal de Magistrados | ✅ COMPLETADA |
 | **3** | WebSocket streaming en tiempo real | ✅ COMPLETADA |
 | **4** | Frontend React completo | ✅ COMPLETADA |
-| **5** | Hardening, reputación EMA, tests | ✅ **COMPLETADA** |
+| **5** | Hardening, reputación EMA, tests | ✅ COMPLETADA |
+| **6** | Debates Iterativos Multi-Agente | ✅ **COMPLETADA** |
 
 ### ✅ FASE 1 - Motor Core (COMPLETADA)
 
@@ -251,10 +252,40 @@ wscat -c ws://localhost:8000/ws/sessions/<session_id>
   - PVT: Precisión en Validación Técnica
 - ✅ **Elección dinámica de agentes** - Selección por reputation_score
 - ✅ **Elevación automática a Supabase** - Memoria-oscar para veredictos notables
+- ✅ **Debates Iterativos** - Sistema de múltiples iteraciones con contexto persistente
+- ✅ **Liberación Automática de RAM** - Unload de modelos entre turnos para evitar OOM
 - ✅ **Rate Limiting** - 60 req/min, burst de 10
 - ✅ **Security Headers** - CSP, HSTS, X-Frame-Options
 - ✅ **Logging estructurado** - Todas las requests HTTP
 - ✅ **Tests end-to-end** - Scripts de test completos
+
+### ✅ FASE 6 - Debates Iterativos Multi-Agente (COMPLETADA)
+
+- ✅ **Sistema de Iteraciones Avanzado** - 3+ iteraciones con contexto persistente
+- ✅ **Múltiples Roles Dinámicos** - ANALYST, CRITIC, VALIDATOR, CONSENSUS
+- ✅ **Cruzamientos Críticos** - Agentes se responden entre sí para profundizar argumentos
+- ✅ **Liberación Automática de RAM** - `unload_model()` antes de cada turno
+- ✅ **Sistema de Consenso** - Búsqueda de acuerdos con soluciones propuestas
+- ✅ **API Endpoint** - `/api/v1/debate/create/iterative` para debates iterativos
+- ✅ **Maratón de 10 Debates** - Script `run_10_debates.py` para ejecución automática
+
+**Características del Sistema Iterativo:**
+- Contexto completo entre iteraciones (resúmenes acumulativos)
+- Roles cambian dinámicamente en cada fase
+- Validación de argumentos por agente VALIDATOR
+- Búsqueda de consenso final con propuestas de solución
+- Streaming en tiempo real de tokens generados
+- Guardado automático de transcripcias y reporte maestro
+
+**Uso del script de 10 debates:**
+```bash
+# Ejecutar maratón de 10 debates automáticamente
+python run_10_debates.py
+
+# Resultados en:
+# - data/debates/MASTER_REPORT_10_DEBATES_*.md
+# - data/debates/debate_debate_*.md (individuales)
+```
 
 ---
 
@@ -289,5 +320,5 @@ wscat -c ws://localhost:8000/ws/sessions/<session_id>
 ---
 
 **Autor**: Óscar Fernandez  
-**Versión**: 2.0.0  
-**Estado**: Fase 0 ✅ Completada
+**Versión**: 2.1.0  
+**Estado**: Fase 6 ✅ Completada - Sistema de Debates Iterativos Operativo

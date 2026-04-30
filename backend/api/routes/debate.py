@@ -608,6 +608,122 @@ async def create_consensus_debate(request: ConsensusRequest, background_tasks: B
 
 
 # ============================================================================
+# DEBATE ITERATIVO CON CRUZAMIENTOS
+# ============================================================================
+
+class IterativeDebateRequest(BaseModel):
+    """Request para crear debate iterativo avanzado"""
+    topic: str
+    mode: str = "iterative"
+    max_iterations: Optional[int] = 3
+    agents: Optional[List[Dict[str, Any]]] = None
+
+
+@router.post("/create/iterative", status_code=202)
+async def create_iterative_debate(request: IterativeDebateRequest, background_tasks: BackgroundTasks):
+    """
+    Crea debate ITERATIVO avanzado con múltiples fases:
+    - Análisis inicial de cada agente
+    - Cruzamientos críticos (agentes se responden entre sí)
+    - Validación de argumentos
+    - Búsqueda de consenso
+    
+    El contexto se mantiene entre iteraciones para refinamiento progresivo.
+    """
+    import uuid
+    session_id = str(uuid.uuid4())
+    
+    # Seleccionar configuración
+    if request.agents:
+        # Usar configuración personalizada del usuario
+        agents = []
+        for agent_data in request.agents:
+            agent = DebateAgent(
+                id=agent_data.get("id", f"agent_{len(agents)}"),
+                name=agent_data.get("name", "Agent"),
+                role=AgentRole(agent_data.get("role", "analyst")),
+                node=agent_data.get("node", "LOCAL"),
+                engine=agent_data.get("engine", "ollama"),
+                model=agent_data.get("model", "mistral:7b"),
+                provider=agent_data.get("provider", "mistral"),
+                system_prompt=agent_data.get("system_prompt", ""),
+                temperature=agent_data.get("temperature", 0.7),
+                max_tokens=agent_data.get("max_tokens", 800)
+            )
+            agents.append(agent)
+    else:
+        # Usar configuración iterativa por defecto
+        agents = [
+            DebateAgent(
+                id="analyst_1",
+                name="Analista Principal",
+                role=AgentRole.ANALYST,
+                node="LOCAL",
+                engine="ollama",
+                model="mistral:7b",
+                provider="mistral",
+                system_prompt="Analiza el tema desde una perspectiva integral y fundamentada.",
+                temperature=0.7,
+                max_tokens=800
+            ),
+            DebateAgent(
+                id="critic_1",
+                name="Crítico Especializado",
+                role=AgentRole.CRITIC,
+                node="LOCAL",
+                engine="ollama",
+                model="llama3:8b",
+                provider="meta",
+                system_prompt="Cuestiona los argumentos presentados con rigor constructivo.",
+                temperature=0.6,
+                max_tokens=700
+            ),
+            DebateAgent(
+                id="validator_1",
+                name="Validador",
+                role=AgentRole.VALIDATOR,
+                node="LOCAL",
+                engine="ollama",
+                model="deepseek-r1:7b",
+                provider="deepseek",
+                system_prompt="Valida la solidez lógica y factual de los argumentos.",
+                temperature=0.4,
+                max_tokens=600
+            )
+        ]
+    
+    max_iterations = request.max_iterations or 3
+    
+    async def run_iterative():
+        await debate_controller.run_iterative_debate(
+            session_id=session_id,
+            topic=request.topic,
+            agents_config=agents,
+            max_iterations=max_iterations,
+            on_iteration_complete=lambda i: print(f"Iteración {i.iteration_number} completada: {len(i.turns)} turnos, {len(i.cruzamientos)} cruzamientos"),
+            on_cruzamiento=lambda c: print(f"Cruzamiento: {c.from_agent} → {c.to_agent}")
+        )
+    
+    background_tasks.add_task(run_iterative)
+    
+    return {
+        "session_id": session_id,
+        "topic": request.topic,
+        "status": "accepted",
+        "mode": "iterative",
+        "max_iterations": max_iterations,
+        "total_agents": len(agents),
+        "features": [
+            "multi_iteration",
+            "context_persistence",
+            "critical_crossings",
+            "validation_phase",
+            "consensus_search"
+        ]
+    }
+
+
+# ============================================================================
 # ENDPOINTS DE REPUTACIÓN EMA
 # ============================================================================
 

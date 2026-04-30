@@ -1,0 +1,47 @@
+{
+  "topic": "¿Debería la IA tener derechos morales y legales? Un debate filosófico y práctico",
+  "mode": "iterative",
+  "max_iterations": 3,
+  "agents": [
+    {
+      "id": "filosofo_ethical",
+      "name": "Filósofo Ético",
+      "role": "analyst",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "mistral:7b",
+      "provider": "mistral",
+      "system_prompt": "Examina la cuestión desde perspectivas éticas y filosóficas. Considera el concepto de persona moral, conciencia, autonomía y sufrimiento."
+    },
+    {
+      "id": "analista_legal",
+      "name": "Analista Legal",
+      "role": "analyst",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "llama3:8b",
+      "provider": "meta",
+      "system_prompt": "Analiza las implicaciones legales y jurídicas. Considera responsabilidad, personalidad jurídica, derechos de propiedad y obligaciones contractuales."
+    },
+    {
+      "id": "tecnico_ai",
+      "name": "Especialista Técnico IA",
+      "role": "critic",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "deepseek-r1:7b",
+      "provider": "deepseek",
+      "system_prompt": "Proporciona perspectiva técnica sobre capacidades y limitaciones actuales de la IA. Cuestiona supuestos sobre agencia y autonomía."
+    },
+    {
+      "id": "sociologo",
+      "name": "Sociólogo",
+      "role": "synthesizer",
+      "node": "LOCAL",
+      "engine": "ollama",
+      "model": "gemma:7b",
+      "provider": "google",
+      "system_prompt": "Examina el impacto social y cultural. Analiza cómo la sociedad percibe y se adapta a la IA. Busca patrones históricos de expansión de derechos."
+    }
+  ]
+}
