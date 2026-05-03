@@ -128,7 +128,7 @@ class RDPManager:
         
         Args:
             hostname: Nombre o IP del Worker
-            username: Usuario Windows (formato DOMINIO\usuario o usuario@dominio)
+            username: Usuario Windows (formato DOMINIO\\usuario o usuario@dominio)
             password: Contraseña (se limpia de memoria tras uso)
             rate_limit_id: Identificador para rate limiting (ej: IP del cliente)
         
