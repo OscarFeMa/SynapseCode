@@ -84,6 +84,13 @@ class Settings(BaseSettings):
     WEB_AGENT_SITES: str = "chat.openai.com,claude.ai,gemini.google.com"
     WEB_AGENT_SESSION_DIR: str = "./data/browser_sessions"
     
+    # ─── RDP Manager (Wake-on-RDP para Worker) ──────────────────
+    RDP_ENABLED: bool = True
+    RDP_WORKER_HOSTNAME: str = "makederpc"
+    RDP_WORKER_USERNAME: str = "MAKEDER\\maked"
+    RDP_WORKER_PASSWORD: str = "DNIcxwcaqza4"
+    RDP_RATE_LIMIT_SECONDS: int = 60  # Mínimo tiempo entre wakes
+    
     # ─── Supabase ─────────────────────────────────────────────
     SUPABASE_URL: Optional[str] = None
     SUPABASE_ANON_KEY: Optional[str] = None

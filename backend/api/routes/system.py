@@ -1,15 +1,16 @@
 """
 Synapse Council v3.0 - System API Routes
-Endpoints para configuración, métricas y chat directo
+Endpoints para configuración, métricas, chat directo y wake-on-RDP
 """
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field
 from typing import Optional
 import psutil
 import time
 
 from backend.config import get_settings
 from backend.engine.agent_orchestrator import AgentOrchestrator, AgentConfig
+from backend.services.rdp_manager import RDPManager, RDPSecurityError, RDPRateLimitError
 
 router = APIRouter(prefix="/system", tags=["System"])
 settings = get_settings()
@@ -43,6 +44,13 @@ class DirectChatRequest(BaseModel):
     engine: str = "groq"
     temperature: float = 0.7
     max_tokens: int = 2048
+
+
+class WakeWorkerRequest(BaseModel):
+    """Request para despertar o conectar al Worker por RDP (manual)"""
+    hostname: Optional[str] = Field(default=None, description="Hostname del Worker (usa config si no se proporciona)")
+    username: Optional[str] = Field(default=None, description="Usuario RDP (usa config si no se proporciona)")
+    password: Optional[str] = Field(default=None, description="Contraseña RDP (usa config si no se proporciona)")
 
 
 @router.get("/settings")
@@ -158,3 +166,94 @@ async def health_check_endpoint():
         "last_heartbeat": last_heartbeat,
         "transfer_speed": 0.0  # Debería medirse realmente
     }
+
+
+@router.post("/wake-worker")
+async def wake_worker_endpoint(req: WakeWorkerRequest, request: Request):
+    """
+    Abre escritorio remoto hacia el Worker (RDP manual).
+    
+    - Si no se proporcionan credenciales, usa las de configuración (.env)
+    - Rate limit: 1 llamada cada 60 segundos por IP
+    - Solo funciona en Windows (requiere mstsc.exe)
+    """
+    # Usar configuración del sistema si no se proporcionan credenciales
+    hostname = req.hostname or settings.RDP_WORKER_HOSTNAME
+    username = req.username or settings.RDP_WORKER_USERNAME
+    password = req.password or settings.RDP_WORKER_PASSWORD
+    
+    # Rate limiting por IP del cliente
+    client_ip = request.client.host if request.client else "unknown"
+    
+    try:
+        result = await RDPManager.connect_to_worker_async(
+            hostname=hostname,
+            username=username,
+            password=password,
+            rate_limit_id=client_ip
+        )
+        
+        if not result.success:
+            raise HTTPException(status_code=500, detail=result.message)
+        
+        return {
+            "success": True,
+            "message": result.message,
+            "ip": result.ip,
+            "duration_ms": result.duration_ms,
+            "timestamp": result.timestamp.isoformat() if result.timestamp else None
+        }
+        
+    except RDPSecurityError as e:
+        raise HTTPException(status_code=400, detail=f"Error de seguridad: {str(e)}")
+    except RDPRateLimitError as e:
+        raise HTTPException(status_code=429, detail=str(e))
+
+
+@router.post("/wake-worker-auto")
+async def wake_worker_auto_endpoint(request: Request):
+    """
+    Wake automático del Worker usando credenciales de configuración.
+    
+    - Usa RDP_WORKER_HOSTNAME, RDP_WORKER_USERNAME, RDP_WORKER_PASSWORD de .env
+    - Rate limit global: 1 llamada cada 60 segundos
+    - Ideal para llamadas automáticas desde SequentialDebateController
+    """
+    if not settings.RDP_ENABLED:
+        raise HTTPException(status_code=503, detail="RDP deshabilitado en configuración")
+    
+    try:
+        result = RDPManager.auto_wake_worker()
+        
+        if not result.success:
+            raise HTTPException(status_code=500, detail=result.message)
+        
+        return {
+            "success": True,
+            "message": result.message,
+            "hostname": settings.RDP_WORKER_HOSTNAME,
+            "ip": result.ip,
+            "duration_ms": result.duration_ms,
+            "config_source": "environment",
+            "timestamp": result.timestamp.isoformat() if result.timestamp else None
+        }
+        
+    except RDPRateLimitError as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
+
+
+@router.get("/rdp-status")
+async def rdp_status_endpoint():
+    """Obtiene estado de configuración RDP (sin exponer credenciales)"""
+    return {
+        "enabled": settings.RDP_ENABLED,
+        "hostname": settings.RDP_WORKER_HOSTNAME,
+        "username": settings.RDP_WORKER_USERNAME.split("\\")[-1] if "\\" in settings.RDP_WORKER_USERNAME else settings.RDP_WORKER_USERNAME,
+        "domain": settings.RDP_WORKER_USERNAME.split("\\")[0] if "\\" in settings.RDP_WORKER_USERNAME else None,
+        "rate_limit_seconds": settings.RDP_RATE_LIMIT_SECONDS,
+        "password_configured": bool(settings.RDP_WORKER_PASSWORD),
+        "platform": "windows_only"
+    }
+
