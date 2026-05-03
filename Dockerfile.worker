@@ -1,0 +1,49 @@
+# Dockerfile.worker  
+# Synapse Council Worker Node - Ollama + Modelos LLM
+# Base: NVIDIA CUDA para soporte GPU
+
+FROM nvidia/cuda:12.1-runtime-ubuntu22.04
+
+# Evitar prompts interactivos
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Instalar dependencias
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Instalar Ollama
+RUN curl -fsSL https://ollama.com/install.sh | sh
+
+# Variables de entorno para Ollama
+ENV OLLAMA_HOST=0.0.0.0:11434 \
+    OLLAMA_MODELS=/root/.ollama/models \
+    OLLAMA_KEEP_ALIVE=5m
+
+# Pre-descargar modelos comunes (opcional, acelera primer uso)
+# Se pueden comentar si se prefiere descargar bajo demanda
+RUN ollama serve & \
+    sleep 5 && \
+    ollama pull mistral:7b && \
+    ollama pull llama3:8b && \
+    ollama pull deepseek-r1:7b && \
+    ollama pull gemma:7b && \
+    ollama pull qwen:7b && \
+    pkill ollama
+
+# Puerto de Ollama
+EXPOSE 11434
+
+# Volume para modelos (persistencia)
+VOLUME ["/root/.ollama"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:11434/api/tags || exit 1
+
+# Script de inicio
+COPY scripts/start-worker.sh /start-worker.sh
+RUN chmod +x /start-worker.sh
+
+CMD ["/start-worker.sh"]

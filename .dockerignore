@@ -1,0 +1,70 @@
+# Archivos a ignorar en builds de Docker
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+
+# Entornos virtuales
+venv/
+env/
+ENV/
+.venv/
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs y datos temporales
+logs/
+*.log
+*.sqlite
+*.db-journal
+
+# Archivos de debate (grandes)
+data/debates/*.md
+data/debates/MASTER_*.md
+
+# Snapshots y backups
+SNAPSHOT_*.md
+BACKUP_*
+
+# Scripts de prueba
+scripts/test_*.py
+scripts/check_*.py
+
+# Documentación generada (ya está en repo)
+INFORME_*.md
+PROPUESTAS_*.md
+
+# Node modules (si hay frontend)
+node_modules/
+*.lock
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.docker/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
