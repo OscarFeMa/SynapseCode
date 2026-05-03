@@ -1,0 +1,190 @@
+# Synapse Council - Docker Compose
+# Orquesta Master (API) + Worker (Ollama GPU)
+# Fecha: 3 Mayo 2026
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # MASTER NODE - API REST, WebSocket, Orquestación
+  # ============================================================================
+  master:
+    build:
+      context: .
+      dockerfile: Dockerfile.master
+    container_name: synapse-master
+    restart: unless-stopped
+    
+    ports:
+      - "8000:8000"
+    
+    environment:
+      # Configuración de base de datos
+      - DATABASE_URL=sqlite+aiosqlite:///app/data/synapse.db
+      
+      # Configuración de nodos
+      - NODE_ROLE=MASTER
+      - MASTER_HOST=master
+      - MASTER_PORT=8000
+      
+      # Worker (referencia al servicio worker)
+      - WORKER_HOST=worker
+      - WORKER_OLLAMA_PORT=11434
+      - WORKER_LM_STUDIO_PORT=1234
+      - WORKER_JAN_PORT=1337
+      
+      # Supabase (opcional, para sync cloud)
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
+      
+      # Configuración general
+      - LOG_LEVEL=INFO
+      - ENABLE_WEB_AGENT=${ENABLE_WEB_AGENT:-false}
+      - WEB_AGENT_URL=${WEB_AGENT_URL:-http://webagent:8001}
+    
+    volumes:
+      # Persistencia de datos
+      - ./data:/app/data
+      - ./logs:/app/logs
+      # Configuración
+      - ./.env:/app/.env:ro
+    
+    networks:
+      - synapse-network
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    depends_on:
+      worker:
+        condition: service_healthy
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # WORKER NODE - Ollama con GPU
+  # ============================================================================
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: synapse-worker
+    restart: unless-stopped
+    
+    ports:
+      - "11434:11434"
+    
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_KEEP_ALIVE=5m
+      - OLLAMA_NUM_PARALLEL=4
+    
+    volumes:
+      # Persistencia de modelos descargados
+      - ollama-models:/root/.ollama
+      # Scripts opcionales
+      - ./scripts:/scripts:ro
+    
+    networks:
+      - synapse-network
+    
+    # Configuración GPU NVIDIA
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ============================================================================
+  # REDIS - Cache para futuras mejoras (opcional, preparado para caché)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: synapse-redis
+    restart: unless-stopped
+    
+    ports:
+      - "6379:6379"
+    
+    volumes:
+      - redis-data:/data
+    
+    networks:
+      - synapse-network
+    
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ============================================================================
+  # WEB AGENT SERVICE (Futuro - preparado para implementación)
+  # ============================================================================
+  # Descomentar cuando se implemente Web Agent
+  # webagent:
+  #   build:
+  #     context: ./backend/engine/web_agent
+  #     dockerfile: Dockerfile.webagent
+  #   container_name: synapse-webagent
+  #   restart: unless-stopped
+  #   
+  #   ports:
+  #     - "8001:8001"
+  #   
+  #   environment:
+  #     - WEB_AGENT_PORT=8001
+  #     - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+  #     - CLAUDE_SESSION=${CLAUDE_SESSION:-}
+  #   
+  #   networks:
+  #     - synapse-network
+
+# ============================================================================
+# VOLUMES PERSISTENTES
+# ============================================================================
+volumes:
+  ollama-models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/ollama-models
+  
+  redis-data:
+    driver: local
+
+# ============================================================================
+# REDES
+# ============================================================================
+networks:
+  synapse-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
