@@ -223,7 +223,13 @@ async def wake_worker_auto_endpoint(request: Request):
         raise HTTPException(status_code=503, detail="RDP deshabilitado en configuración")
     
     try:
-        result = RDPManager.auto_wake_worker()
+        # Usar método async directamente (no asyncio.run())
+        result = await RDPManager.connect_to_worker_async(
+            hostname=settings.RDP_WORKER_HOSTNAME,
+            username=settings.RDP_WORKER_USERNAME,
+            password=settings.RDP_WORKER_PASSWORD,
+            rate_limit_id="auto_wake"
+        )
         
         if not result.success:
             raise HTTPException(status_code=500, detail=result.message)
