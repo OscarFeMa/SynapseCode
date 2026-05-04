@@ -5,6 +5,7 @@ Rate limiting, CORS, seguridad.
 import time
 from typing import Dict, Optional
 from fastapi import Request, HTTPException
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import structlog
 
@@ -57,9 +58,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 ip=client_ip,
                 path=request.url.path
             )
-            raise HTTPException(
+            return JSONResponse(
                 status_code=429,
-                detail=f"Rate limit exceeded. Max {self.burst_size} requests per burst."
+                content={"detail": f"Rate limit exceeded. Max {self.burst_size} requests per burst."}
             )
         
         # Check sustained limit
@@ -69,9 +70,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 ip=client_ip,
                 path=request.url.path
             )
-            raise HTTPException(
+            return JSONResponse(
                 status_code=429,
-                detail=f"Rate limit exceeded. Max {self.requests_per_minute} requests per minute."
+                content={"detail": f"Rate limit exceeded. Max {self.requests_per_minute} requests per minute."}
             )
         
         # Record request

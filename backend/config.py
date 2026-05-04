@@ -2,10 +2,11 @@
 Synapse Council v2.0 - Configuration
 Pydantic Settings para validación de variables de entorno
 """
-from functools import lru_cache
-from typing import List, Optional, Union
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator
+from typing import List, Optional, Union
+from functools import lru_cache
+import socket
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -19,7 +20,8 @@ class Settings(BaseSettings):
     
     # ─── Rol del Nodo ─────────────────────────────────────────
     NODE_ROLE: str = Field(default="MASTER", pattern="^(MASTER|WORKER)$")
-    WORKER_HOST: Optional[str] = "192.168.1.44"  # IP del worker remoto
+    WORKER_HOST: Optional[str] = None  # IP dinámica - se resuelve via hostname
+    WORKER_HOSTNAME: str = "makederpc"  # Hostname del Worker para resolución DNS
     WORKER_OLLAMA_PORT: int = 11434
     WORKER_LM_STUDIO_PORT: int = 1234
     WORKER_JAN_PORT: int = 1337
@@ -136,27 +138,55 @@ class Settings(BaseSettings):
     def web_agent_sites_list(self) -> List[str]:
         return [site.strip() for site in self.WEB_AGENT_SITES.split(",")]
     
+    def resolve_worker_ip(self) -> Optional[str]:
+        """Resuelve la IP del Worker via DNS usando WORKER_HOSTNAME"""
+        try:
+            ip = socket.gethostbyname(self.WORKER_HOSTNAME)
+            return ip
+        except socket.gaierror:
+            return None
+    
+    def get_worker_host(self) -> Optional[str]:
+        """Obtiene la IP del Worker: usa WORKER_HOST si está seteada, sino resuelve dinámicamente"""
+        if self.WORKER_HOST:
+            return self.WORKER_HOST
+        # Resolver dinámicamente via hostname
+        resolved = self.resolve_worker_ip()
+        if resolved:
+            self.WORKER_HOST = resolved  # Cachear para esta sesión
+        return resolved
+    
     @property
     def worker_ollama_url(self) -> str:
-        if self.is_master and self.WORKER_HOST:
-            return f"http://{self.WORKER_HOST}:{self.WORKER_OLLAMA_PORT}"
+        if self.is_master:
+            host = self.get_worker_host()
+            if host:
+                return f"http://{host}:{self.WORKER_OLLAMA_PORT}"
         return self.OLLAMA_BASE_URL
     
     @property
     def worker_lm_studio_url(self) -> str:
-        if self.is_master and self.WORKER_HOST:
-            return f"http://{self.WORKER_HOST}:{self.WORKER_LM_STUDIO_PORT}"
+        if self.is_master:
+            host = self.get_worker_host()
+            if host:
+                return f"http://{host}:{self.WORKER_LM_STUDIO_PORT}"
         return self.LM_STUDIO_BASE_URL
     
     @property
     def worker_jan_url(self) -> str:
-        if self.is_master and self.WORKER_HOST:
-            return f"http://{self.WORKER_HOST}:{self.WORKER_JAN_PORT}"
+        if self.is_master:
+            host = self.get_worker_host()
+            if host:
+                return f"http://{host}:{self.WORKER_JAN_PORT}"
         return self.JAN_BASE_URL
     
     def update_worker_host(self, host: str):
         """Actualiza la IP del Worker dinámicamente en tiempo de ejecución"""
         self.WORKER_HOST = host
+    
+    def clear_worker_host_cache(self):
+        """Limpia la cache de IP del Worker para forzar re-resolución DNS"""
+        self.WORKER_HOST = None
 
 
 @lru_cache()

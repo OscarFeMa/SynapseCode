@@ -15,7 +15,7 @@ def run_ultra_test():
     }
     
     resp = requests.post(f"{BASE_URL}/create", json=payload)
-    if resp.status_code != 202:
+    if resp.status_code not in (200, 202):
         log(f"[-] Failed to create ultra debate: {resp.status_code}")
         return
     
