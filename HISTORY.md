@@ -8,7 +8,28 @@ Synapse Council es una plataforma de razonamiento colectivo híbrido que orquest
 
 ## 🗓️ Línea Temporal de Desarrollo
 
-### **Fase 1: Arquitectura Base (Completada)**
+### **Fase 7: Cloud APIs y Web Agent (Completada - v2.2)**
+
+#### Mayo 2026: APIs Cloud Gratuitas + Worker Auto-Management
+- ✅ **Groq Cloud**: Integración con Llama 3.1, Llama 3.3, Qwen3
+- ✅ **Google Gemini**: Integración con Gemini 2.5 Flash y 2.0 Flash
+- ✅ **Web Agent v2**: 10 sitios de IA soportados con stealth anti-detección
+- ✅ **Chrome nativo**: Web Agent usa Chrome del sistema con sesiones guardadas
+- ✅ **WorkerServiceManager**: Detección y lanzamiento automático de servicios
+- ✅ **Port forwarding**: LM Studio accesible desde la red vía netsh
+- ✅ **Worker autostart**: Script de inicio automático para Ollama + LM Studio + Jan
+- ✅ **Asistente API keys**: Script interactivo para obtener claves gratuitas
+- ✅ **TaskManager**: Sistema de background tasks con retry y configuración
+- ✅ **Hybrid Memory v2**: Sync a Supabase con fallback
+- ✅ **QualityMonitor**: Filtro de respuestas de baja calidad
+- ✅ **Fix OpenRouter URL**: Corrección de doble `/v1/`
+- ✅ **Fix Gemini parser**: Streaming multilínea JSON
+- ✅ **Fix Groq model**: Actualización a `llama-3.1-8b-instant`
+- ✅ **Fix History list**: Response key corregida
+- ✅ **Limpieza general**: 232 MB liberados, 150+ archivos obsoletos eliminados
+- ✅ **Seguridad**: API keys redactadas del historial git
+
+---**
 
 #### Semanas 1-2: Infraestructura
 - ✅ Setup de proyecto FastAPI
@@ -355,6 +376,7 @@ POST /api/v1/debate/consensus/create
 
 ---
 
-**Versión actual:** v2.0.0  
-**Última actualización:** 2025-04-25  
+**Versión actual:** v2.2.0  
+**Última actualización:** 2026-05-12  
+**Repositorio:** https://github.com/OscarFeMa/SynapseCode  
 **Estado:** Production Ready ✅

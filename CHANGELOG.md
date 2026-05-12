@@ -7,7 +7,63 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ---
 
-## [2.1.0] - 2026-04-30
+## [2.2.0] - 2026-05-12
+
+### 🚀 Añadido (Added)
+
+#### APIs Cloud Gratuitas
+- **Groq Cloud** — `llama-3.1-8b-instant`, `llama-3.3-70b-versatile`, `qwen3-32b`
+- **Google Gemini** — `gemini-2.5-flash`, `gemini-2.0-flash` (60 req/min)
+- **Asistente de API keys** — `scripts/get_free_apis.py` guía registro en 5 servicios gratuitos
+- **OpenRouter** — URL corregida, 29 modelos gratuitos disponibles
+
+#### Web Agent Mejorado
+- **10 sitios soportados**: ChatGPT, Claude, Gemini, DeepSeek, Perplexity, Grok, Mistral, Meta AI, HuggingChat, You.com
+- **Modo stealth** anti-detección vía `playwright-stealth`
+- **Chrome nativo**: usa Chrome del sistema con sesiones guardadas
+- **Asistente de setup**: `scripts/setup_web_sessions.py` con menú interactivo
+
+#### Worker Service Manager
+- **`WorkerServiceManager`** (`backend/engine/worker_launcher.py`): Detecta servicios caídos en el Worker y los lanza automáticamente
+- **Port forwarding**: `netsh` para exponer LM Studio (:1234) a la red
+- **Auto-start script**: `scripts/worker_autostart.bat` para inicio automático de Ollama + LM Studio + Jan
+
+#### Integraciones Completas
+- **TaskManager**: Sistema de background tasks con retry y configuración por tarea
+- **Hybrid Memory V2**: Sync a Supabase vía task_manager con fallback
+- **QualityMonitor**: Filtro de respuestas de baja calidad en `build_context_prompt()`
+- **ReputationManager**: `submit_reputation_update()` vía task_manager tras cada turno
+- **ConvergenceEvaluator**: Evaluación por turno con early stop
+- **Tribunal**: Integrado en flujo de debate secuencial e iterativo
+
+### 🔧 Mejoras Técnicas
+
+- **Gestor HTTP centralizado** (`http_client_manager.py`) con pool de conexiones
+- **Retry con backoff exponencial** en adapters Groq, Gemini y base
+- **Soporte multi-engine cloud**: groq, gemini, deepseek, openrouter en direct_chat
+- **OpenRouter lazy init**: Property-based para evitar conexiones innecesarias
+- **Rate limiting mejorado**: 120 req/min, burst 60, cleanup cada 300s
+- **Middleware de seguridad**: Orden corregido (CORS después de seguridad)
+- **Liveness/Readiness endpoints**: `/health/live` y `/health/ready`
+- **DB health check real**: `SELECT 1` en cada health check
+
+### 🐛 Corregido (Fixed)
+
+- **OpenRouter URL**: Doble `/v1/` en endpoint corregido
+- **Gemini parser**: Streaming multilínea JSON corregido
+- **Groq model**: `llama3-8b-8192` descontinuado → `llama-3.1-8b-instant`
+- **History list**: Response key `debates` → `sessions` para coincidir con modelo
+- **DeepSeek error handling**: Mensajes de error silenciosos → visibles
+- **Puerto LM Studio**: Corregido a 1235 donde funciona realmente
+
+### 🧹 Limpieza
+
+- **232 MB liberados**: build/, dist/, node_modules/, .claude/, __pycache__
+- **150+ archivos eliminados**: test JSONs, test_venv/, web_interface/, scripts obsoletos
+- **API keys redactadas** del historial git (filter-branch)
+- **Documentación antigua** movida a docs/old/
+
+---
 
 ### 🚀 Añadido (Added)
 
