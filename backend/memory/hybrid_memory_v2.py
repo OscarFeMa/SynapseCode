@@ -25,7 +25,7 @@ class HybridMemoryV2:
         self.supabase = get_supabase_service()
         self._queue: asyncio.Queue = asyncio.Queue()
         self._task: Optional[asyncio.Task] = None
-        self._enabled: bool = True
+        self._enabled: bool = self.supabase.enabled
         self._stats = {
             'queued': 0,
             'synced': 0,
@@ -67,7 +67,7 @@ class HybridMemoryV2:
         Nunca lanza excepción al caller.
         """
         if not self._enabled:
-            return
+            return  # Supabase no configurado, salir silenciosamente
         
         try:
             data = self._build_data(session, session_id, mode)

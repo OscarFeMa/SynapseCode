@@ -19,7 +19,6 @@ from backend.adapters.openrouter import OpenRouterClient
 from backend.config import get_settings
 from backend.database.local_db import AsyncSessionLocal
 from backend.database.models import SequentialDebate, SequentialDebateTurn
-from backend.services.supabase_sync import get_supabase_service
 from backend.engine.tribunal import TribunalCouncil
 from backend.engine.convergence import ConvergenceEvaluator
 from backend.engine.quality_monitor import is_response_usable, evaluate_response
@@ -29,7 +28,15 @@ from backend.engine.task_manager import task_manager, submit_reputation_update, 
 
 settings = get_settings()
 logger = structlog.get_logger()
-supabase_service = get_supabase_service()
+
+# Lazy init: solo se crea el servicio si SUPABASE_ENABLED=true y hay URL/key
+_supabase_service = None
+def _get_supabase_service():
+    global _supabase_service
+    if _supabase_service is None:
+        from backend.services.supabase_sync import get_supabase_service
+        _supabase_service = get_supabase_service()
+    return _supabase_service
 
 # Directorio para transcripts
 TRANSCRIPTS_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'debates')
@@ -516,7 +523,7 @@ class SequentialDebateController:
                 try:
                     from backend.engine.task_manager import submit_supabase_sync
                     await submit_supabase_sync(
-                        supabase_service=supabase_service,
+                        supabase_service=_get_supabase_service(),
                         debate_data={"id": session_id, "session": session, "mode": mode}
                     )
                 except Exception as e:
@@ -1015,7 +1022,11 @@ JSON:"""
             return []
     
     async def _sync_to_supabase(self, session: DebateSession, session_id: str, mode: str = "local_only"):
-        """Sincroniza debate con Supabase en background"""
+        """Sincroniza debate con Supabase en background. No-op si Supabase no está configurado."""
+        svc = _get_supabase_service()
+        if not svc.enabled:
+            return  # Supabase no configurado, salir silenciosamente
+        
         try:
             # Preparar datos para sincronización
             debate_data = {
@@ -1056,7 +1067,7 @@ JSON:"""
             }
             
             # Sincronizar
-            result = await supabase_service.sync_debate(debate_data)
+            result = await svc.sync_debate(debate_data)
             
             if result.get("synced"):
                 logger.info("sequential_debate.supabase_synced",

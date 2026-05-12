@@ -27,7 +27,14 @@ class SupabaseSyncService:
     def __init__(self):
         self.url = settings.SUPABASE_URL
         self.key = settings.SUPABASE_ANON_KEY
-        self.enabled = settings.SUPABASE_ENABLED and self.url and self.key
+        # Detectar placeholders y tratar como "no configurado"
+        is_placeholder = (
+            "CHANGEME" in (self.url or "") 
+            or "CHANGEME" in (self.key or "")
+            or not self.url
+            or not self.key
+        )
+        self.enabled = settings.SUPABASE_ENABLED and not is_placeholder
         
     def _get_client(self) -> httpx.AsyncClient:
         """Obtiene cliente HTTP persistente gestionado"""
