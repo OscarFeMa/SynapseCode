@@ -222,4 +222,4 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ---
 
 **Autor**: Óscar Fernandez  
-**Repositorio**: https://github.com/OscarFeMa/SynapseIA
+**Repositorio**: https://github.com/OscarFeMa/SynapseCode
