@@ -3,10 +3,14 @@ Synapse Council v2.0 - Base Adapter
 Clase base para clientes OpenAI-compatible (LM Studio, Jan, OpenRouter)
 Elimina duplicación de lógica SSE entre adaptadores.
 """
+import asyncio
 import json
 import httpx
+import structlog
 from typing import Dict, Any, Optional, AsyncGenerator, List
 from abc import ABC, abstractmethod
+
+logger = structlog.get_logger()
 
 
 class BaseOpenAICompatibleClient(ABC):
@@ -79,43 +83,70 @@ class BaseOpenAICompatibleClient(ABC):
         headers = self._build_headers()
         client = self.client
         
-        try:
-            if stream:
-                async with client.stream(
-                    "POST",
-                    f"{self.base_url}/v1/chat/completions",
-                    json=payload,
-                    headers=headers
-                ) as response:
-                    async for line in response.aiter_lines():
-                        if not line.startswith("data: "):
+        retry_delay = 2.0
+        
+        for attempt in range(self.max_retries + 1):
+            try:
+                if stream:
+                    async with client.stream(
+                        "POST",
+                        f"{self.base_url}/v1/chat/completions",
+                        json=payload,
+                        headers=headers
+                    ) as response:
+                        if response.status_code == 429:
+                            if attempt < self.max_retries:
+                                logger.warning("openai_base.rate_limit_stream", attempt=attempt+1, wait=retry_delay, url=self.base_url)
+                                await asyncio.sleep(retry_delay)
+                                retry_delay *= 2
+                                continue
+                        
+                        response.raise_for_status()
+                        async for line in response.aiter_lines():
+                            if not line.startswith("data: "):
+                                continue
+                            data_str = line[6:]  # Remover "data: "
+                            if data_str.strip() == "[DONE]":
+                                break
+                            try:
+                                data = json.loads(data_str)
+                                choices = data.get("choices", [])
+                                if choices:
+                                    delta = choices[0].get("delta", {})
+                                    content = delta.get("content")
+                                    if content:
+                                        yield content
+                            except (json.JSONDecodeError, KeyError, IndexError):
+                                continue
+                        return
+                else:
+                    response = await client.post(
+                        f"{self.base_url}/v1/chat/completions",
+                        json=payload,
+                        headers=headers
+                    )
+                    if response.status_code == 429:
+                        if attempt < self.max_retries:
+                            logger.warning("openai_base.rate_limit", attempt=attempt+1, wait=retry_delay, url=self.base_url)
+                            await asyncio.sleep(retry_delay)
+                            retry_delay *= 2
                             continue
-                        data_str = line[6:]  # Remover "data: "
-                        if data_str.strip() == "[DONE]":
-                            break
-                        try:
-                            data = json.loads(data_str)
-                            choices = data.get("choices", [])
-                            if choices:
-                                delta = choices[0].get("delta", {})
-                                content = delta.get("content")
-                                if content:
-                                    yield content
-                        except (json.JSONDecodeError, KeyError, IndexError):
-                            continue
-            else:
-                response = await client.post(
-                    f"{self.base_url}/v1/chat/completions",
-                    json=payload,
-                    headers=headers
-                )
-                data = response.json()
-                choices = data.get("choices", [])
-                if choices:
-                    text = choices[0].get("message", {}).get("content", "")
-                    yield text
-        except Exception as e:
-            raise e
+                    
+                    response.raise_for_status()
+                    data = response.json()
+                    choices = data.get("choices", [])
+                    if choices:
+                        text = choices[0].get("message", {}).get("content", "")
+                        yield text
+                    return
+            except Exception as e:
+                if attempt == self.max_retries:
+                    logger.error("openai_base.request_failed_final", error=str(e), url=self.base_url)
+                    raise e
+                else:
+                    logger.warning("openai_base.request_failed_retry", attempt=attempt+1, error=str(e), url=self.base_url)
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2
     
     async def completion(
         self,

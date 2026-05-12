@@ -8,8 +8,10 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 import structlog
 
+from backend.api.websocket import websocket_manager
 from backend.engine.agent_orchestrator import AgentOrchestrator, AgentConfig
-from backend.engine.sequential_debate_controller import AgentRole, DebateTurn, DebateSession
+from backend.engine.tribunal import TribunalCouncil
+from backend.engine.debate_models import AgentRole, DebateTurn, DebateSession, DebateAgent
 from backend.database.local_db import AsyncSessionLocal
 from backend.database.models import SequentialDebate
 
@@ -23,6 +25,7 @@ class UltraDebateController:
     
     def __init__(self):
         self.orchestrator = AgentOrchestrator()
+        self.tribunal = TribunalCouncil()
         self.active_sessions: Dict[str, DebateSession] = {}
 
     async def create_ultra_debate(self, topic: str) -> str:
@@ -74,14 +77,25 @@ class UltraDebateController:
                 for stage_idx, stage in enumerate(self.stages):
                     logger.info("ultra_debate.stage_start", stage=stage["name"], stage_idx=stage_idx, num_agents=len(stage["agents"]))
                     
+                    # Notificar inicio de etapa vía WebSocket
+                    await websocket_manager.send_event(
+                        session_id=session_id,
+                        event_type="stage_start",
+                        payload={
+                            "stage_name": stage["name"],
+                            "stage_index": stage_idx,
+                            "total_stages": len(self.stages)
+                        }
+                    )
+                    
                     # Construir prompt basado en el historial
                     logger.info("ultra_debate.building_context", session_id=session_id, turns_in_session=len(session.turns))
                     context = self._build_stage_context(session)
                     logger.info("ultra_debate.context_built", context_length=len(context))
                     
-                    # Función helper para llamar a agente con su propia sesión
+                    # Función helper para llamar a agente con su propia sesión de BD
                     async def call_with_own_session(agent_cfg, s_prompt, u_prompt):
-                        async with AsyncSessionLocal() as session:
+                        async with AsyncSessionLocal() as db:
                             return await self.orchestrator.call_agent(
                                 session_id=session_id,
                                 round_id=session_id,
@@ -90,7 +104,7 @@ class UltraDebateController:
                                 config=agent_cfg,
                                 system_prompt=s_prompt,
                                 user_prompt=u_prompt,
-                                db_session=session
+                                db_session=db
                             )
 
                     # Preparar tareas
@@ -116,13 +130,17 @@ class UltraDebateController:
                     
                     # Guardar turnos en la sesión (para contexto acumulado)
                     for agent_cfg, result in zip(stage["agents"], results):
-                        # Crear un objeto compatible con DebateAgent para el turno
-                        from backend.engine.sequential_debate_controller import DebateAgent, AgentRole
+                        # Mapear rol basado en el nombre del agente o etapa
+                        role = AgentRole.ANALYST
+                        if "proposer" in agent_cfg.slot: role = AgentRole.ANALYST
+                        elif "refiner" in agent_cfg.slot: role = AgentRole.REFINER
+                        elif "critic" in agent_cfg.slot: role = AgentRole.CRITIC
+                        elif "synthesizer" in agent_cfg.slot: role = AgentRole.SYNTHESIZER
                         
                         agent_obj = DebateAgent(
                             id=agent_cfg.slot,
                             name=agent_cfg.role_label,
-                            role=AgentRole.ANALYST, # Simplificado para Ultra
+                            role=role,
                             node=agent_cfg.node,
                             engine=agent_cfg.engine,
                             model=agent_cfg.model,
@@ -141,9 +159,76 @@ class UltraDebateController:
                             status=result.status
                         )
                         session.turns.append(turn)
+                        
+                        # Emitir evento de turno completado vía WebSocket
+                        await websocket_manager.send_event(
+                            session_id=session_id,
+                            event_type="turn_completed",
+                            payload={
+                                "turn_number": turn.turn_number,
+                                "agent_name": turn.agent.name,
+                                "model": turn.agent.model,
+                                "response": turn.response_received,
+                                "stage": stage["name"]
+                            }
+                        )
+                
+                # 2. Ejecutar Tribunal de Magistrados (Fase Final de Ultra-Crossing)
+                logger.info("ultra_debate.tribunal_start", session_id=session_id)
+                
+                # Construir síntesis local para el tribunal
+                local_synthesis_parts = []
+                for turn in session.turns:
+                    if turn.status == "completed":
+                        local_synthesis_parts.append(f"### {turn.agent.name}:\n{turn.response_received}")
+                local_synthesis = "\n\n".join(local_synthesis_parts)
+                
+                try:
+                    # Callback para el WebSocket desde el Tribunal
+                    on_tribunal_event = websocket_manager.create_event_callback(session_id)
+                    
+                    async with AsyncSessionLocal() as db_session:
+                        verdict = await self.tribunal.issue_verdict(
+                            session_id=session_id,
+                            round_id=session_id,
+                            round_number=1,
+                            query=topic,
+                            local_synthesis=local_synthesis,
+                            cloud_synthesis="", # Todo local en Ultra
+                            db_session=db_session,
+                            on_event=on_tribunal_event
+                        )
+                        
+                        if verdict:
+                            session.tribunal_verdict = {
+                                "verdict_text": verdict.verdict_text,
+                                "consensus_reached": verdict.consensus_reached,
+                                "evidence_score": verdict.evidence_score,
+                                "risk_score": verdict.risk_score,
+                                "alignment_score": verdict.alignment_score
+                            }
+                            session.final_verdict = verdict.verdict_text
+                            session.consensus_score = (verdict.evidence_score + verdict.risk_score + verdict.alignment_score) / 3
+                            session.convergence_level = "CONSENSUS_REACHED" if verdict.consensus_reached else "PARTIAL_CONSENSUS"
+                except Exception as e:
+                    logger.error("ultra_debate.tribunal_failed", error=str(e))
+                    if not session.final_verdict and session.turns:
+                         session.final_verdict = session.turns[-1].response_received
                 
                 session.status = "completed"
                 session.completed_at = datetime.now()
+                
+                # Emitir evento final
+                await websocket_manager.send_event(
+                    session_id=session_id,
+                    event_type="debate_completed",
+                    payload={
+                        "session_id": session_id,
+                        "status": "completed",
+                        "final_verdict": session.final_verdict,
+                        "tribunal_verdict": session.tribunal_verdict
+                    }
+                )
                 
                 # Persistir sesión final
                 await self._persist_session(session)
@@ -204,7 +289,11 @@ class UltraDebateController:
                     mode="ultra_crossing",
                     status=session.status,
                     total_turns=len(session.turns),
+                    total_tokens_in=sum(t.tokens_in for t in session.turns),
                     total_tokens_out=sum(t.tokens_out for t in session.turns),
+                    total_latency_ms=sum(t.latency_ms for t in session.turns),
+                    final_verdict=session.final_verdict,
+                    structured_report=session.tribunal_verdict, # Reutilizar como reporte
                     created_at=session.created_at,
                     completed_at=session.completed_at
                 )

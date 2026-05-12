@@ -6,19 +6,25 @@ import uuid
 from datetime import datetime
 from typing import Dict, Any, Optional, Callable, List, Tuple
 import structlog
-
+import asyncio
+from collections import defaultdict
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
+from concurrent.futures import ThreadPoolExecutor
+import threading
 
 from backend.engine.round_controller import RoundController
 from backend.engine.convergence import ConvergenceEvaluator, ConvergenceResult
-from backend.engine.reputation import ReputationManager
+from backend.engine.reputation_unified import ReputationManager
 from backend.database.supabase_client import supabase_client
 from backend.database.models import Session, Round, AgentCall, SystemEvent
 from backend.config import get_settings
 
 settings = get_settings()
 logger = structlog.get_logger()
+
+# Pool de hilos para operaciones CPU intensivas
+thread_pool = ThreadPoolExecutor(max_workers=4)
 
 
 class SessionManager:
@@ -34,6 +40,11 @@ class SessionManager:
         self.round_controller = RoundController()
         self.convergence_evaluator = ConvergenceEvaluator()
         self.reputation_manager = ReputationManager()
+        self.active_sessions: dict[str, dict] = {}
+        self.session_locks: dict[str, asyncio.Lock] = {}
+        self.session_cache = {}
+        self.cache_ttl = 300  # 5 minutes cache
+        self._cache_timestamps = {}
     
     async def create_session(
         self,
@@ -70,6 +81,9 @@ class SessionManager:
         
         db_session.add(session)
         await db_session.commit()
+        
+        # Agregar a cache inmediato
+        self._cache_session(session)
         
         logger.info(
             "session.created",

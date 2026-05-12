@@ -6,6 +6,7 @@ import json
 import httpx
 from typing import Dict, Any, Optional, AsyncGenerator
 from backend.config import get_settings
+from backend.adapters.http_client_manager import HTTPClientManager
 import structlog
 
 settings = get_settings()
@@ -14,6 +15,8 @@ logger = structlog.get_logger()
 
 class OllamaClient:
     """Cliente async para Ollama (motor local)"""
+    
+    SERVICE_NAME = "ollama"
     
     def __init__(self, base_url: Optional[str] = None):
         self.base_url = base_url or settings.OLLAMA_BASE_URL
@@ -25,14 +28,15 @@ class OllamaClient:
     @property
     def client(self) -> httpx.AsyncClient:
         """Cliente HTTPX persistente (Connection Pooling)"""
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=self.timeout)
-        return self._client
+        # Usar HTTPClientManager para gestión centralizada
+        return HTTPClientManager.get_client(
+            self.SERVICE_NAME,
+            base_url=self.base_url
+        )
     
     async def close(self):
-        """Cierra el cliente persistente explícitamente"""
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
+        """No cerramos individualmente - gestión centralizada en shutdown"""
+        pass
         
     async def health_check(self) -> Dict[str, Any]:
         """Verifica conexión con Ollama y lista modelos disponibles"""
@@ -140,7 +144,7 @@ class OllamaClient:
         Genera texto con Ollama
         Yields tokens si stream=True, o texto completo al final
         """
-        logger.info("ollama.generate.start", model=model, prompt_preview=prompt[:50])
+        logger.debug("ollama.generate.start", model=model, prompt_len=len(prompt))
         
         # Asegurar que el modelo esté cargado (especialmente para cloud models)
         await self.ensure_model_loaded(model)
@@ -157,11 +161,9 @@ class OllamaClient:
         if system:
             payload["system"] = system
         
-        logger.info("ollama.generate.payload", payload=payload)
-        
         client = self.client
         try:
-            logger.info("ollama.generate.sending_request", url=f"{self.base_url}/api/generate", payload_keys=list(payload.keys()))
+            logger.info("ollama.generate.sending_request", model=model, url=f"{self.base_url}/api/generate")
             async with client.stream(
                 "POST",
                 f"{self.base_url}/api/generate",
@@ -171,24 +173,19 @@ class OllamaClient:
                 logger.info("ollama.generate.response_started", status_code=response.status_code)
                 if stream:
                     token_count = 0
-                    line_count = 0
                     async for line in response.aiter_lines():
-                        line_count += 1
-                        logger.info("ollama.generate.line_received", line_num=line_count, line_length=len(line), line_preview=line[:100] if line else "EMPTY")
                         if line:
                             try:
                                 data = json.loads(line)
-                                logger.info("ollama.generate.line_parsed", line_num=line_count, has_response="response" in data, done=data.get("done", False), response_preview=data.get("response", "")[:50] if "response" in data else "")
                                 if "response" in data:
                                     token_count += 1
                                     yield data["response"]
                                 if data.get("done", False):
-                                    logger.info("ollama.generate.done", tokens_yielded=token_count, total_lines=line_count)
+                                    logger.info("ollama.generate.done", model=model, tokens_yielded=token_count)
                                     break
                             except json.JSONDecodeError as e:
                                 logger.warning("ollama.generate.json_decode_error", line=line[:100], error=str(e))
                                 continue
-                    logger.info("ollama.generate.stream_completed", total_tokens=token_count, total_lines=line_count)
                 else:
                     text = ""
                     async for line in response.aiter_lines():
@@ -203,7 +200,7 @@ class OllamaClient:
                                 continue
                     yield text
         except Exception as e:
-            logger.error("ollama.generate.exception", error=str(e), error_type=type(e).__name__)
+            logger.error("ollama.generate.exception", model=model, error=str(e), error_type=type(e).__name__)
             raise e
     
     async def chat(

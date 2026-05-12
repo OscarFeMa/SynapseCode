@@ -29,18 +29,26 @@ class RoundController:
     Gestiona las 4 fases con cruce híbrido Local↔Nube.
     """
     
-    # Configuración de agentes por fase (modelos disponibles en Worker)
+    # Configuración de agentes por fase (modelos disponibles en Worker y Master)
     ANALYSIS_AGENTS = [
-        AgentConfig("analyst_local_a", "LOCAL", "ollama", "tinyllama:latest", "Analista Técnico", max_tokens=1000),
+        # Todos a mistral:7b por estabilidad mientras el Worker está offline
+        AgentConfig("analyst_local_a", "LOCAL", "ollama", "mistral:7b", "Analista Técnico (Local)", max_tokens=1000),
+        AgentConfig("analyst_local_b", "LOCAL", "ollama", "mistral:7b", "Analista de Riesgos (Local)", max_tokens=1000),
+        AgentConfig("analyst_cloud_a", "CLOUD", "ollama", "llama3.2:latest", "Analista de Negocio (Master)", max_tokens=1000),
+        AgentConfig("analyst_cloud_b", "CLOUD", "ollama", "gemma2:2b", "Analista de Ética (Master)", max_tokens=1000),
     ]
     
     # Cruce híbrido: crítico local examina análisis nube y viceversa
     CRITIQUE_MAPPING = {
-        "critic_local_a": ("analyst_local_a", "LOCAL", "ollama", "Crítico Técnico", "tinyllama:latest"),
+        "critic_local_a": ("analyst_local_a", "LOCAL", "ollama", "Crítico A (Worker)", "qwen2.5:3b"),
+        "critic_local_b": ("analyst_local_b", "LOCAL", "ollama", "Crítico B (Worker)", "phi3:mini"),
+        "critic_cloud_a": ("analyst_cloud_a", "CLOUD", "ollama", "Crítico C (Master)", "phi3:latest"),
+        "critic_cloud_b": ("analyst_cloud_b", "CLOUD", "ollama", "Crítico D (Master)", "mistral:latest"),
     }
     
     SYNTHESIS_AGENTS = [
-        AgentConfig("synth_local", "LOCAL", "ollama", "tinyllama:latest", "Sintetizador Local", max_tokens=1000),
+        AgentConfig("synth_local", "LOCAL", "ollama", "deepseek-r1:7b", "Sintetizador Worker", max_tokens=1000),
+        AgentConfig("synth_cloud", "CLOUD", "ollama", "qwen2.5-coder:7b", "Sintetizador Master", max_tokens=1000),
     ]
     
     def __init__(self):
@@ -133,6 +141,7 @@ class RoundController:
                 session_id=session_id,
                 round_id=round_id,
                 round_number=round_number,
+                query=query,
                 analysis_results=analysis_results,
                 critique_results=critique_results,
                 db_session=db_session,
@@ -153,7 +162,8 @@ class RoundController:
             )
             
             tribunal_verdict = None
-            if local_synth.response and cloud_synth.response:
+            # El tribunal corre si hay al menos una síntesis (local o cloud)
+            if local_synth.response or cloud_synth.response:
                 if on_event:
                     on_event("phase_started", {"phase": "TRIBUNAL"})
                 
@@ -162,8 +172,8 @@ class RoundController:
                     round_id=round_id,
                     round_number=round_number,
                     query=query,
-                    local_synthesis=local_synth.response,
-                    cloud_synthesis=cloud_synth.response,
+                    local_synthesis=local_synth.response or "",
+                    cloud_synthesis=cloud_synth.response or "",
                     db_session=db_session,
                     on_event=on_event
                 )
@@ -246,9 +256,17 @@ class RoundController:
             prompts[config.slot] = (system_prompt, user_prompt)
         
         # Llamar en paralelo
-        def on_token(slot: str, token: str):
+        def on_token(slot: str, token: str, model_name: str, phase_name: str):
             if on_event:
-                on_event("agent_token", {"phase": "ANALYSIS", "agent": slot, "token": token})
+                on_event("agent_token", {
+                    "phase": "ANALYSIS", 
+                    "agent": slot, 
+                    "token": token,
+                    "model": model_name
+                })
+
+        # Para que el callback reciba el modelo, necesitamos ajustar AgentOrchestrator.call_agent 
+        # o envolverlo aquí. Optaré por envolverlo en AgentOrchestrator para mayor limpieza.
 
         results = await self.orchestrator.call_agents_parallel(
             session_id=session_id,
@@ -294,12 +312,19 @@ class RoundController:
                 engine=engine,
                 model=model,
                 role_label=role_label,
-                max_tokens=1000
+                max_tokens=1500
             )
             critique_configs.append(config)
         
+        # Construir texto de todos los análisis para el contexto global de los críticos
+        all_analyses_text = "\n\n".join([
+            f"--- ANÁLISIS DE {res.slot} ---\n{res.response}"
+            for res in analysis_results.values() if res.response
+        ])
+        
         # Construir prompts con el cruce
         prompts = {}
+        critique_sources: Dict[str, str] = {}
         for config in critique_configs:
             target_slot = self.CRITIQUE_MAPPING[config.slot][0]
             target_analysis = analysis_results.get(target_slot)
@@ -312,27 +337,30 @@ class RoundController:
                 )
                 continue
             
+            # Preparar contexto global excluyendo el target si se desea, 
+            # pero mejor pasarlo todo y que el modelo identifique.
+            
             user_prompt = self.prompt_builder.build_critic_prompt(
                 agent_slot=config.slot,
                 target_analysis=target_analysis.response,
+                other_analyses=all_analyses_text,
                 role_label=config.role_label,
                 max_tokens=config.max_tokens
             )
             prompts[config.slot] = ("", user_prompt)
-            
-            # Registrar cross-reference
+
             if target_analysis.call_id:
-                await self.orchestrator.create_cross_references(
-                    consumer_call_id=str(uuid.uuid4()),  # Se actualizará con el real
-                    source_call_ids=[target_analysis.call_id],
-                    context_type="CRITIQUE_INPUT",
-                    db_session=db_session
-                )
+                critique_sources[config.slot] = target_analysis.call_id
         
         # Ejecutar críticas en paralelo
-        def on_token(slot: str, token: str):
+        def on_token(slot: str, token: str, model_name: str, phase_name: str):
             if on_event:
-                on_event("agent_token", {"phase": "CRITIQUE", "agent": slot, "token": token})
+                on_event("agent_token", {
+                    "phase": phase_name, 
+                    "agent": slot, 
+                    "token": token,
+                    "model": model_name
+                })
 
         results = await self.orchestrator.call_agents_parallel(
             session_id=session_id,
@@ -344,6 +372,16 @@ class RoundController:
             db_session=db_session,
             on_agent_token=on_token
         )
+
+        for slot, result in results.items():
+            source_call_id = critique_sources.get(slot)
+            if result.call_id and source_call_id:
+                await self.orchestrator.create_cross_references(
+                    consumer_call_id=result.call_id,
+                    source_call_ids=[source_call_id],
+                    context_type="CRITIQUE_INPUT",
+                    db_session=db_session
+                )
         
         if on_event:
             for slot, result in results.items():
@@ -360,6 +398,7 @@ class RoundController:
         session_id: str,
         round_id: str,
         round_number: int,
+        query: str,
         analysis_results: Dict[str, AgentResult],
         critique_results: Dict[str, AgentResult],
         db_session: AsyncSession,
@@ -393,9 +432,10 @@ class RoundController:
         # Síntesis Local (recibe críticas de nube sobre análisis locales)
         synth_local_prompt = self.prompt_builder.build_synthesis_prompt(
             node="LOCAL",
+            query=query,
             analyses=local_analyses,
             critiques=cloud_critiques,
-            max_tokens=self.SYNTHESIS_AGENTS[0].max_tokens,
+            max_tokens=2000,
             role_label=self.SYNTHESIS_AGENTS[0].role_label
         )
         prompts["synth_local"] = ("", synth_local_prompt)
@@ -404,17 +444,23 @@ class RoundController:
         if len(self.SYNTHESIS_AGENTS) > 1:
             synth_cloud_prompt = self.prompt_builder.build_synthesis_prompt(
                 node="CLOUD",
+                query=query,
                 analyses=cloud_analyses,
                 critiques=local_critiques,
-                max_tokens=self.SYNTHESIS_AGENTS[1].max_tokens,
+                max_tokens=2000,
                 role_label=self.SYNTHESIS_AGENTS[1].role_label
             )
             prompts["synth_cloud"] = ("", synth_cloud_prompt)
         
         # Ejecutar síntesis
-        def on_token(slot: str, token: str):
+        def on_token(slot: str, token: str, model_name: str, phase_name: str):
             if on_event:
-                on_event("agent_token", {"phase": "SYNTHESIS", "agent": slot, "token": token})
+                on_event("agent_token", {
+                    "phase": phase_name, 
+                    "agent": slot, 
+                    "token": token,
+                    "model": model_name
+                })
 
         results = await self.orchestrator.call_agents_parallel(
             session_id=session_id,

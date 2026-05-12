@@ -6,6 +6,9 @@ import json
 from typing import Optional, Dict, Any
 import structlog
 import httpx
+import asyncio
+from functools import lru_cache
+import time
 
 from backend.config import get_settings
 
@@ -24,6 +27,12 @@ class SupabaseClient:
         self.url = settings.SUPABASE_URL
         self.key = settings.SUPABASE_ANON_KEY
         self.project = settings.SUPABASE_PROJECT
+        self._health_cache = {}
+        self._cache_timestamp = 0
+        self._cache_ttl = 60  # 1 minute cache
+        self._rate_limit_remaining = 1000  # Track for rate limiting
+        self._rate_limit_reset = 0
+        self._semaphore = asyncio.Semaphore(10)  # Limitar concurrencia
         
     async def elevate_verdict(
         self,
@@ -58,39 +67,40 @@ class SupabaseClient:
                 "is_notable": self._is_notable(tribunal_verdict, consensus_level),
             }
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    f"{self.url}/rest/v1/veredictos_finales",
-                    json=payload,
-                    headers={
-                        "apikey": self.key,
-                        "Authorization": f"Bearer {self.key}",
-                        "Content-Type": "application/json",
-                        "Prefer": "return=representation",
-                    }
-                )
-                
-                if response.status_code in [200, 201]:
-                    data = response.json()
-                    elevated_id = data[0].get("id") if data else None
-                    
-                    logger.info(
-                        "supabase.elevation_success",
-                        session_id=session_id,
-                        elevated_id=elevated_id,
-                        reason=elevation_reason
+            async with self._semaphore:  # Control de concurrencia
+                async with httpx.AsyncClient(timeout=30.0, limits=httpx.Limits(max_connections=20, max_keepalive_connections=10)) as client:
+                    response = await client.post(
+                        f"{self.url}/rest/v1/veredictos_finales",
+                        json=payload,
+                        headers={
+                            "apikey": self.key,
+                            "Authorization": f"Bearer {self.key}",
+                            "Content-Type": "application/json",
+                            "Prefer": "return=representation",
+                        }
                     )
                     
-                    return elevated_id
-                else:
-                    logger.error(
-                        "supabase.elevation_failed",
-                        session_id=session_id,
-                        status=response.status_code,
-                        response=response.text[:200]
-                    )
-                    return None
-                    
+                    if response.status_code in [200, 201]:
+                        data = response.json()
+                        elevated_id = data[0].get("id") if data else None
+                        
+                        logger.info(
+                            "supabase.elevation_success",
+                            session_id=session_id,
+                            elevated_id=elevated_id,
+                            reason=elevation_reason
+                        )
+                        
+                        return elevated_id
+                    else:
+                        logger.error(
+                            "supabase.elevation_failed",
+                            session_id=session_id,
+                            status=response.status_code,
+                            response=response.text[:200]
+                        )
+                        return None
+                        
         except Exception as e:
             logger.error(
                 "supabase.elevation_error",

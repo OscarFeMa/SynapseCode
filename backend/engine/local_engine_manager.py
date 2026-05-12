@@ -81,6 +81,44 @@ class LocalEngineManager:
             return result
         except Exception as e:
             logger.error(f"health_check_failed", engine=engine_type.value, error=str(e))
+            
+            # Auto-recuperación: intentar lanzar el servicio en el Worker (v2.2)
+            try:
+                from backend.engine.worker_launcher import worker_service_manager
+                logger.info("local_engine.attempting_service_launch", engine=engine_type.value)
+                result = await worker_service_manager.ensure_service_running(engine_type.value)
+                if result.get("success"):
+                    logger.info("local_engine.service_launched",
+                              engine=engine_type.value, action=result.get("action"))
+                    # Re-verificar salud después de lanzar
+                    try:
+                        engine = self.engines.get(engine_type)
+                        if engine:
+                            result = await engine.health_check()
+                            is_online = result.get("status") == "online"
+                            self.engine_health[engine_type] = is_online
+                            if is_online:
+                                self.engine_failures[engine_type] = 0
+                                return result
+                    except:
+                        pass
+            except ImportError:
+                # WorkerServiceManager no disponible, fallback a RDP wake
+                if settings.RDP_ENABLED:
+                    try:
+                        from backend.services.rdp_manager import RDPManager
+                        logger.info("local_engine.attempting_auto_wake", engine=engine_type.value)
+                        await RDPManager.connect_to_worker_async(
+                            hostname=settings.RDP_WORKER_HOSTNAME,
+                            username=settings.RDP_WORKER_USERNAME,
+                            password=settings.RDP_WORKER_PASSWORD,
+                            rate_limit_id="health_auto_wake"
+                        )
+                    except Exception as wake_err:
+                        logger.warning("local_engine.auto_wake_failed", error=str(wake_err))
+            except Exception as launch_err:
+                logger.warning("local_engine.service_launch_failed", error=str(launch_err))
+
             self.engine_health[engine_type] = False
             self._record_failure(engine_type)
             return {"status": "error", "error": str(e)}

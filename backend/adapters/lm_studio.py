@@ -11,7 +11,7 @@ settings = get_settings()
 
 
 class LMStudioClient(BaseOpenAICompatibleClient):
-    """Cliente async para LM Studio (API OpenAI-compatible en puerto 1234)"""
+    """Cliente async para LM Studio (API OpenAI-compatible en puerto 1234/1235)"""
     
     def __init__(self, base_url: Optional[str] = None):
         super().__init__(

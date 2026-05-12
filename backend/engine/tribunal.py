@@ -66,14 +66,14 @@ class TribunalCouncil:
     
     MAX_ITERATIONS = 3
     
-    # Configuración de magistrados (todos LOCAL en PC B)
+    # Configuración de magistrados
     MAGISTRATES = {
         "evidence": AgentConfig(
             slot="magistrate_evidence",
             node="LOCAL",
             engine="ollama",
-            model="llama3.2:latest",
-            role_label="Magistrado de Evidencias",
+            model="llama3.1:8b",
+            role_label="Magistrado de Evidencias (Worker)",
             temperature=0.2,
             max_tokens=1500
         ),
@@ -82,16 +82,16 @@ class TribunalCouncil:
             node="LOCAL",
             engine="ollama",
             model="mistral:7b",
-            role_label="Magistrado de Riesgos",
+            role_label="Magistrado de Riesgos (Worker)",
             temperature=0.3,
             max_tokens=1500
         ),
         "alignment": AgentConfig(
             slot="magistrate_alignment",
-            node="LOCAL",
+            node="CLOUD",
             engine="ollama",
             model="llama3.2:latest",
-            role_label="Magistrado de Alineación",
+            role_label="Magistrado de Alineación (Master)",
             temperature=0.4,
             max_tokens=2000
         ),

@@ -11,6 +11,8 @@ import structlog
 
 from fastapi import WebSocket, WebSocketDisconnect
 
+from backend.engine.task_manager import task_manager
+
 logger = structlog.get_logger()
 
 
@@ -169,10 +171,16 @@ class WebSocketManager:
         Retorna función que puede llamarse asíncronamente desde el motor.
         """
         def callback(event_type: str, payload: Dict[str, Any]):
-            # Crear tarea asíncrona para enviar evento y guardar referencia
-            task = asyncio.create_task(
-                self.send_event(session_id, event_type, payload)
-            )
+            # Usar task_manager para mejor manejo de errores y métricas
+            # Nota: task_manager.submit requiere await, pero este callback es sync
+            # Creamos task manualmente pero con mejor gestión de errores
+            async def send_with_error_handling():
+                try:
+                    await self.send_event(session_id, event_type, payload)
+                except Exception as e:
+                    logger.debug("websocket.send_failed", session_id=session_id, error=str(e))
+            
+            task = asyncio.create_task(send_with_error_handling())
             self.background_tasks.add(task)
             task.add_done_callback(self.background_tasks.discard)
         

@@ -23,6 +23,9 @@ from backend.services.supabase_sync import get_supabase_service
 from backend.engine.tribunal import TribunalCouncil
 from backend.engine.convergence import ConvergenceEvaluator
 from backend.engine.quality_monitor import is_response_usable, evaluate_response
+from backend.engine.reputation_unified import reputation_service
+from backend.engine.intervention_taxonomy import detect_intervention_type
+from backend.engine.task_manager import task_manager, submit_reputation_update, TaskConfig
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -33,145 +36,10 @@ TRANSCRIPTS_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'd
 os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
 
 
-class AgentRole(Enum):
-    """Roles disponibles para agentes en el debate"""
-    ANALYST = "analyst"           # Analiza el tema propuesto
-    CRITIC = "critic"             # Critica el análisis anterior
-    SYNTHESIZER = "synthesizer"   # Síntesis de argumentos
-    REFINER = "refiner"           # Refina conclusiones
-    MODERATOR = "moderator"       # Moderador/veredicto final
-    VALIDATOR = "validator"       # Valida argumentos y evidencia
-    CONSENSUS = "consensus"       # Busca puntos de acuerdo
-
-
-@dataclass
-class DebateAgent:
-    """Configuración de un agente en el debate secuencial"""
-    id: str
-    name: str
-    role: AgentRole
-    node: str  # LOCAL, CLOUD
-    engine: str  # ollama, openrouter
-    model: str
-    provider: str  # meta, mistral, qwen, openrouter, etc.
-    system_prompt: str
-    temperature: float = 0.7
-    max_tokens: int = 1000
-    
-
-@dataclass
-class DebateTurn:
-    """Un turno del debate"""
-    turn_number: int
-    agent: DebateAgent
-    prompt_sent: str
-    response_received: str = ""
-    tokens_in: int = 0
-    tokens_out: int = 0
-    latency_ms: int = 0
-    quality_score: float = 1.0
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    status: str = "pending"  # pending, running, completed, failed
-
-
-@dataclass
-class CruzamientoCritico:
-    """Representa una respuesta crítica entre dos agentes"""
-    from_agent: str           # Agente que responde
-    to_agent: str             # Agente al que se responde
-    target_argument: str      # Argumento específico que se critica/valida
-    response: str             # Respuesta crítica
-    iteration: int            # Número de iteración
-    timestamp: datetime = field(default_factory=datetime.now)
-
-
-@dataclass
-class IteracionDebate:
-    """Una iteración completa del debate con múltiples fases"""
-    iteration_number: int
-    phase: str               # analysis, criticism, validation, consensus
-    turns: List[DebateTurn] = field(default_factory=list)
-    cruzamientos: List[CruzamientoCritico] = field(default_factory=list)
-    consensus_points: List[str] = field(default_factory=list)
-    disagreement_points: List[str] = field(default_factory=list)
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    
-    def get_context_summary(self) -> str:
-        """Genera un resumen del contexto acumulado en esta iteración"""
-        summary = []
-        for turn in self.turns:
-            summary.append(f"{turn.agent.name} ({turn.agent.role.value}): {turn.response_received[:200]}...")
-        return "\n\n".join(summary)
-
-
-@dataclass
-class DebateSession:
-    """Sesión completa de debate con soporte para iteraciones"""
-    id: str
-    topic: str
-    turns: List[DebateTurn] = field(default_factory=list)
-    iterations: List[IteracionDebate] = field(default_factory=list)
-    context_history: List[Dict[str, Any]] = field(default_factory=list)
-    status: str = "created"  # created, running, completed, failed
-    created_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
-    final_verdict: Optional[str] = None
-    
-    # Campos para Tribunal y Convergence (v2.1)
-    tribunal_verdict: Optional[Dict[str, Any]] = None
-    consensus_score: float = 0.0
-    convergence_level: str = 'UNKNOWN'
-    structured_report: Optional[Dict[str, Any]] = None
-    
-    # Configuración de iteraciones
-    current_iteration: int = 0
-    max_iterations: int = 3
-    consensus_reached: bool = False
-    
-    def get_iteration_context(self, iteration_num: int) -> str:
-        """Obtiene el contexto acumulado hasta una iteración específica"""
-        context_parts = []
-        for i, iteration in enumerate(self.iterations[:iteration_num], 1):
-            context_parts.append(f"=== ITERACIÓN {i} ({iteration.phase}) ===")
-            context_parts.append(iteration.get_context_summary())
-            if iteration.cruzamientos:
-                context_parts.append("--- Cruzamientos Críticos ---")
-                for cruz in iteration.cruzamientos:
-                    context_parts.append(f"{cruz.from_agent} → {cruz.to_agent}: {cruz.response[:150]}...")
-        return "\n\n".join(context_parts)
-    
-    def build_context_prompt(self, current_agent: DebateAgent) -> str:
-        """Construye el prompt con todo el contexto acumulado"""
-        lines = [
-            f"# DEBATE SECUENCIAL: {self.topic}",
-            "",
-            "## Tu Rol",
-            f"Eres: {current_agent.name}",
-            f"Rol: {current_agent.role.value}",
-            f"Modelo: {current_agent.model} ({current_agent.provider})",
-            "",
-            "## Historial del Debate"
-        ]
-        
-        for turn in self.turns:
-            if turn.status.startswith("completed"):
-                # Filtro de calidad (v2.1)
-                if not is_response_usable(turn.response_received, turn.agent.role.value):
-                    logger.warning("sequential_debate.omitting_low_quality_turn", 
-                                 turn=turn.turn_number, 
-                                 agent=turn.agent.name)
-                    continue
-
-                lines.append(f"\n### Turno {turn.turn_number}: {turn.agent.name} ({turn.agent.role.value})")
-                lines.append(f"**Modelo:** {turn.agent.model} ({turn.agent.provider})")
-                lines.append(f"\n{turn.response_received}")
-        
-        lines.append("\n" + "="*60)
-        lines.append("\n## Tu Tarea")
-        
-        return "\n".join(lines)
+from backend.engine.debate_models import (
+    AgentRole, DebateAgent, DebateTurn, 
+    CruzamientoCritico, IteracionDebate, DebateSession
+)
 
 
 class SequentialDebateController:
@@ -185,11 +53,18 @@ class SequentialDebateController:
     
     def __init__(self):
         self.local_manager = LocalEngineManager()
-        self.engine_manager = LocalEngineManager()  # Para acceso a engines por tipo
-        self.openrouter = OpenRouterClient() if settings.OPENROUTER_API_KEY else None
+        self._openrouter = None  # Lazy init
         self.active_sessions: Dict[str, DebateSession] = {}
         self.tribunal = TribunalCouncil()
         self.convergence_evaluator = ConvergenceEvaluator()
+
+    @property
+    def openrouter(self):
+        """OpenRouter client con lazy initialization"""
+        if self._openrouter is None and settings.OPENROUTER_API_KEY:
+            self._openrouter = OpenRouterClient()
+        return self._openrouter
+
         
     async def create_debate(
         self,
@@ -272,7 +147,7 @@ class SequentialDebateController:
                                    previous_model=previous_model,
                                    current_agent=agent_config.name)
                         # Obtener el cliente Ollama del engine manager
-                        ollama_client = self.engine_manager.engines.get(EngineType.OLLAMA)
+                        ollama_client = self.local_manager.engines.get(EngineType.OLLAMA)
                         if ollama_client:
                             await ollama_client.unload_model(previous_model)
                     except Exception as e:
@@ -339,15 +214,14 @@ class SequentialDebateController:
                     
                     # Actualizar reputación EMA (en background, nunca bloquea)
                     try:
-                        from backend.engine.reputation_manager import reputation_manager
-                        from backend.engine.intervention_taxonomy import detect_intervention_type
-                        
                         intervention_type = detect_intervention_type(
                             turn.response_received,
                             agent_config.role.value
                         )
                         
-                        asyncio.create_task(reputation_manager.update_after_turn(
+                        # Usar task_manager para mejor manejo de errores
+                        await submit_reputation_update(
+                            reputation_service=reputation_service,
                             model=agent_config.model,
                             provider=agent_config.provider,
                             role=agent_config.role.value,
@@ -355,9 +229,10 @@ class SequentialDebateController:
                             latency_ms=turn.latency_ms,
                             success=True,
                             intervention_type=intervention_type
-                        ))
-                    except Exception:
-                        pass  # Silencioso - reputación no es crítica
+                        )
+                    except Exception as e:
+                        # Log error pero no propagar - reputación no es crítica
+                        logger.debug("reputation.update_failed", error=str(e), model=agent_config.model)
                     
                     logger.info("sequential_debate.turn_complete",
                                session_id=session_id,
@@ -629,13 +504,23 @@ class SequentialDebateController:
             try:
                 from backend.memory.hybrid_memory_v2 import get_hybrid_memory_v2
                 hybrid_mem = get_hybrid_memory_v2()
-                asyncio.create_task(hybrid_mem.enqueue_sync(session, session_id, mode))
-            except Exception:
+                # Usar task_manager para mejor manejo de errores
+                await task_manager.submit(
+                    lambda: hybrid_mem.enqueue_sync(session, session_id, mode),
+                    context="hybrid_memory_sync",
+                    config=TaskConfig(max_retries=2, retry_delay_seconds=1.0, log_success=False)
+                )
+            except Exception as e:
+                logger.debug("hybrid_memory.sync_failed", error=str(e), session_id=session_id)
                 # Fallback: usar método legacy si existe
                 try:
-                    asyncio.create_task(self._sync_to_supabase(session, session_id, mode))
-                except Exception:
-                    pass  # Silencioso, mode))
+                    from backend.engine.task_manager import submit_supabase_sync
+                    await submit_supabase_sync(
+                        supabase_service=supabase_service,
+                        debate_data={"id": session_id, "session": session, "mode": mode}
+                    )
+                except Exception as e:
+                    logger.debug("supabase.sync_failed", error=str(e), session_id=session_id)
             
         except Exception as e:
             session.status = "failed"
@@ -707,45 +592,81 @@ class SequentialDebateController:
         agent: DebateAgent,
         prompt: str
     ) -> Dict[str, Any]:
-        """Ejecuta agente cloud vía OpenRouter"""
-        
-        if not self.openrouter:
-            raise RuntimeError("OpenRouter not configured")
-        
+        """
+        Ejecuta agente cloud según su engine: groq, gemini, deepseek, openrouter.
+        Hace fallback a OpenRouter si el engine específico no está disponible.
+        """
         start_time = datetime.now()
-        
-        messages = [
-            {"role": "user", "content": prompt}
-        ]
-        
-        response_parts = []
+        messages = [{"role": "user", "content": prompt}]
+        response_parts: list[str] = []
         tokens_out = 0
-        
-        async for token in self.openrouter.chat_completion(
-            model=agent.model,
-            messages=messages,
-            temperature=agent.temperature,
-            max_tokens=agent.max_tokens,
-            stream=True
-        ):
-            response_parts.append(token)
-            tokens_out += 1
-        
-        end_time = datetime.now()
-        latency_ms = int((end_time - start_time).total_seconds() * 1000)
-        
+
+        # Seleccionar cliente según engine del agente
+        engine = agent.engine.lower()
+
+        async def _stream(client_generator):
+            nonlocal tokens_out
+            async for token in client_generator:
+                response_parts.append(token)
+                tokens_out += 1
+
+        try:
+            if engine == "groq" and settings.GROQ_API_KEY:
+                from backend.adapters.groq import GroqClient
+                client = GroqClient()
+                await _stream(client.chat_completion(
+                    model=agent.model, messages=messages,
+                    temperature=agent.temperature, max_tokens=agent.max_tokens, stream=True
+                ))
+
+            elif engine == "gemini" and settings.GEMINI_API_KEY:
+                from backend.adapters.gemini import GeminiClient
+                client = GeminiClient()
+                await _stream(client.chat_completion(
+                    model=agent.model, messages=messages,
+                    temperature=agent.temperature, max_tokens=agent.max_tokens, stream=True
+                ))
+
+            elif engine == "deepseek" and settings.DEEPSEEK_API_KEY:
+                from backend.adapters.deepseek import DeepSeekClient
+                client = DeepSeekClient()
+                await _stream(client.chat_completion(
+                    model=agent.model, messages=messages,
+                    temperature=agent.temperature, max_tokens=agent.max_tokens, stream=True
+                ))
+
+            elif self.openrouter:
+                # OpenRouter como default / fallback
+                await _stream(self.openrouter.chat_completion(
+                    model=agent.model, messages=messages,
+                    temperature=agent.temperature, max_tokens=agent.max_tokens, stream=True
+                ))
+
+            else:
+                raise RuntimeError(
+                    f"No cloud client available for engine='{agent.engine}'. "
+                    "Configure at least one API key (GROQ, GEMINI, DEEPSEEK, OPENROUTER)."
+                )
+
+        except Exception:
+            raise
+
+        latency_ms = int((datetime.now() - start_time).total_seconds() * 1000)
         response_text = "".join(response_parts)
-        
-        # Verificar si se generó contenido
+
         if not response_text.strip() or tokens_out == 0:
-            raise RuntimeError(f"Cloud agent {agent.model} returned empty response (no credits or model unavailable)")
-        
+            raise RuntimeError(
+                f"Cloud agent {agent.model} ({engine}) returned empty response "
+                "(quota exceeded or model unavailable)"
+            )
+
         return {
             "text": response_text,
-            "tokens_in": len(prompt.split()),
+            "tokens_in": len(prompt.split()),  # Aproximación
             "tokens_out": tokens_out,
-            "latency_ms": latency_ms
+            "latency_ms": latency_ms,
         }
+
     
     def _generate_verdict(self, session: DebateSession) -> str:
         """Genera un veredicto final del debate"""

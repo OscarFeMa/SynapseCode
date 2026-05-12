@@ -53,10 +53,22 @@ class DeepSeekClient:
         try:
             if not stream:
                 response = await self.client.post(self.base_url, json=payload, headers=headers)
+                if response.status_code != 200:
+                    err = response.json().get("error", {}).get("message", f"HTTP {response.status_code}")
+                    yield f"[Error DeepSeek: {err}]"
+                    return
                 data = response.json()
                 yield data["choices"][0]["message"]["content"]
             else:
                 async with self.client.stream("POST", self.base_url, json=payload, headers=headers) as response:
+                    if response.status_code != 200:
+                        error_body = await response.aread()
+                        try:
+                            err = json.loads(error_body).get("error", {}).get("message", f"HTTP {response.status_code}")
+                        except:
+                            err = f"HTTP {response.status_code}: {error_body.decode()[:100]}"
+                        yield f"[Error DeepSeek: {err}]"
+                        return
                     async for line in response.aiter_lines():
                         if line.startswith("data: "):
                             if "[DONE]" in line: break

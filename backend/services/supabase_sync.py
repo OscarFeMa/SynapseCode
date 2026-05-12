@@ -8,6 +8,7 @@ from datetime import datetime
 import structlog
 
 from backend.config import get_settings
+from backend.adapters.http_client_manager import HTTPClientManager, ClientConfig
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -21,25 +22,25 @@ class SupabaseSyncService:
     - sequential_debate_turns
     """
     
+    SERVICE_NAME = "supabase"
+    
     def __init__(self):
         self.url = settings.SUPABASE_URL
         self.key = settings.SUPABASE_ANON_KEY
         self.enabled = settings.SUPABASE_ENABLED and self.url and self.key
-        self.client: Optional[httpx.AsyncClient] = None
         
     def _get_client(self) -> httpx.AsyncClient:
-        """Obtiene cliente HTTP persistente"""
-        if self.client is None or self.client.is_closed:
-            self.client = httpx.AsyncClient(
-                headers={
-                    "apikey": self.key,
-                    "Authorization": f"Bearer {self.key}",
-                    "Content-Type": "application/json",
-                    "Prefer": "return=representation"
-                },
-                timeout=30.0
-            )
-        return self.client
+        """Obtiene cliente HTTP persistente gestionado"""
+        config = ClientConfig(
+            timeout=30.0,
+            headers={
+                "apikey": self.key,
+                "Authorization": f"Bearer {self.key}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation"
+            }
+        )
+        return HTTPClientManager.get_client(self.SERVICE_NAME, config=config)
     
     async def test_connection(self) -> Dict[str, Any]:
         """Prueba conexión con Supabase"""
@@ -360,8 +361,7 @@ class SupabaseSyncService:
     
     async def close(self):
         """Cierra conexión HTTP"""
-        if self.client and not self.client.is_closed:
-            await self.client.aclose()
+        await HTTPClientManager.close(self.SERVICE_NAME)
 
 
 # Singleton instance

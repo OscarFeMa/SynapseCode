@@ -2,19 +2,51 @@
 Synapse Council v3.0 - System API Routes
 Endpoints para configuración, métricas, chat directo y wake-on-RDP
 """
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 import psutil
 import time
 
+import structlog
+
 from backend.config import get_settings
 from backend.engine.agent_orchestrator import AgentOrchestrator, AgentConfig
 from backend.services.rdp_manager import RDPManager, RDPSecurityError, RDPRateLimitError
 
+logger = structlog.get_logger()
+
 router = APIRouter(prefix="/system", tags=["System"])
 settings = get_settings()
 orchestrator = AgentOrchestrator()
+
+
+LOCALHOSTS = {"127.0.0.1", "::1", "localhost"}
+
+
+async def require_admin_access(request: Request) -> None:
+    """
+    Protects operational endpoints.
+    If ADMIN_API_TOKEN is set, clients must send it in X-Admin-Token or Authorization: Bearer.
+    If no token is set, only localhost clients are allowed by default.
+    """
+    configured_token = settings.ADMIN_API_TOKEN
+    if configured_token:
+        header_token = request.headers.get("X-Admin-Token")
+        auth_header = request.headers.get("Authorization", "")
+        bearer_token = auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else None
+
+        if header_token != configured_token and bearer_token != configured_token:
+            raise HTTPException(status_code=401, detail="Invalid admin token")
+        return
+
+    if settings.ADMIN_API_LOCALHOST_ONLY:
+        client_host = request.client.host if request.client else ""
+        if client_host not in LOCALHOSTS:
+            raise HTTPException(
+                status_code=403,
+                detail="Admin API is restricted to localhost unless ADMIN_API_TOKEN is configured",
+            )
 
 
 class SettingsRequest(BaseModel):
@@ -53,39 +85,42 @@ class WakeWorkerRequest(BaseModel):
     password: Optional[str] = Field(default=None, description="Contraseña RDP (usa config si no se proporciona)")
 
 
-@router.get("/settings")
+@router.get("/settings", dependencies=[Depends(require_admin_access)])
 async def get_settings_endpoint():
     """Obtiene configuración actual del sistema"""
+    def _mask(key: str | None) -> str | None:
+        return key[:8] + "..." if key else None
+
     return {
-        # API Keys (no retornar las keys completas por seguridad)
-        openrouterKey: settings.OPENROUTER_API_KEY[:8] + "..." if settings.OPENROUTER_API_KEY else None,
-        geminiKey: settings.GEMINI_API_KEY[:8] + "..." if settings.GEMINI_API_KEY else None,
-        groqKey: settings.GROQ_API_KEY[:8] + "..." if settings.GROQ_API_KEY else None,
-        deepseekKey: settings.DEEPSEEK_API_KEY[:8] + "..." if settings.DEEPSEEK_API_KEY else None,
-        
+        # API Keys (enmascaradas por seguridad)
+        "openrouterKey": _mask(settings.OPENROUTER_API_KEY),
+        "geminiKey": _mask(settings.GEMINI_API_KEY),
+        "groqKey": _mask(settings.GROQ_API_KEY),
+        "deepseekKey": _mask(settings.DEEPSEEK_API_KEY),
+
         # Engine Configuration
-        ollamaUrl: settings.OLLAMA_BASE_URL,
-        lmStudioUrl: settings.LM_STUDIO_BASE_URL,
-        janUrl: settings.JAN_BASE_URL,
-        
+        "ollamaUrl": settings.OLLAMA_BASE_URL,
+        "lmStudioUrl": settings.LM_STUDIO_BASE_URL,
+        "janUrl": settings.JAN_BASE_URL,
+
         # Worker Configuration
-        workerHost: settings.WORKER_HOST,
-        workerOllamaPort: settings.WORKER_OLLAMA_PORT,
-        workerLmStudioPort: settings.WORKER_LM_STUDIO_PORT,
-        workerJanPort: settings.WORKER_JAN_PORT,
-        
+        "workerHost": settings.WORKER_HOST,
+        "workerOllamaPort": settings.WORKER_OLLAMA_PORT,
+        "workerLmStudioPort": settings.WORKER_LM_STUDIO_PORT,
+        "workerJanPort": settings.WORKER_JAN_PORT,
+
         # Discovery
-        discoveryPort: settings.DISCOVERY_PORT,
-        discoveryInterval: settings.DISCOVERY_INTERVAL,
-        
+        "discoveryPort": settings.DISCOVERY_PORT,
+        "discoveryInterval": settings.DISCOVERY_INTERVAL,
+
         # Features
-        webAgentEnabled: settings.WEB_AGENT_ENABLED,
-        supabaseEnabled: settings.SUPABASE_ENABLED,
-        agentReputationEnabled: settings.AGENT_REPUTATION_ENABLED
+        "webAgentEnabled": settings.WEB_AGENT_ENABLED,
+        "supabaseEnabled": settings.SUPABASE_ENABLED,
+        "agentReputationEnabled": settings.AGENT_REPUTATION_ENABLED,
     }
 
 
-@router.post("/settings")
+@router.post("/settings", dependencies=[Depends(require_admin_access)])
 async def update_settings_endpoint(req: SettingsRequest):
     """Actualiza configuración del sistema"""
     # Nota: En una implementación real, esto debería actualizar el archivo .env
@@ -93,33 +128,104 @@ async def update_settings_endpoint(req: SettingsRequest):
     return {"success": True, "message": "Settings updated (implementación pendiente)"}
 
 
-@router.post("/chat/direct")
+@router.post("/chat/direct", dependencies=[Depends(require_admin_access)])
 async def direct_chat_endpoint(req: DirectChatRequest):
-    """Chat directo a un modelo específico"""
+    """
+    Chat directo a un modelo específico (engines: groq, gemini, openrouter, deepseek).
+    """
+    system_prompt = "Eres un asistente útil. Responde de manera concisa y directa."
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": req.message},
+    ]
+
     try:
-        config = AgentConfig(
-            slot="direct_chat",
-            node="CLOUD",
-            engine=req.engine,
-            model=req.model,
-            role_label="Direct Chat",
-            temperature=req.temperature,
-            max_tokens=req.max_tokens
-        )
-        
-        response_parts = []
-        async for token in orchestrator.call_agent(
-            config=config,
-            user_prompt=req.message,
-            system_prompt="Eres un asistente útil. Responde de manera concisa y directa."
-        ):
-            response_parts.append(token)
-        
+        response_parts: list[str] = []
+
+        engine = req.engine.lower()
+
+        if engine == "groq":
+            if not settings.GROQ_API_KEY:
+                raise HTTPException(status_code=503, detail="Groq API key not configured")
+            from backend.adapters.groq import GroqClient
+            client = GroqClient()
+            async for token in client.chat_completion(
+                model=req.model,
+                messages=messages,
+                temperature=req.temperature,
+                max_tokens=req.max_tokens,
+                stream=True,
+            ):
+                response_parts.append(token)
+
+        elif engine == "gemini":
+            if not settings.GEMINI_API_KEY:
+                raise HTTPException(status_code=503, detail="Gemini API key not configured")
+            from backend.adapters.gemini import GeminiClient
+            client = GeminiClient()
+            async for token in client.chat_completion(
+                model=req.model,
+                messages=messages,
+                temperature=req.temperature,
+                max_tokens=req.max_tokens,
+                stream=True,
+            ):
+                response_parts.append(token)
+
+        elif engine == "openrouter":
+            if not settings.OPENROUTER_API_KEY:
+                raise HTTPException(status_code=503, detail="OpenRouter API key not configured")
+            from backend.adapters.openrouter import OpenRouterClient
+            client = OpenRouterClient()
+            async for token in client.chat_completion(
+                model=req.model,
+                messages=messages,
+                temperature=req.temperature,
+                max_tokens=req.max_tokens,
+                stream=True,
+            ):
+                response_parts.append(token)
+
+        elif engine == "deepseek":
+            if not settings.DEEPSEEK_API_KEY:
+                raise HTTPException(status_code=503, detail="DeepSeek API key not configured")
+            from backend.adapters.deepseek import DeepSeekClient
+            client = DeepSeekClient()
+            async for token in client.chat_completion(
+                model=req.model,
+                messages=messages,
+                temperature=req.temperature,
+                max_tokens=req.max_tokens,
+                stream=True,
+            ):
+                response_parts.append(token)
+
+        elif engine == "web_agent":
+            from backend.adapters.web_agent import WebAgentClient, SITE_CONFIGS
+            if req.model not in SITE_CONFIGS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Web Agent site '{req.model}' not supported. Use: {', '.join(SITE_CONFIGS.keys())}",
+                )
+            client = WebAgentClient()
+            response_text = await client.query(req.model, req.message)
+            response_parts.append(response_text)
+
+        else:
+            supported = "groq, gemini, openrouter, deepseek, web_agent"
+            raise HTTPException(
+                status_code=400,
+                detail=f"Engine '{req.engine}' not supported. Use: {supported}",
+            )
+
         return {
             "response": "".join(response_parts),
             "model": req.model,
-            "engine": req.engine
+            "engine": req.engine,
         }
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -168,7 +274,7 @@ async def health_check_endpoint():
     }
 
 
-@router.post("/wake-worker")
+@router.post("/wake-worker", dependencies=[Depends(require_admin_access)])
 async def wake_worker_endpoint(req: WakeWorkerRequest, request: Request):
     """
     Abre escritorio remoto hacia el Worker (RDP manual).
@@ -210,7 +316,7 @@ async def wake_worker_endpoint(req: WakeWorkerRequest, request: Request):
         raise HTTPException(status_code=429, detail=str(e))
 
 
-@router.post("/wake-worker-auto")
+@router.post("/wake-worker-auto", dependencies=[Depends(require_admin_access)])
 async def wake_worker_auto_endpoint(request: Request):
     """
     Wake automático del Worker usando credenciales de configuración.
@@ -250,7 +356,7 @@ async def wake_worker_auto_endpoint(request: Request):
         raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
 
 
-@router.get("/rdp-status")
+@router.get("/rdp-status", dependencies=[Depends(require_admin_access)])
 async def rdp_status_endpoint():
     """Obtiene estado de configuración RDP (sin exponer credenciales)"""
     return {
@@ -263,3 +369,57 @@ async def rdp_status_endpoint():
         "platform": "windows_only"
     }
 
+
+# ─── Worker Services Management ──────────────────────────────────────
+
+class WorkerServicesResponse(BaseModel):
+    services: dict
+    worker_ip: Optional[str] = None
+
+
+class WorkerLaunchRequest(BaseModel):
+    service: str  # ollama, lm_studio, jan, all
+
+
+@router.get("/worker/services",
+            dependencies=[Depends(require_admin_access)])
+async def get_worker_services():
+    """Obtiene estado de todos los servicios en el Worker"""
+    try:
+        from backend.engine.worker_launcher import worker_service_manager
+        host = await worker_service_manager.resolve_worker_ip()
+        services = await worker_service_manager.check_all_services()
+        summary = worker_service_manager.get_status_summary(services)
+        logger.info("worker.services_checked", summary=summary.replace("\n", " | "))
+        return {
+            "worker_ip": host,
+            "services": services,
+            "summary": summary,
+        }
+    except ImportError:
+        return {"error": "WorkerServiceManager no disponible"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/worker/services/launch",
+             dependencies=[Depends(require_admin_access)])
+async def launch_worker_service(req: WorkerLaunchRequest):
+    """Lanza un servicio específico en el Worker"""
+    try:
+        from backend.engine.worker_launcher import worker_service_manager
+
+        if req.service == "all":
+            results = await worker_service_manager.ensure_all_services()
+        else:
+            result = await worker_service_manager.ensure_service_running(req.service)
+            results = {req.service: result}
+
+        return {
+            "success": all(r.get("success") for r in results.values()),
+            "results": results,
+        }
+    except ImportError:
+        return {"error": "WorkerServiceManager no disponible"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

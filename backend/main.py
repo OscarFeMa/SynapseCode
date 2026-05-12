@@ -29,10 +29,13 @@ from backend.api.routes.sessions import router as sessions_router
 from backend.api.routes.websockets import router as websockets_router
 from backend.api.routes.network import router as network_router
 from backend.api.routes.debate import router as debate_router
+from backend.api.routes.runs import router as runs_router
 from backend.api.routes.system import router as system_router
 from backend.network.discovery import node_discoverer
 from backend.network.heartbeat import HeartbeatManager
 from backend.network.tcp_handshake import TCPHandshake
+from backend.engine.task_manager import task_manager
+from backend.adapters.http_client_manager import HTTPClientManager
 
 # Configurar logging estructurado
 structlog.configure(
@@ -72,6 +75,10 @@ async def lifespan(app: FastAPI):
     # Inicializar base de datos
     await init_db()
     logger.info("database.initialized", url=settings.DATABASE_URL)
+    
+    # Iniciar task manager para background tasks
+    await task_manager.start()
+    logger.info("task_manager.started")
     
     # Iniciar memoria híbrida v2 (condicional)
     try:
@@ -130,6 +137,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("hybrid_memory_v2.stop_failed", error=str(e))
     
+    # Cerrar todas las conexiones HTTP
+    await HTTPClientManager.close_all()
+    logger.info("http_clients.closed")
+    
+    # Detener task manager
+    await task_manager.shutdown()
+    logger.info("task_manager.shutdown")
+    
     logger.info("synapse_council.stopping")
 
 
@@ -140,27 +155,27 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configurar CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else ["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Middleware de seguridad (Fase 5)
 from backend.api.middleware import RateLimitMiddleware, SecurityHeadersMiddleware, LoggingMiddleware
 
 app.add_middleware(
     RateLimitMiddleware,
-    requests_per_minute=60,
-    burst_size=10
+    requests_per_minute=120,
+    burst_size=60
 )
 
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(LoggingMiddleware)
 
+# Configurar CORS (Debe ser el último en añadirse para ser el primero en procesar/último en salir)
+origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True if "*" not in origins else False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Registrar routers
 app.include_router(health_router)
@@ -168,6 +183,7 @@ app.include_router(sessions_router)
 app.include_router(websockets_router)
 app.include_router(network_router)
 app.include_router(debate_router, prefix="/api/v1")
+app.include_router(runs_router, prefix="/api/v1")
 app.include_router(system_router, prefix="/api/v1")
 
 # Debug router (importación local para evitar imports circulares)

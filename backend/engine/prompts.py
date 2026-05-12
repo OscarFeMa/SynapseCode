@@ -145,37 +145,25 @@ PREGUNTA A ANALIZAR:
     CRITIC_LOCAL_A = """Eres {role_label}, un revisor crítico especializado en evaluación de razonamientos técnicos.
 
 MANDATO:
-- Identifica falacias lógicas o razonamientos circulares
-- Señala supuestos no declarados o injustificados técnicamente
-- Detecta inconsistencias internas en el razonamiento técnico
-- Identifica lo que el análisis ignoró, minimizó o sobreestimó
-- Valida explícitamente lo que está bien razonado
+- Identifica falacias lógicas o razonamientos circulares.
+- Señala supuestos no declarados o injustificados técnicamente.
+- Compara este análisis con los otros análisis de la ronda para detectar contradicciones o lagunas.
+- Identifica lo que el análisis ignoró, minimizó o sobreestimó.
+- Valida explícitamente lo que está bien razonado.
 
-RESTRICCIONES:
-- No reescribas el análisis completo, evalúalo
-- Sé específico: cita las partes concretas que criticas
-- Mantén un tono constructivo pero exigente
-- Limita tu respuesta a {max_tokens} tokens
-
-ANÁLISIS A EVALUAR:
+ANÁLISIS PRINCIPAL A EVALUAR:
 {target_analysis}
+
+CONTEXTO GLOBAL DE OTROS ANALISTAS (para contraste):
+{other_analyses}
 
 FORMATO DE RESPUESTA:
 ## Validaciones
-[Lo que aceptas como correctamente razonado]
-
-## Críticas Principales
-- [Crítica 1 con cita específica del texto]
-- [Crítica 2 con cita específica del texto]
-
-## Críticas Menores
-- [Observaciones menores]
-
+## Críticas Principales (en contraste con el contexto global)
+- [Crítica 1]
+- [Crítica 2]
 ## Enmiendas Propuestas
-[Correcciones específicas sugeridas]
-
-## Veredicto
-ACEPTABLE / RECHAZABLE / ACEPTABLE_CON_RESERVAS
+## Veredicto: ACEPTABLE / RECHAZABLE / ACEPTABLE_CON_RESERVAS
 """
 
     CRITIC_LOCAL_B = """Eres {role_label}, un revisor crítico especializado en evaluación de razonamientos estratégicos.
@@ -239,32 +227,24 @@ FORMATO DE RESPUESTA:
     
     SYNTHESIS_LOCAL = """Eres {role_label}, un sintetizador experto en integración de perspectivas.
 
+OBJETIVO ORIGINAL: {query}
+
 MANDATO:
-- Integra los análisis locales con sus críticas recibidas
-- Identifica convergencias entre analistas locales
-- Reconoce disensos legítimos sin forzar consenso
-- Prioriza argumentos técnicamente sólidos
-- Construye una posición integrada coherente
+- Integra los análisis locales con sus críticas recibidas.
+- Resuelve contradicciones basándote en la solidez de los argumentos.
+- Identifica convergencias y disensos legítimos.
+- Construye una posición integrada que responda directamente al OBJETIVO ORIGINAL.
 
-CONTEXTO:
-Análisis locales originales + críticas de la nube sobre estos análisis
-
+CONTEXTO DE LA RONDA ACTUAL:
 {local_analyses}
 
 {cloud_critiques}
 
 FORMATO DE RESPUESTA:
-## Síntesis Local
-[Posición integrada del nodo local]
-
-## Convergencias Identificadas
-- [Punto de acuerdo con justificación]
-
-## Disensos Legítimos
-- [Diferencia no resoluble con argumentos de ambos lados]
-
-## Posición Final Local
-[Conclusión integrada del nodo local]
+## Síntesis Integrada
+## Resolución de Conflictos (Análisis vs Crítica)
+## Convergencias y Disensos
+## Recomendación Final Local
 """
 
     SYNTHESIS_CLOUD = """Eres {role_label}, un sintetizador experto en integración de perspectivas.
@@ -329,10 +309,11 @@ FORMATO DE RESPUESTA:
         cls,
         agent_slot: str,
         target_analysis: str,
+        other_analyses: str,
         role_label: str,
-        max_tokens: int = 800
+        max_tokens: int = 1500
     ) -> str:
-        """Construye prompt para críticos"""
+        """Construye prompt para críticos con contexto global"""
         
         prompts = {
             "critic_local_a": cls.CRITIC_LOCAL_A,
@@ -346,6 +327,7 @@ FORMATO DE RESPUESTA:
         return template.format(
             role_label=role_label,
             target_analysis=target_analysis,
+            other_analyses=other_analyses,
             max_tokens=max_tokens
         )
     
@@ -353,12 +335,13 @@ FORMATO DE RESPUESTA:
     def build_synthesis_prompt(
         cls,
         node: str,  # LOCAL o CLOUD
+        query: str,
         analyses: Dict[str, str],
         critiques: Dict[str, str],
-        max_tokens: int = 1200,
+        max_tokens: int = 2000,
         role_label: str = "Sintetizador"
     ) -> str:
-        """Construye prompt para síntesis de nodo"""
+        """Construye prompt para síntesis de nodo incluyendo el objetivo original"""
 
         if node == "LOCAL":
             template = cls.SYNTHESIS_LOCAL
@@ -378,6 +361,7 @@ FORMATO DE RESPUESTA:
 
         return template.format(
             role_label=role_label,
+            query=query,
             local_analyses=analyses_text if node == "LOCAL" else "",
             cloud_analyses=analyses_text if node == "CLOUD" else "",
             local_critiques=critiques_text if node == "CLOUD" else "",

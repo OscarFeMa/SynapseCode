@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     # ─── OpenRouter ───────────────────────────────────────────
     OPENROUTER_API_KEY: Optional[str] = None
     OPENROUTER_ENABLED: bool = True
-    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api"
     OPENROUTER_TIMEOUT_SECONDS: int = 90
     OPENROUTER_MAX_RETRIES: int = 2
     OPENROUTER_HTTP_REFERER: str = "http://localhost:3000"
@@ -80,17 +80,19 @@ class Settings(BaseSettings):
     
     # ─── Web Agent (Playwright) ───────────────────────────────
     WEB_AGENT_ENABLED: bool = True
-    WEB_AGENT_BROWSER: str = "chromium"
+    WEB_AGENT_BROWSER: str = "chromium"  # "chromium" | "chrome" (usa Chrome del sistema con sesiones guardadas)
     WEB_AGENT_HEADLESS: bool = True
     WEB_AGENT_TIMEOUT_SECONDS: int = 120
-    WEB_AGENT_SITES: str = "chat.openai.com,claude.ai,gemini.google.com"
+    WEB_AGENT_SITES: str = "chat.openai.com,claude.ai,gemini.google.com,chat.deepseek.com,perplexity.ai,grok.com,chat.mistral.ai,meta.ai,huggingface.co/chat,you.com"
     WEB_AGENT_SESSION_DIR: str = "./data/browser_sessions"
+    WEB_AGENT_CHROME_PATH: str = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+    WEB_AGENT_CHROME_PROFILE: str = ""  # Vacío = usa perfil por defecto del usuario
     
     # ─── RDP Manager (Wake-on-RDP para Worker) ──────────────────
     RDP_ENABLED: bool = True
     RDP_WORKER_HOSTNAME: str = "makederpc"
     RDP_WORKER_USERNAME: str = "MAKEDER\\maked"
-    RDP_WORKER_PASSWORD: str = "DNIcxwcaqza4"
+    RDP_WORKER_PASSWORD: str = ""  # DEBE configurarse en .env → RDP_WORKER_PASSWORD=...
     RDP_RATE_LIMIT_SECONDS: int = 60  # Mínimo tiempo entre wakes
     
     # ─── Supabase ─────────────────────────────────────────────
@@ -119,9 +121,13 @@ class Settings(BaseSettings):
     # ─── Servidor ─────────────────────────────────────────────
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://localhost:5173"
+    CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177,http://localhost:5178,http://localhost:5179,http://localhost:5180"
     LOG_LEVEL: str = "INFO"
     RELOAD: bool = False
+
+    # ─── Admin API ────────────────────────────────────────────
+    ADMIN_API_TOKEN: Optional[str] = None
+    ADMIN_API_LOCALHOST_ONLY: bool = True
     
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

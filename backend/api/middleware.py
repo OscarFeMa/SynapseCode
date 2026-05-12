@@ -21,17 +21,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app,
-        requests_per_minute: int = 60,
-        burst_size: int = 10
+        requests_per_minute: int = 120,
+        burst_size: int = 60
     ):
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
         self.burst_size = burst_size
-        self.requests: Dict[str, list] = {}  # IP -> list of timestamps
+        self.requests: Dict[str, list] = {}  # IP → list of timestamps
+        self._last_cleanup: float = time.time()
+        self._cleanup_interval: float = 300.0  # Limpiar IPs inactivas cada 5 min
+
+        # Rutas exentas de rate limiting
+        self._exempt_prefixes = ("/health", "/docs", "/openapi", "/redoc", "/ws", "/api/v1/health")
     
     async def dispatch(self, request: Request, call_next):
-        # Skip rate limiting for WebSocket upgrades
-        if request.url.path.startswith("/ws"):
+        # Skip rate limiting for exempt paths or OPTIONS (CORS preflight)
+        if request.method == "OPTIONS" or request.url.path.startswith(self._exempt_prefixes):
             return await call_next(request)
         
         # Get client IP
@@ -40,6 +45,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Check rate limit
         now = time.time()
         window_start = now - 60  # 1 minute window
+        burst_window_start = now - 5 # 5 second burst window
         
         # Clean old requests and count recent ones
         if client_ip in self.requests:
@@ -48,11 +54,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 if ts > window_start
             ]
             recent_count = len(self.requests[client_ip])
+            burst_count = sum(1 for ts in self.requests[client_ip] if ts > burst_window_start)
         else:
             recent_count = 0
+            burst_count = 0
         
-        # Check burst limit (immediate)
-        if recent_count >= self.burst_size:
+        # Check burst limit (immediate, per 5 seconds)
+        if burst_count >= self.burst_size:
             logger.warning(
                 "rate_limit.burst_exceeded",
                 ip=client_ip,
@@ -60,7 +68,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             )
             return JSONResponse(
                 status_code=429,
-                content={"detail": f"Rate limit exceeded. Max {self.burst_size} requests per burst."}
+                content={"detail": f"Rate limit exceeded. Max {self.burst_size} requests per burst (5s)."}
             )
         
         # Check sustained limit
@@ -79,6 +87,26 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if client_ip not in self.requests:
             self.requests[client_ip] = []
         self.requests[client_ip].append(now)
+
+        # Limpiar timestamps antiguos periódicamente (evitar memory leak)
+        # Issue: antes manteníamos IPs activas indefinidamente acumulando timestamps
+        if now - self._last_cleanup > self._cleanup_interval:
+            self._last_cleanup = now
+            cutoff = now - 120  # Ventana de 2 minutos
+            
+            # Limpiar timestamps antiguos de cada IP y eliminar IPs vacías
+            ips_to_remove = []
+            for ip, ts_list in self.requests.items():
+                # Filtrar solo timestamps recientes
+                recent_ts = [t for t in ts_list if t > cutoff]
+                if recent_ts:
+                    self.requests[ip] = recent_ts
+                else:
+                    ips_to_remove.append(ip)
+            
+            # Eliminar IPs sin actividad reciente
+            for ip in ips_to_remove:
+                del self.requests[ip]
         
         # Process request
         response = await call_next(request)

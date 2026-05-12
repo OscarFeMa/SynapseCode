@@ -2,11 +2,13 @@
 Synapse Council v2.1 - Gemini Adapter
 Cliente async para Google Gemini API (REST)
 """
+import asyncio
 import json
 import httpx
 from typing import Dict, Any, Optional, AsyncGenerator
 from backend.config import get_settings
 import structlog
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -25,6 +27,11 @@ class GeminiClient:
             self._client = httpx.AsyncClient(timeout=90.0)
         return self._client
 
+    @retry(
+        wait=wait_exponential(multiplier=2, min=2, max=10),
+        stop=stop_after_attempt(3),
+        reraise=True
+    )
     async def chat_completion(
         self,
         model: str,
@@ -61,36 +68,48 @@ class GeminiClient:
         if system_instruction:
             payload["system_instruction"] = system_instruction
 
-        # Gemini model names are used as-is (no suffix needed)
-        # Valid models: gemini-1.5-pro, gemini-1.5-flash, gemini-1.0-pro
         gemini_model = model
         endpoint = f"{gemini_model}:streamGenerateContent" if stream else f"{gemini_model}:generateContent"
         url = f"{self.base_url}/{endpoint}?key={self.api_key}"
 
+        max_retries = 3
+        retry_delay = 2.0
+
         try:
             async with self.client.stream("POST", url, json=payload) as response:
+                if response.status_code == 429:
+                    logger.warning("gemini.rate_limit_retry")
+                    raise httpx.HTTPStatusError("Rate Limit", request=response.request, response=response)
+                
                 if response.status_code != 200:
                     error_body = await response.aread()
                     logger.error("gemini.api_error", status=response.status_code, error=error_body.decode())
                     yield f"[Error Gemini API: {response.status_code}]"
                     return
 
+                buffer = ""
                 async for line in response.aiter_lines():
                     if not line: continue
+                    buffer += line.strip()
                     
-                    # Gemini retorna un array de objetos en streaming
-                    # Formato: [{"candidates": [{"content": {"parts": [{"text": "..."}]}}]}]
+                    # Intentar parsear JSON cuando tengamos un objeto completo
                     try:
-                        # Eliminar posibles comas si es un stream de JSON array
-                        clean_line = line.strip().lstrip("[").rstrip(",").rstrip("]")
-                        if not clean_line: continue
+                        # Gemini devuelve un array: [{...}, {...}]
+                        # o un solo objeto: {...}
+                        clean = buffer.lstrip("[").rstrip(",").rstrip("]")
+                        if not clean: continue
                         
-                        data = json.loads(clean_line)
+                        data = json.loads(clean)
                         if "candidates" in data:
-                            text = data["candidates"][0]["content"]["parts"][0]["text"]
-                            yield text
-                    except Exception:
-                        continue
+                            parts = data["candidates"][0]["content"]["parts"]
+                            for part in parts:
+                                if "text" in part:
+                                    yield part["text"]
+                        buffer = ""
+                    except json.JSONDecodeError:
+                        continue  # Acumular más líneas
+        except httpx.HTTPStatusError:
+            raise
         except Exception as e:
             logger.error("gemini.request_failed", error=str(e))
-            yield f"[Error de conexión con Gemini: {str(e)}]"
+            raise

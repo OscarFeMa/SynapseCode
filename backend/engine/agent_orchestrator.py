@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.engine.local_engine_manager import LocalEngineManager, EngineType
 from backend.adapters.openrouter import OpenRouterClient
 from backend.adapters.web_agent import WebAgentClient
+from backend.database.local_db import AsyncSessionLocal
 from backend.database.models import AgentCall, CrossReference
 from backend.engine.quality_monitor import evaluate_response
 from backend.engine.intervention_taxonomy import detect_intervention_type
@@ -181,9 +182,10 @@ class AgentOrchestrator:
                 # Forzar stream=True siempre para asegurar consumo completo del generador
                 logger.info("call_agent.calling_generate", model=config.model, prompt_preview=user_prompt[:50])
                 
-                # Generar sin timeout directo (el generador ya maneja sus propios timeouts)
+                # Generar con timeout para evitar bloqueos infinitos
                 token_count = 0
                 try:
+                    # Usar wait_for para timeout externo si el generador se cuelga
                     async for token in self.local_manager.generate(
                         engine_type=engine_type,
                         model=config.model,
@@ -193,6 +195,8 @@ class AgentOrchestrator:
                         max_tokens=config.max_tokens,
                         stream=True
                     ):
+                        if not token or not token.strip():
+                            continue
                         token_count += 1
                         tokens_out += 1
                         response_parts.append(token)
@@ -407,33 +411,37 @@ class AgentOrchestrator:
         on_agent_token: Optional[Callable[[str, str], None]] = None  # (slot, token)
     ) -> Dict[str, AgentResult]:
         """
-        Llama múltiples agentes secuencialmente (temporalmente para aislar problema de concurrencia)
+        Llama múltiples agentes en PARALELO con asyncio.gather().
         Retorna dict: {slot: AgentResult}
         """
 
-        output = {}
-        for config in agent_configs:
+        async def _call_one(config: AgentConfig) -> tuple[str, AgentResult]:
             system_prompt, user_prompt = prompts.get(config.slot, ("", ""))
 
             def token_callback(token: str):
                 if on_agent_token:
-                    on_agent_token(config.slot, token)
+                    on_agent_token(config.slot, token, config.model, phase)
 
-            result = await self.call_agent(
-                session_id=session_id,
-                round_id=round_id,
-                round_number=round_number,
-                phase=phase,
-                config=config,
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                db_session=db_session,
-                on_token=token_callback if on_agent_token else None
-            )
+            async with AsyncSessionLocal() as agent_db_session:
+                result = await self.call_agent(
+                    session_id=session_id,
+                    round_id=round_id,
+                    round_number=round_number,
+                    phase=phase,
+                    config=config,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    db_session=agent_db_session,
+                    on_token=token_callback if on_agent_token else None,
+                )
+            return config.slot, result
 
-            output[config.slot] = result
-
+        tasks = [_call_one(cfg) for cfg in agent_configs]
+        results = await asyncio.gather(*tasks)
+        
+        output: Dict[str, AgentResult] = {slot: res for slot, res in results}
         return output
+
     
     async def create_cross_references(
         self,

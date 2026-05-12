@@ -21,7 +21,8 @@ from backend.config import get_settings
 from backend.database.local_db import AsyncSessionLocal
 from backend.database.models import ConsensusDebate, ConsensusRound as ConsensusRoundModel, ConsensusAgentPosition
 from backend.services.supabase_sync import SupabaseSyncService
-from backend.engine.sequential_debate_controller import AgentRole, DebateAgent, TRANSCRIPTS_DIR
+from backend.engine.sequential_debate_controller import TRANSCRIPTS_DIR
+from backend.engine.debate_models import AgentRole, DebateAgent
 
 settings = get_settings()
 logger = structlog.get_logger()

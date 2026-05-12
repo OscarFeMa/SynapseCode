@@ -18,7 +18,7 @@ from backend.engine.sequential_debate_controller import (
 )
 from backend.engine.ultra_debate_controller import UltraDebateController
 
-router = APIRouter(prefix="/debate", tags=["Sequential Debate"])
+router = APIRouter(prefix="/debates", tags=["Sequential Debate"])
 
 # Controller singletons
 debate_controller = SequentialDebateController()
@@ -73,8 +73,33 @@ class DebateStatusResponse(BaseModel):
     topic: str
 
 
+class DebateCreateResponse(BaseModel):
+    session_id: str
+    topic: str
+    status: str
+    mode: str
+    total_turns: Optional[int] = None
+    max_iterations: Optional[int] = None
+    total_agents: Optional[int] = None
+    features: Optional[List[str]] = None
 
-@router.get("/list")
+
+class DebateTranscriptResponse(BaseModel):
+    transcript: str
+    source: str
+
+
+class DebateReportResponse(BaseModel):
+    session_id: str
+    structured_report: Dict[str, Any]
+    source: str
+
+
+class DebateListResponse(BaseModel):
+    count: int
+    sessions: List[Dict[str, Any]]
+
+@router.get("/list", response_model=DebateListResponse)
 async def list_debates():
     """Lista todas las sesiones de debate activas (en memoria)"""
     sessions = debate_controller.list_sessions()
@@ -229,14 +254,14 @@ async def sync_debate_to_cloud(session_id: str):
 
 
 
-@router.get("/history/list")
+@router.get("/history/list", response_model=DebateListResponse)
 async def list_debate_history(limit: int = 50):
     """Lista debates históricos desde la base de datos"""
     
     debates = await debate_controller.list_debates_from_db(limit=limit)
     return {
         "count": len(debates),
-        "debates": debates
+        "sessions": debates
     }
 
 
@@ -247,8 +272,8 @@ async def list_reputations(min_turns: int = 1) -> Dict[str, Any]:
     Requiere: AGENT_REPUTATION_ENABLED=true en .env
     """
     try:
-        from backend.engine.reputation_manager import reputation_manager
-        reps = await reputation_manager.list_all(min_turns=min_turns)
+        from backend.engine.reputation_unified import reputation_service
+        reps = await reputation_service.list_all(min_turns=min_turns)
         return {
             "status": "ok",
             "count": len(reps),
@@ -265,8 +290,8 @@ async def get_reputation(model: str, role: str) -> Dict[str, Any]:
     Obtiene reputación específica de un modelo para un rol.
     """
     try:
-        from backend.engine.reputation_manager import reputation_manager
-        rep = await reputation_manager.get_reputation(model, role)
+        from backend.engine.reputation_unified import reputation_service
+        rep = await reputation_service.get_reputation(model, role)
         
         if rep is None:
             raise HTTPException(
@@ -287,7 +312,7 @@ async def get_reputation(model: str, role: str) -> Dict[str, Any]:
 
 
 
-@router.post("/create", status_code=202)
+@router.post("/create", status_code=202, response_model=DebateCreateResponse)
 async def create_debate(request: DebateRequest, background_tasks: BackgroundTasks):
     """
     Crea y ejecuta un debate secuencial multi-modelo (Asincrono).
@@ -367,7 +392,7 @@ async def create_debate(request: DebateRequest, background_tasks: BackgroundTask
 
 
 
-@router.get("/{session_id}/report")
+@router.get("/{session_id}/report", response_model=DebateReportResponse)
 async def get_debate_report(session_id: str):
     """Obtiene el informe estructurado JSON de un debate"""
     
@@ -425,7 +450,7 @@ async def get_debate_status(session_id: str):
     )
 
 
-@router.get("/{session_id}/transcript")
+@router.get("/{session_id}/transcript", response_model=DebateTranscriptResponse)
 async def get_debate_transcript(session_id: str):
     """Obtiene la transcripción completa del debate (desde memoria o BD)"""
     
@@ -575,7 +600,7 @@ class ConsensusRequest(BaseModel):
     max_rounds: Optional[int] = 5
 
 
-@router.post("/consensus/create", status_code=202)
+@router.post("/consensus/create", status_code=202, response_model=DebateCreateResponse)
 async def create_consensus_debate(request: ConsensusRequest, background_tasks: BackgroundTasks):
     """
     Crea debate de CONSENSO (Asincrono).
@@ -619,7 +644,7 @@ class IterativeDebateRequest(BaseModel):
     agents: Optional[List[Dict[str, Any]]] = None
 
 
-@router.post("/create/iterative", status_code=202)
+@router.post("/create/iterative", status_code=202, response_model=DebateCreateResponse)
 async def create_iterative_debate(request: IterativeDebateRequest, background_tasks: BackgroundTasks):
     """
     Crea debate ITERATIVO avanzado con múltiples fases:
