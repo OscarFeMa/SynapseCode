@@ -3,193 +3,444 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Synapse Admin Panel</title>
+<title>Synapse Control Center</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; }
-  h1 { color: #f59e0b; margin-bottom: 20px; font-size: 1.5rem; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 20px; }
-  .card { background: #1e293b; border-radius: 8px; padding: 16px; border: 1px solid #334155; }
-  .card h3 { color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-  .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
-  .ok { background: #166534; color: #86efac; }
-  .warn { background: #854d0e; color: #fde68a; }
-  .err { background: #991b1b; color: #fca5a5; }
-  .skip { background: #334155; color: #cbd5e1; }
-  .service { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #334155; }
-  .service:last-child { border: 0; }
-  .service-name { font-weight: 500; }
-  .models { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
-  .model-tag { background: #334155; padding: 2px 6px; border-radius: 3px; font-size: 0.7rem; color: #cbd5e1; }
-  .error-msg { color: #fca5a5; font-size: 0.8rem; margin-top: 4px; }
-  .fix { color: #fde68a; font-size: 0.75rem; margin-top: 2px; font-style: italic; }
-  .controls { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-  button { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
-  button:hover { background: #1d4ed8; }
-  button.danger { background: #dc2626; }
-  button.danger:hover { background: #b91c1c; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #334155; }
-  th { color: #94a3b8; font-weight: 600; }
-  .last-updated { color: #64748b; font-size: 0.75rem; margin-bottom: 10px; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:system-ui,sans-serif; background:#0f172a; color:#e2e8f0; }
+  header { background:#1e293b; padding:12px 24px; display:flex; align-items:center; gap:20px; border-bottom:1px solid #334155; }
+  h1 { color:#f59e0b; font-size:1.3rem; }
+  .badge { font-size:0.75rem; padding:3px 10px; border-radius:12px; font-weight:600; }
+  .ok { background:#166534; color:#86efac; }
+  .err { background:#991b1b; color:#fca5a5; }
+  .warn { background:#854d0e; color:#fde68a; }
+  .skip { background:#334155; color:#cbd5e1; }
+  .container { display:flex; height:calc(100vh - 52px); }
+  nav { width:200px; background:#1e293b; padding:10px 0; border-right:1px solid #334155; }
+  nav a { display:block; padding:10px 20px; color:#94a3b8; text-decoration:none; font-size:0.9rem; cursor:pointer; }
+  nav a:hover, nav a.active { background:#334155; color:#f59e0b; }
+  .content { flex:1; padding:20px; overflow-y:auto; }
+  .tab { display:none; }
+  .tab.active { display:block; }
+
+  /* Dashboard cards */
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; margin-bottom:20px; }
+  .card { background:#1e293b; border-radius:8px; padding:14px; border:1px solid #334155; }
+  .card h3 { color:#94a3b8; font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+  .card .value { font-size:1.2rem; font-weight:700; }
+  .card .sub { font-size:0.75rem; color:#64748b; margin-top:4px; }
+
+  /* Forms */
+  .form-group { margin-bottom:12px; }
+  .form-group label { display:block; color:#94a3b8; font-size:0.8rem; margin-bottom:4px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width:100%; max-width:500px; padding:8px 12px; background:#334155; color:#e2e8f0;
+    border:1px solid #475569; border-radius:6px; font-size:0.9rem;
+  }
+  .form-group textarea { height:80px; font-family:monospace; }
+
+  /* Buttons */
+  .btn { padding:8px 20px; border:none; border-radius:6px; cursor:pointer; font-size:0.85rem; font-weight:600; }
+  .btn-primary { background:#2563eb; color:white; }
+  .btn-primary:hover { background:#1d4ed8; }
+  .btn-success { background:#166534; color:white; }
+  .btn-success:hover { background:#15803d; }
+  .btn-danger { background:#991b1b; color:white; }
+  .btn-sm { padding:4px 10px; font-size:0.75rem; }
+
+  /* Tables */
+  table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #334155; }
+  th { color:#94a3b8; font-weight:600; font-size:0.75rem; text-transform:uppercase; }
+  tr:hover { background:#1e293b; }
+  .clickable { cursor:pointer; }
+  .clickable:hover { color:#f59e0b; }
+
+  /* Tabs in content */
+  .sub-tabs { display:flex; gap:4px; margin-bottom:16px; border-bottom:1px solid #334155; }
+  .sub-tabs button { background:none; border:none; color:#94a3b8; padding:8px 16px; cursor:pointer; font-size:0.85rem; }
+  .sub-tabs button.active { color:#f59e0b; border-bottom:2px solid #f59e0b; }
+
+  /* Debate detail */
+  #debate-detail { background:#1e293b; border-radius:8px; padding:16px; margin-top:16px; }
+  .turn { padding:12px; margin:8px 0; background:#0f172a; border-radius:6px; border-left:3px solid #2563eb; }
+  .turn .meta { color:#64748b; font-size:0.75rem; }
+  .turn .text { margin-top:8px; white-space:pre-wrap; font-size:0.85rem; }
+
+  /* Logs */
+  #log-area { background:#0f172a; border:1px solid #334155; border-radius:6px; padding:12px; height:300px; overflow-y:auto; font-family:monospace; font-size:0.75rem; }
+  .log-info { color:#cbd5e1; }
+  .log-warn { color:#fde68a; }
+  .log-error { color:#fca5a5; }
+
+  /* Loading */
+  .loading { color:#64748b; font-style:italic; }
 </style>
 </head>
 <body>
 
-<h1>🔧 Synapse Admin Panel</h1>
-<p class="last-updated" id="lastUpdated">Cargando...</p>
+<header>
+  <h1>⚡ Synapse Control Center</h1>
+  <span id="master-badge" class="badge">Master: ⏳</span>
+  <span id="worker-badge" class="badge">Worker: ⏳</span>
+  <span style="flex:1"></span>
+  <button class="btn btn-primary btn-sm" onclick="window.open('/docs')">🌐 API</button>
+  <span id="clock" style="color:#64748b;font-size:0.8rem"></span>
+</header>
 
-<div class="controls">
-  <button onclick="refreshAll()">🔄 Refrescar</button>
-  <button onclick="testGroq()">🧪 Test Groq</button>
-  <button onclick="testGemini()">🧪 Test Gemini</button>
-  <button class="danger" onclick="clearDebates()">🗑️ Limpiar sesiones</button>
-</div>
+<div class="container">
+  <nav>
+    <a class="active" onclick="showTab('dashboard')">📊 Dashboard</a>
+    <a onclick="showTab('debates')">📋 Debates</a>
+    <a onclick="showTab('new-debate')">➕ Nuevo Debate</a>
+    <a onclick="showTab('worker')">🤖 Worker</a>
+    <a onclick="showTab('reports')">📄 Reportes</a>
+    <a onclick="showTab('logs')">📝 Logs</a>
+    <a onclick="showTab('metrics')">📈 Métricas</a>
+  </nav>
 
-<div class="grid" id="healthGrid">
-  <div class="card"><h3>Cargando health check...</h3></div>
-</div>
+  <div class="content">
 
-<div class="grid">
-  <div class="card" id="workerCard">
-    <h3>🤖 Worker Services</h3>
-    <p>Cargando...</p>
+    <!-- ─── DASHBOARD ──────────────────────────── -->
+    <div id="tab-dashboard" class="tab active">
+      <div class="grid" id="status-grid">
+        <div class="card"><h3>Cargando...</h3></div>
+      </div>
+    </div>
+
+    <!-- ─── DEBATES ────────────────────────────── -->
+    <div id="tab-debates" class="tab">
+      <div class="sub-tabs">
+        <button class="active" onclick="showDebateSub('history')">📜 Historial</button>
+        <button onclick="showDebateSub('active')">🔄 Activos</button>
+      </div>
+      <div id="debate-history">
+        <table><thead><tr><th>Tema</th><th>Estado</th><th>Turnos</th><th>Tokens</th><th>Modo</th><th>Fecha</th><th>Acción</th></tr></thead>
+        <tbody id="history-tbody"></tbody></table>
+      </div>
+      <div id="debate-active" style="display:none">
+        <table><thead><tr><th>Tema</th><th>Progreso</th><th>Turnos</th><th>Engine</th><th>Acción</th></tr></thead>
+        <tbody id="active-tbody"></tbody></table>
+      </div>
+      <div id="debate-detail" style="display:none"></div>
+    </div>
+
+    <!-- ─── NUEVO DEBATE ──────────────────────── -->
+    <div id="tab-new-debate" class="tab">
+      <h2 style="color:#f59e0b;margin-bottom:16px">➕ Nuevo Debate</h2>
+      <div class="form-group">
+        <label>Tema</label>
+        <input id="new-topic" placeholder="Ej: ¿Debe la IA tener límites éticos?">
+      </div>
+      <div class="form-group">
+        <label>Modo</label>
+        <select id="new-mode">
+          <option value="local_only">Local Only (Worker)</option>
+          <option value="standard">Standard (Mixto)</option>
+          <option value="iterative">Iterativo</option>
+          <option value="ultra_crossing">Ultra Crossing</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Engine (chat directo)</label>
+        <select id="new-engine">
+          <option value="groq">Groq (llama-3.1-8b)</option>
+          <option value="gemini">Gemini (2.5-flash)</option>
+          <option value="ollama">Ollama (local)</option>
+        </select>
+      </div>
+      <button class="btn btn-success" onclick="startDebate()">▶ Iniciar Debate</button>
+      <div id="debate-result" style="margin-top:12px"></div>
+    </div>
+
+    <!-- ─── WORKER ────────────────────────────── -->
+    <div id="tab-worker" class="tab">
+      <h2 style="color:#f59e0b;margin-bottom:16px">🤖 Worker Services</h2>
+      <div class="grid" id="worker-grid"></div>
+      <button class="btn btn-primary" onclick="launchWorker()" style="margin-top:12px">🚀 Lanzar todos</button>
+    </div>
+
+    <!-- ─── REPORTES ──────────────────────────── -->
+    <div id="tab-reports" class="tab">
+      <h2 style="color:#f59e0b;margin-bottom:16px">📄 Exportar Resultados</h2>
+      <div class="form-group">
+        <label>Session ID</label>
+        <input id="report-sid" placeholder="Pega el Session ID del debate">
+      </div>
+      <button class="btn btn-sm" style="background:#2563eb;color:white" onclick="exportReport('json')">📥 JSON</button>
+      <button class="btn btn-sm" style="background:#166534;color:white" onclick="exportReport('markdown')">📥 Markdown</button>
+      <button class="btn btn-sm" style="background:#854d0e;color:white" onclick="exportReport('pdf')">📥 PDF</button>
+      <div id="report-result" style="margin-top:12px"></div>
+    </div>
+
+    <!-- ─── LOGS ──────────────────────────────── -->
+    <div id="tab-logs" class="tab">
+      <h2 style="color:#f59e0b;margin-bottom:16px">📝 Logs del Sistema</h2>
+      <div id="log-area"></div>
+    </div>
+
+    <!-- ─── MÉTRICAS ──────────────────────────── -->
+    <div id="tab-metrics" class="tab">
+      <h2 style="color:#f59e0b;margin-bottom:16px">📈 Métricas</h2>
+      <div class="grid" id="metrics-grid"></div>
+      <pre id="metrics-detail" style="background:#1e293b;padding:16px;border-radius:8px;margin-top:12px;font-size:0.8rem"></pre>
+    </div>
+
   </div>
-  <div class="card" id="debatesCard">
-    <h3>📋 Sesiones Activas</h3>
-    <p>Cargando...</p>
-  </div>
-</div>
-
-<div class="card" id="historyCard">
-  <h3>📜 Historial de Debates</h3>
-  <p>Cargando...</p>
 </div>
 
 <script>
-const API = 'http://192.168.1.41:8000';
+const API = '';
+let logBuffer = [];
 
-async function fetchJSON(path) {
-  const r = await fetch(API + path);
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  return r.json();
+function $(id) { return document.getElementById(id); }
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  renderTab(name);
 }
 
-function statusBadge(s) {
-  if (!s) return '<span class="status err">unknown</span>';
-  if (['healthy','online','available','alive'].includes(s)) return '<span class="status ok">● ' + s + '</span>';
-  if (['degraded','error','unavailable','unconfigured'].includes(s)) return '<span class="status err">● ' + s + '</span>';
-  if (['skipped','offline','stopped'].includes(s)) return '<span class="status skip">○ ' + s + '</span>';
-  return '<span class="status warn">● ' + s + '</span>';
+function renderTab(name) {
+  if (name === 'dashboard') refreshDashboard();
+  if (name === 'debates') refreshDebates();
+  if (name === 'worker') refreshWorker();
+  if (name === 'logs') renderLogs();
+  if (name === 'metrics') refreshMetrics();
 }
 
-async function refreshAll() {
-  document.getElementById('lastUpdated').textContent = 'Actualizando: ' + new Date().toLocaleTimeString();
+function showDebateSub(name) {
+  document.querySelectorAll('#tab-debates .sub-tabs button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('debate-history').style.display = name === 'history' ? '' : 'none';
+  document.getElementById('debate-active').style.display = name === 'active' ? '' : 'none';
+  if (name === 'active') refreshActiveDebates();
+}
+
+async function api(method, path, data) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (data) opts.body = JSON.stringify(data);
+  const r = await fetch(API + path, opts);
+  const text = await r.text();
+  try { return { status: r.status, data: JSON.parse(text) }; }
+  catch { return { status: r.status, data: text }; }
+}
+
+function badge(s) {
+  if (!s) return '<span class="badge err">unknown</span>';
+  const map = { 'healthy':'ok','online':'ok','running':'ok','available':'ok','alive':'ok',
+    'error':'err','unavailable':'err','offline':'err','failed':'err',
+    'warning':'warn','degraded':'warn','skipped':'skip','stopped':'skip','unconfigured':'skip' };
+  return `<span class="badge ${map[s]||'err'}">${s}</span>`;
+}
+
+function log(type, msg) {
+  const time = new Date().toLocaleTimeString();
+  logBuffer.push({time,type,msg});
+  if (logBuffer.length > 200) logBuffer.shift();
+}
+
+// ─── DASHBOARD ──────────────────────────────────
+async function refreshDashboard() {
+  const h = await api('GET','/health');
+  document.getElementById('master-badge').innerHTML = 'Master: ' + (h.status===200 ? badge('online') : badge('error'));
   
-  try {
-    // Health check
-    const h = await fetchJSON('/health');
-    const services = h.services || {};
-    const grid = document.getElementById('healthGrid');
-    grid.innerHTML = '';
-    
-    for (const [name, data] of Object.entries(services)) {
-      const status = data.status || 'unknown';
-      const models = data.models || data.free_models || null;
-      const error = data.error || '';
-      const fix = data.suggested_fix || '';
-      const user = data.user || '';
-      
-      let modelsHtml = '';
-      if (Array.isArray(models)) {
-        modelsHtml = '<div class="models">' + models.slice(0, 5).map(m => '<span class="model-tag">' + m + '</span>').join('') + (models.length > 5 ? '<span class="model-tag">+' + (models.length-5) + '</span>' : '') + '</div>';
-      }
-      
-      grid.innerHTML += '<div class="card"><h3>' + name + '</h3>' +
-        '<div class="service"><span class="service-name">' + name + '</span> ' + statusBadge(status) + '</div>' +
-        (user ? '<div style="font-size:0.8rem;color:#94a3b8">Usuario: ' + user + '</div>' : '') +
-        (error ? '<div class="error-msg">⚠️ ' + error + '</div>' : '') +
-        (fix ? '<div class="fix">💡 ' + fix + '</div>' : '') +
-        modelsHtml + '</div>';
-    }
-    
-    // Worker services
-    try {
-      const w = await fetchJSON('/api/v1/system/worker/services');
-      const svc = w.services || {};
-      document.getElementById('workerCard').innerHTML = '<h3>🤖 Worker Services</h3>' +
-        '<div>IP: ' + (w.worker_ip || '?') + '</div>' +
-        Object.entries(svc).map(([k,v]) => '<div class="service"><span class="service-name">' + k + '</span> ' + statusBadge(v.status) + '</div>').join('');
-    } catch(e) {
-      document.getElementById('workerCard').innerHTML = '<h3>🤖 Worker Services</h3><div class="error-msg">' + e.message + '</div>';
-    }
-    
-    // Active sessions
-    try {
-      const d = await fetchJSON('/api/v1/debates/list');
-      document.getElementById('debatesCard').innerHTML = '<h3>📋 Sesiones Activas (' + d.count + ')</h3>' +
-        (d.sessions || []).map(s => '<div class="service"><span class="service-name">' + (s.topic || '').slice(0, 40) + '...</span> ' + statusBadge(s.status) + '</div>').join('') +
-        (d.count === 0 ? '<div style="color:#64748b">No hay sesiones activas</div>' : '');
-    } catch(e) {
-      document.getElementById('debatesCard').innerHTML = '<h3>📋 Sesiones Activas</h3><div class="error-msg">' + e.message + '</div>';
-    }
-    
-    // History
-    try {
-      const hist = await fetchJSON('/api/v1/debates/history/list');
-      const sessions = hist.sessions || [];
-      document.getElementById('historyCard').innerHTML = '<h3>📜 Historial de Debates (' + sessions.length + ')</h3>' +
-        '<table><tr><th>Tema</th><th>Estado</th><th>Turnos</th><th>Tokens</th><th>Fecha</th></tr>' +
-        sessions.slice(0, 20).map(s => '<tr><td>' + (s.topic || '').slice(0, 50) + '</td><td>' + statusBadge(s.status) + '</td><td>' + (s.total_turns || '?') + '</td><td>' + (s.total_tokens_out || 0).toLocaleString() + '</td><td>' + (s.created_at || '').slice(0, 10) + '</td></tr>').join('') +
-        '</table>';
-    } catch(e) {
-      document.getElementById('historyCard').innerHTML = '<h3>📜 Historial</h3><div class="error-msg">' + e.message + '</div>';
-    }
-    
-  } catch(e) {
-    document.getElementById('healthGrid').innerHTML = '<div class="card"><h3>❌ Error</h3><div class="error-msg">' + e.message + '</div></div>';
+  if (h.status !== 200) {
+    document.getElementById('status-grid').innerHTML = '<div class="card"><h3>❌ Error</h3><div class="err">Servidor no responde</div></div>';
+    return;
   }
   
-  document.getElementById('lastUpdated').textContent = 'Actualizado: ' + new Date().toLocaleTimeString();
+  const svc = h.data.services || {};
+  const cards = [
+    {title:'Servidor', val:h.data.status||'?', sub:'v'+h.data.version, st:h.data.status},
+    {title:'Base Datos', val:svc.database?.status||'?', sub:'SQLite', st:svc.database?.status},
+    {title:'Ollama', val:svc.ollama?.status||'?', sub:(svc.ollama?.models_available||'?')+' modelos', st:svc.ollama?.status},
+    {title:'LM Studio', val:svc.lm_studio?.status||'?', sub:(svc.lm_studio?.models_available||'?')+' modelos', st:svc.lm_studio?.status},
+    {title:'Groq', val:svc.groq?.status||'no config', sub:(svc.groq?.models_available||'?')+' modelos', st:svc.groq?.status},
+    {title:'Gemini', val:svc.gemini?.status||'no config', sub:(svc.gemini?.models_available||'?')+' modelos', st:svc.gemini?.status},
+    {title:'OpenRouter', val:svc.openrouter?.status||'?', sub:svc.openrouter?.key_valid ? 'key valida' : '', st:svc.openrouter?.status},
+    {title:'Web Agent', val:svc.web_agent?.status||'?', sub:svc.web_agent?.playwright_installed ? '✅ Playwright' : '', st:svc.web_agent?.status},
+    {title:'HuggingFace', val:svc.huggingface?.status||'?', sub:svc.huggingface?.user||'', st:svc.huggingface?.status},
+  ];
+  
+  document.getElementById('status-grid').innerHTML = cards.map(c =>
+    `<div class="card"><h3>${c.title}</h3><div class="value">${badge(c.st)}</div><div class="sub">${c.sub}</div></div>`
+  ).join('');
 }
 
-async function testGroq() {
-  try {
-    const r = await fetch(API + '/api/v1/system/chat/direct', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({engine:'groq',model:'llama-3.1-8b-instant',message:'Responde solo: OK'})
-    });
-    const d = await r.json();
-    alert('Groq OK: ' + d.response);
-  } catch(e) { alert('Groq error: ' + e.message); }
+// ─── DEBATES ────────────────────────────────────
+async function refreshDebates() {
+  const h = await api('GET','/api/v1/debates/history/list');
+  if (h.status !== 200) return;
+  const sessions = h.data.sessions || [];
+  document.getElementById('history-tbody').innerHTML = sessions.slice(0,100).map(s =>
+    `<tr><td class="clickable" onclick="showDebateDetail('${s.id}')">${(s.topic||'').slice(0,60)}</td>
+    <td>${badge(s.status)}</td><td>${s.total_turns||0}</td>
+    <td>${(s.total_tokens_out||0).toLocaleString()}</td>
+    <td>${s.mode||'-'}</td>
+    <td>${(s.created_at||'').slice(0,10)}</td>
+    <td>
+      <button class="btn btn-sm btn-primary" onclick="showDebateDetail('${s.id}')">Ver</button>
+      <button class="btn btn-sm" style="background:#166534;color:white" onclick="exportDirect('${s.id}','json')">JSON</button>
+      <button class="btn btn-sm" style="background:#854d0e;color:white" onclick="exportDirect('${s.id}','md')">MD</button>
+    </td></tr>`
+  ).join('');
+  refreshActiveDebates();
 }
 
-async function testGemini() {
-  try {
-    const r = await fetch(API + '/api/v1/system/chat/direct', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({engine:'gemini',model:'gemini-2.5-flash',message:'Responde solo: OK'})
-    });
-    const d = await r.json();
-    alert('Gemini OK: ' + d.response);
-  } catch(e) { alert('Gemini error: ' + e.message); }
+async function refreshActiveDebates() {
+  const h = await api('GET','/api/v1/debates/list');
+  if (h.status !== 200) return;
+  const sessions = h.data.sessions || [];
+  document.getElementById('active-tbody').innerHTML = sessions.map(s =>
+    `<tr><td>${(s.topic||'').slice(0,50)}</td>
+    <td>${badge(s.status)}</td>
+    <td>${s.turns_completed||0}/${s.total_turns||'?'}</td>
+    <td>local_only</td>
+    <td><button class="btn btn-sm btn-primary" onclick="showDebateDetail('${s.session_id}')">Ver</button></td></tr>`
+  ).join('');
 }
 
-async function clearDebates() {
-  if (!confirm('Eliminar todas las sesiones activas?')) return;
-  try {
-    const d = await fetchJSON('/api/v1/debates/list');
-    for (const s of (d.sessions || [])) {
-      await fetch(API + '/api/v1/debates/' + s.session_id, {method:'DELETE'});
-    }
-    refreshAll();
-  } catch(e) { alert('Error: ' + e.message); }
+async function showDebateDetail(sid) {
+  const div = document.getElementById('debate-detail');
+  div.style.display = 'block';
+  div.innerHTML = '<div class="loading">Cargando...</div>';
+  
+  // Try memory first, then DB
+  let session = null;
+  const m = await api('GET',`/api/v1/debates/${sid}`);
+  if (m.status === 200) session = m.data;
+  
+  if (!session) {
+    div.innerHTML = '<div class="err">Debate no encontrado</div>';
+    return;
+  }
+  
+  let html = `<h3 style="color:#f59e0b">${session.topic}</h3>
+  <div style="margin:8px 0"><span class="badge ${session.status==='completed'?'ok':'warn'}">${session.status}</span>
+  <span style="color:#64748b;margin-left:12px">Tokens: ${(session.total_tokens_out||0).toLocaleString()} | Tiempo: ${((session.total_latency_ms||0)/1000).toFixed(1)}s</span></div>`;
+  
+  if (session.final_verdict) {
+    html += `<div style="background:#0f172a;padding:12px;border-radius:6px;margin:8px 0"><strong>Veredicto:</strong><br>${session.final_verdict.slice(0,500)}</div>`;
+  }
+  
+  (session.turns||[]).forEach(t => {
+    html += `<div class="turn"><div class="meta">Turno ${t.turn_number} | ${t.agent_name} (${t.agent_role}) | ${t.model} | ${(t.tokens_out||0)} tokens | ${(t.latency_ms||0)}ms</div>
+    <div class="text">${(t.response_received||t.response||'').substring(0,300)}</div></div>`;
+  });
+  
+  div.innerHTML = html;
 }
 
-refreshAll();
-setInterval(refreshAll, 30000);
+// ─── NUEVO DEBATE ──────────────────────────────
+async function startDebate() {
+  const topic = document.getElementById('new-topic').value.trim();
+  if (!topic) { alert('Ingresa un tema'); return; }
+  const mode = document.getElementById('new-mode').value;
+  const result = document.getElementById('debate-result');
+  result.innerHTML = '<span class="loading">Iniciando debate...</span>';
+  
+  const r = await api('POST','/api/v1/debates/create', {topic, mode});
+  if (r.status === 200 || r.status === 202) {
+    const sid = r.data.session_id;
+    result.innerHTML = `<span style="color:#86efac">✅ Debate creado</span><br>
+    <small>ID: ${sid}<br>
+    <a href="#" onclick="showDebateDetail('${sid}');return false">Ver detalle</a> |
+    <a href="/api/v1/debates/${sid}/export/json" target="_blank">Exportar JSON</a> |
+    <a href="/api/v1/debates/${sid}/report" target="_blank">Reporte</a></small>`;
+    log('info',`Debate ${sid.slice(0,8)} creado: "${topic.slice(0,50)}"`);
+  } else {
+    result.innerHTML = `<span style="color:#fca5a5">❌ Error: ${JSON.stringify(r.data)}</span>`;
+  }
+}
+
+// ─── WORKER ─────────────────────────────────────
+async function refreshWorker() {
+  const r = await api('GET','/api/v1/system/worker/services');
+  if (r.status !== 200) {
+    document.getElementById('worker-badge').innerHTML = 'Worker: ' + badge('offline');
+    document.getElementById('worker-grid').innerHTML = '<div class="card"><h3>Sin conexion</h3></div>';
+    return;
+  }
+  document.getElementById('worker-badge').innerHTML = 'Worker: ' + badge('online') + ' ' + (r.data.worker_ip||'');
+  
+  const svc = r.data.services || {};
+  document.getElementById('worker-grid').innerHTML = Object.entries(svc).map(([k,v]) =>
+    `<div class="card"><h3>${k}</h3><div class="value">${badge(v.status)}</div><div class="sub">Puerto :${v.port||'?'}</div></div>`
+  ).join('');
+}
+
+async function launchWorker() {
+  const r = await api('POST','/api/v1/system/worker/services/launch', {service:'all'});
+  alert('Worker: ' + (r.data.success ? '✅ OK' : '⚠️ Fallo parcial'));
+  refreshWorker();
+}
+
+// ─── REPORTES ───────────────────────────────────
+function exportReport(format) {
+  const sid = document.getElementById('report-sid').value.trim();
+  if (!sid) { alert('Ingresa un Session ID'); return; }
+  exportDirect(sid, format);
+}
+
+function exportDirect(sid, format) {
+  const map = {json:'export/json', md:'export/markdown', pdf:'export/pdf'};
+  if (map[format]) {
+    window.open(`/api/v1/debates/${sid}/${map[format]}`, '_blank');
+    log('info',`Exportando ${format} de ${sid.slice(0,8)}`);
+  }
+}
+
+// ─── LOGS ───────────────────────────────────────
+function renderLogs() {
+  document.getElementById('log-area').innerHTML = logBuffer.map(l =>
+    `<div class="log-${l.type}">[${l.time}] [${l.type}] ${l.msg}</div>`
+  ).join('');
+  const el = document.getElementById('log-area');
+  el.scrollTop = el.scrollHeight;
+}
+
+// ─── MÉTRICAS ──────────────────────────────────
+async function refreshMetrics() {
+  const h = await api('GET','/api/v1/debates/history/list');
+  if (h.status !== 200) return;
+  const sessions = h.data.sessions || [];
+  const completed = sessions.filter(s => s.status === 'completed');
+  const totalTokens = completed.reduce((a,s) => a + (s.total_tokens_out||0), 0);
+  const totalTurns = completed.reduce((a,s) => a + (s.total_turns||0), 0);
+  const totalTime = completed.reduce((a,s) => a + (s.total_latency_ms||0), 0);
+  
+  document.getElementById('metrics-grid').innerHTML = [
+    {title:'Debates totales', val:sessions.length, sub:'creados'},
+    {title:'Completados', val:completed.length, sub:'exitosos'},
+    {title:'Tokens generados', val:(totalTokens||0).toLocaleString(), sub:'totales'},
+    {title:'Turnos totales', val:totalTurns||0, sub:'ejecutados'},
+    {title:'Tiempo total', val:(totalTime/1000).toFixed(0)+'s', sub:'de proceso'},
+    {title:'Promedio tokens/debate', val:completed.length ? Math.round(totalTokens/completed.length).toLocaleString() : 0, sub:'por debate'},
+  ].map(c => `<div class="card"><h3>${c.title}</h3><div class="value">${c.val}</div><div class="sub">${c.sub}</div></div>`).join('');
+  
+  // Top debates
+  const top = [...completed].sort((a,b) => (b.total_tokens_out||0) - (a.total_tokens_out||0)).slice(0,5);
+  document.getElementById('metrics-detail').textContent = 'TOP 5 DEBATES POR TOKENS:\n' +
+    top.map((s,i) => `${i+1}. ${(s.topic||'').slice(0,60)} — ${(s.total_tokens_out||0).toLocaleString()} tokens`).join('\n');
+}
+
+// ─── CLOCK & AUTO-REFRESH ──────────────────────
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Refresh dashboard every 5s, others on demand
+refreshDashboard();
+refreshWorker();
+refreshMetrics();
+setInterval(refreshDashboard, 5000);
+setInterval(refreshWorker, 10000);
+
+log('info','Synapse Control Center iniciado');
+log('info','Conectando al servidor...');
 </script>
 </body>
 </html>
