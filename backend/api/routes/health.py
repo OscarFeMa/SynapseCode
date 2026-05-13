@@ -57,6 +57,16 @@ async def check_service_health(client_class, settings_prefix: str) -> Dict[str, 
                 return {"status": "skipped", "reason": "HF_TOKEN not configured"}
             from backend.adapters.huggingface import HuggingFaceClient
             client = HuggingFaceClient(api_key=settings.HF_TOKEN)
+        elif settings_prefix == "groq":
+            if not settings.GROQ_API_KEY:
+                return {"status": "skipped", "reason": "GROQ_API_KEY not configured"}
+            from backend.adapters.groq import GroqClient
+            client = GroqClient(api_key=settings.GROQ_API_KEY)
+        elif settings_prefix == "gemini":
+            if not settings.GEMINI_API_KEY:
+                return {"status": "skipped", "reason": "GEMINI_API_KEY not configured"}
+            from backend.adapters.gemini import GeminiClient
+            client = GeminiClient(api_key=settings.GEMINI_API_KEY)
         else:
             return {"status": "unknown", "error": "Unknown service"}
         
@@ -81,6 +91,8 @@ def _get_suggested_fix(service: str, error: str) -> str:
         "openrouter": "La API key no tiene credito. Agrega minimo $1 en https://openrouter.ai/settings/credits",
         "web_agent": "Ejecuta: playwright install chromium",
         "huggingface": "Obtener token en https://huggingface.co/settings/tokens",
+        "groq": "Verifica GROQ_API_KEY en .env. Crear key en https://console.groq.com/keys",
+        "gemini": "Verifica GEMINI_API_KEY en .env. Crear key en https://aistudio.google.com/apikey",
     }
     
     if service in fixes:
@@ -116,10 +128,12 @@ async def collect_dependency_health() -> Dict[str, Any]:
         check_service_health(OpenRouterClient, "openrouter"),
         check_service_health(WebAgentClient, "web_agent"),
         check_service_health(None, "huggingface"),
+        check_service_health(None, "groq"),
+        check_service_health(None, "gemini"),
         return_exceptions=True
     )
     
-    database_health, ollama_health, lm_studio_health, jan_health, openrouter_health, web_agent_health, huggingface_health = results
+    database_health, ollama_health, lm_studio_health, jan_health, openrouter_health, web_agent_health, huggingface_health, groq_health, gemini_health = results
     
     # Determinar estado general
     services_status = {
@@ -130,6 +144,8 @@ async def collect_dependency_health() -> Dict[str, Any]:
         "openrouter": openrouter_health.get("status", "unknown") if isinstance(openrouter_health, dict) else "error",
         "web_agent": web_agent_health.get("status", "unknown") if isinstance(web_agent_health, dict) else "error",
         "huggingface": huggingface_health.get("status", "unknown") if isinstance(huggingface_health, dict) else "error",
+        "groq": groq_health.get("status", "unknown") if isinstance(groq_health, dict) else "error",
+        "gemini": gemini_health.get("status", "unknown") if isinstance(gemini_health, dict) else "error",
     }
     
     critical_services = ["database"]
@@ -154,6 +170,8 @@ async def collect_dependency_health() -> Dict[str, Any]:
             "openrouter": openrouter_health if isinstance(openrouter_health, dict) else {"status": "error", "error": str(openrouter_health)},
             "web_agent": web_agent_health if isinstance(web_agent_health, dict) else {"status": "error", "error": str(web_agent_health)},
             "huggingface": huggingface_health if isinstance(huggingface_health, dict) else {"status": "error", "error": str(huggingface_health)},
+            "groq": groq_health if isinstance(groq_health, dict) else {"status": "error", "error": str(groq_health)},
+            "gemini": gemini_health if isinstance(gemini_health, dict) else {"status": "error", "error": str(gemini_health)},
         }
     }
     

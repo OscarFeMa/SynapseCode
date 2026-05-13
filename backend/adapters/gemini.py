@@ -113,3 +113,23 @@ class GeminiClient:
         except Exception as e:
             logger.error("gemini.request_failed", error=str(e))
             raise
+
+    async def health_check(self) -> Dict[str, Any]:
+        """Verifica si la API key es valida listando modelos disponibles"""
+        if not self.api_key:
+            return {"status": "unconfigured", "error": "GEMINI_API_KEY no configurada"}
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.get(url)
+                if r.status_code == 200:
+                    data = r.json()
+                    models = [m["name"].split("/")[-1] for m in data.get("models", [])
+                             if "generateContent" in m.get("supportedGenerationMethods", [])]
+                    return {"status": "online", "models_available": len(models), "models": models[:5]}
+                elif r.status_code == 403:
+                    return {"status": "error", "error": "API key sin permisos. Habilitar billing en Google Cloud"}
+                else:
+                    return {"status": "error", "error": f"HTTP {r.status_code}"}
+        except Exception as e:
+            return {"status": "error", "error": str(e)[:80]}

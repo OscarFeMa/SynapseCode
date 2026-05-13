@@ -94,3 +94,22 @@ class GroqClient:
         except Exception as e:
             logger.error("groq.request_failed", error=str(e))
             raise
+
+    async def health_check(self) -> Dict[str, Any]:
+        """Verifica si la API key es valida listando modelos"""
+        if not self.api_key:
+            return {"status": "unconfigured", "error": "GROQ_API_KEY no configurada"}
+        try:
+            from backend.adapters.base import BaseOpenAICompatibleClient
+            headers = {"Authorization": f"Bearer {self.api_key}"}
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.get("https://api.groq.com/openai/v1/models", headers=headers)
+                if r.status_code == 200:
+                    data = r.json()
+                    return {"status": "online", "models_available": len(data.get("data", []))}
+                elif r.status_code == 401:
+                    return {"status": "error", "error": "API key invalida"}
+                else:
+                    return {"status": "error", "error": f"HTTP {r.status_code}"}
+        except Exception as e:
+            return {"status": "error", "error": str(e)[:80]}
