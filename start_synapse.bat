@@ -1,66 +1,58 @@
 @echo off
-chcp 65001 >nul
-title Synapse Council - Master Node
-cls
+title Synapse Launcher
+cd /d D:\proyectos\SynapseCode
 
-echo ╔════════════════════════════════════════════════════════════╗
-echo ║     SYNAPSE COUNCIL v2.0 - MASTER NODE                    ║
-echo ║     Orquestador Hibrido (OpenRouter + Web Agent)         ║
-echo ╚════════════════════════════════════════════════════════════╝
+echo ============================================
+echo  Synapse Council - Launcher v2.2
+echo ============================================
 echo.
 
-REM Verificar entorno virtual
-if not exist "venv\Scripts\activate.bat" (
-    echo [ERROR] No se encontro entorno virtual.
-    echo Creando entorno virtual...
-    python -m venv venv
-    if errorlevel 1 (
-        echo [ERROR] No se pudo crear el entorno virtual.
-        pause
-        exit /b 1
-    )
+REM Verificar si el servidor ya esta corriendo
+netstat -ano | findstr ":8000 " | findstr LISTENING >nul
+if %ERRORLEVEL% EQU 0 (
+    echo [OK] El servidor ya esta corriendo en puerto 8000
+    goto START_DASHBOARD
 )
 
-echo [1/4] Activando entorno virtual...
-call venv\Scripts\activate.bat
+REM Iniciar servidor en nueva ventana
+echo [..] Iniciando servidor backend...
+start "Synapse Server" cmd /k "cd /d D:\proyectos\SynapseCode && python -c "import sys; sys.path.insert(0, '.'); from backend.main import app; import uvicorn; uvicorn.run(app, host='0.0.0.0', port=8000)""
 
-echo [2/4] Verificando dependencias...
-pip show fastapi >nul 2>&1
-if errorlevel 1 (
-    echo Instalando dependencias...
-    pip install -r backend\requirements.txt
+REM Esperar a que el servidor responda (max 30s)
+echo [..] Esperando al servidor...
+set /a max_wait=30
+set /a waited=0
+
+:WAIT_LOOP
+ping -n 2 127.0.0.1 >nul
+netstat -ano | findstr ":8000 " | findstr LISTENING >nul
+if %ERRORLEVEL% EQU 0 (
+    echo [OK] Servidor listo en %waited%s
+    goto START_DASHBOARD
 )
-
-echo [3/4] Ejecutando diagnostico de red...
-python scripts\network_diagnostic.py --target %WORKER_IP% 2>nul || echo Diagnostico opcional omitido
-
-echo.
-echo [4/4] Iniciando Master Node en puerto 8000...
-echo ========================================
-echo Accesos:
-echo   - API:      http://localhost:8000
-echo   - Docs:     http://localhost:8000/docs
-echo   - Health:   http://localhost:8000/health
-echo   - Frontend: http://localhost:5173 (si esta compilado)
-echo ========================================
-echo.
-echo Presiona Ctrl+C para detener
-echo.
-
-REM Detectar IP local para mostrarla
-for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /i "IPv4"') do (
-    set LOCAL_IP=%%a
-    goto :found_ip
-)
-:found_ip
-echo IP Local: %LOCAL_IP%
-echo.
-
-set PYTHONPATH=%CD%;%PYTHONPATH%
-python backend\main.py
-
-if errorlevel 1 (
-    echo.
-    echo [ERROR] El servidor termino con errores.
+set /a waited=waited+2
+if %waited% GEQ %max_wait% (
+    echo [ERROR] El servidor no arranco en %max_wait%s
+    echo         Revisa los logs en la ventana Synapse Server
     pause
+    exit /b 1
 )
+goto WAIT_LOOP
+
+:START_DASHBOARD
+echo [OK] Abriendo Synapse Dashboard...
+start "" "D:\proyectos\SynapseCode\dist\SynapseDashboard.exe"
+
+echo.
+echo ============================================
+echo  Sistema iniciado correctamente.
+echo  - Servidor:  http://localhost:8000
+echo  - API Docs:  http://localhost:8000/docs
+echo  - Dashboard: SynapseDashboard.exe
+echo  - Admin:     http://localhost:8000/admin
+echo ============================================
+echo.
+echo  Para detener el sistema:
+echo    1. Cierra el Dashboard
+echo    2. Cierra la ventana "Synapse Server"
+echo.
