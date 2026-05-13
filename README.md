@@ -1,4 +1,4 @@
-# 🧠 Synapse Code v2.2
+# 🧠 Synapse Code v2.3
 
 Plataforma de **razonamiento colectivo híbrido** que orquesta múltiples modelos de IA en un debate estructurado por roles, con veredicto soberano del **Tribunal de Magistrados**.
 
@@ -17,6 +17,8 @@ Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (MakederPC) ejecut
 - **Streaming en Tiempo Real**: WebSocket con tokens en vivo
 - **Memoria Híbrida**: SQLite local + Supabase sync
 - **Auto-Recuperación**: WorkerServiceManager lanza servicios caídos automáticamente
+- **Control Center Web**: Panel completo en /admin con dashboard, debates, métricas
+- **Exportación**: JSON, Markdown, PDF de cualquier debate
 
 ---
 
@@ -157,6 +159,7 @@ create_debate_with_id()
 
 | Versión | Fecha | Cambios principales |
 |---------|-------|-------------------|
+| **v2.3** | May 2026 | Control Center web, exportación limpia, health check inteligente, fixes |
 | **v2.2** | May 2026 | APIs cloud (Groq, Gemini), Web Agent 10 sitios, Worker auto-launch, limpieza general |
 | **v2.1** | Apr 2026 | Debates iterativos, liberación RAM, maratón 10 debates |
 | **v2.0** | Apr 2026 | Tribunal, WebSocket, Frontend React, reputación EMA |

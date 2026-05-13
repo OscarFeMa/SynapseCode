@@ -7,7 +7,54 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ---
 
-## [2.2.0] - 2026-05-12
+## [2.3.0] - 2026-05-13
+
+### 🚀 Añadido (Added)
+
+#### Health Check Inteligente
+- **Groq y Gemini en /health**: Ahora aparecen como servicios con estado online/error
+- **Mensajes de ayuda**: Cada servicio offline incluye `suggested_fix` con la solución
+- **Nuevos endpoints**: `/health/live` y `/health/ready`
+
+#### Control Center Web (`/admin`)
+- **Dashboard** con tarjetas de estado de todos los servicios en tiempo real
+- **Debates**: Historial completo, activos, detalle con click, botones de exportación
+- **Nuevo Debate**: Formulario completo (tema, modo, engine de prueba)
+- **Worker**: Estado en vivo + botón lanzar servicios
+- **Reportes**: Exportación por Session ID (JSON, MD, HTML imprimible)
+- **Métricas**: Totales, top debates, tokens, tiempos
+
+#### Exportación Limpia
+- **JSON**: Solo tema, estado e intervenciones (rol, agente, modelo, texto)
+- **Markdown**: Con iconos por rol (📊 analista, ⚡ crítico, 🔗 sintetizador...)
+- **HTML/PDF**: Imprimible desde navegador, sin dependencias externas
+
+#### APIs Cloud
+- **Groq**: health_check añadido (lista modelos via API), modelos actualizados
+- **Gemini**: health_check añadido (lista modelos via API), modelo 2.5-flash funcional
+- **OpenRouter**: URL corregida (doble `/v1/` → `/v1`), 29 modelos gratuitos
+
+#### Sistema de Inicio
+- **start_synapse.bat**: Un clic para arrancar servidor + dashboard
+- **Worker auto-launch**: Solo intenta WinRM si TrustedHosts configurado, timeout 5s máx
+
+### 🔧 Mejoras Técnicas
+
+- **Panel admin web** reescrito completo con 6 pestañas funcionales
+- **Health check** ahora incluye Groq, Gemini en paralelo
+- **SynapseDashboard.exe** con consola de depuración, socket check con reintentos
+- **Debates ultra_crossing** ahora persisten turnos individuales en DB
+
+### 🐛 Corregido (Fixed)
+
+- **Ultra debate**: Turnos vacíos en DB — ahora guarda cada intervención como `SequentialDebateTurn`
+- **CSP Swagger UI**: Añadidos CDN jsdelivr y unpkg a script-src y style-src
+- **Dashboard EXE**: server_alive() con socket en vez de HTTP health (timeout 3.5s→1ms)
+- **Worker header**: Jan ya no afecta estado general (es opcional)
+- **Export PDF**: Eliminada dependencia de weasyprint, usa HTML imprimible
+
+---
+
 
 ### 🚀 Añadido (Added)
 
