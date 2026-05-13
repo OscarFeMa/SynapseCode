@@ -222,7 +222,7 @@ class WorkerServiceManager:
     async def ensure_service_running(self, service_name: str) -> Dict[str, Any]:
         """
         Asegura que un servicio esté corriendo.
-        Intenta: WinRM -> RDP -> Alerta
+        Intenta: WinRM (si disponible) -> RDP -> Alerta
         """
         # 1. Verificar estado actual
         status = await self.check_all_services()
@@ -236,32 +236,42 @@ class WorkerServiceManager:
                 "port": svc_status.get("port"),
             }
 
-        # 2. Intentar WinRM
-        logger.info("worker_launcher.try_winrm", service=service_name)
-        winrm_result = await self.launch_service_winrm(service_name)
+        winrm_result = {"success": False, "error": "no_attempted"}
+        rdp_result = {"success": False, "error": "no_attempted"}
 
-        # Esperar a que arranque
-        await asyncio.sleep(3)
-        status = await self.check_all_services()
-        if status.get(service_name, {}).get("status") == "running":
-            return {
-                "success": True,
-                "service": service_name,
-                "action": "launched_via_winrm",
-            }
+        # 2. Intentar WinRM solo si el comando es ejecutable
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["powershell", "-Command", "Get-Item WSMan:\\localhost\\Client\\TrustedHosts"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                logger.info("worker_launcher.try_winrm", service=service_name)
+                winrm_result = await self.launch_service_winrm(service_name)
+                await asyncio.sleep(3)
+                status = await self.check_all_services()
+                if status.get(service_name, {}).get("status") == "running":
+                    return {"success": True, "service": service_name, "action": "launched_via_winrm"}
+        except Exception as e:
+            logger.debug("worker_launcher.winrm_unavailable", error=str(e)[:60])
 
-        # 3. Fallback: RDP
-        logger.info("worker_launcher.try_rdp", service=service_name)
-        rdp_result = await self.launch_service_rdp(service_name)
-
-        await asyncio.sleep(5)
-        status = await self.check_all_services()
-        if status.get(service_name, {}).get("status") == "running":
-            return {
-                "success": True,
-                "service": service_name,
-                "action": "launched_via_rdp",
-            }
+        # 3. Fallback: RDP (solo si habilitado)
+        if settings.RDP_ENABLED:
+            logger.info("worker_launcher.try_rdp", service=service_name)
+            try:
+                import asyncio
+                rdp_result = await asyncio.wait_for(
+                    self.launch_service_rdp(service_name), timeout=10
+                )
+                await asyncio.sleep(3)
+                status = await self.check_all_services()
+                if status.get(service_name, {}).get("status") == "running":
+                    return {"success": True, "service": service_name, "action": "launched_via_rdp"}
+            except asyncio.TimeoutError:
+                rdp_result = {"success": False, "error": "timeout"}
+        else:
+            rdp_result = {"success": False, "error": "RDP disabled"}
 
         # 4. Fallback general
         return {

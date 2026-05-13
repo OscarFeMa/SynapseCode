@@ -90,15 +90,27 @@ async def lifespan(app: FastAPI):
         logger.warning("hybrid_memory_v2.start_failed", error=str(e))
     
     # Verificar y lanzar servicios del Worker al iniciar (v2.2+)
+    # Verificar servicios esenciales del Worker al iniciar (solo Ollama y LM Studio)
     if settings.is_master and settings.RDP_ENABLED:
         try:
             from backend.engine.worker_launcher import worker_service_manager
             logger.info("worker.checking_services_on_startup")
-            results = await worker_service_manager.ensure_all_services()
-            for name, result in results.items():
-                action = result.get("action", "?")
-                status = "OK" if result.get("success") else "FAIL"
-                logger.info(f"worker.service_{status.lower()}", service=name, action=action)
+            status = await worker_service_manager.check_all_services()
+            for name in ["ollama", "lm_studio"]:
+                svc = status.get(name, {})
+                if svc.get("status") != "running":
+                    logger.info(f"worker.{name}_offline_attempting_launch")
+                    # Intentar solo RDP (WinRM no disponible), con timeout corto
+                    import asyncio
+                    try:
+                        r = await asyncio.wait_for(
+                            worker_service_manager.launch_service_rdp(name), timeout=5
+                        )
+                        logger.info(f"worker.{name}_launch_result", success=r.get("success"))
+                    except asyncio.TimeoutError:
+                        logger.warning(f"worker.{name}_launch_timeout")
+                else:
+                    logger.info(f"worker.{name}_already_running")
         except Exception as e:
             logger.warning("worker.startup_check_failed", error=str(e))
     
