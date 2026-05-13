@@ -357,13 +357,33 @@ POST /api/v1/debate/consensus/create
 
 4. **Fallback graceful:** Cuando un modelo falla, el usuario no debe notarlo. Transición silenciosa a modelos de respaldo.
 
-### Mejores Prácticas Establecidas
+---
 
-- Siempre usar `uuid.uuid4()` para IDs únicos distribuidos
-- Campos `created_at` y `updated_at` en todos los modelos
-- Logging estructurado con `structlog` (JSON en prod, pretty en dev)
-- Validación de inputs con Pydantic en API boundaries
-- Truncado de campos largos antes de enviar a Supabase (límites de 1MB)
+### **Fase 8: Control Center, Exportación y Estabilización (Completada - v2.3)**
+
+#### Mayo 2026: Interfaz web completa, exportaciones limpias, CI
+- ✅ **Control Center web** (`/admin`): Dashboard en tiempo real con 6 pestañas funcionales
+  - Monitor de servicios Master/Worker con tarjetas de estado
+  - Historial de debates completo con exportación directa
+  - Formulario para crear nuevos debates (tema, modo, engine)
+  - Métricas y estadísticas del sistema
+  - Logs de eventos en vivo
+- ✅ **Exportación limpia de resultados**
+  - JSON con solo `tema`, `estado`, `intervenciones` (rol, agente, modelo, texto)
+  - Markdown con iconos por rol (📊 analista, ⚡ crítico, 🔗 sintetizador...)
+  - HTML imprimible (listo para PDF desde navegador, sin weasyprint)
+- ✅ **Health check inteligente**
+  - Groq y Gemini ahora aparecen como servicios en `/health`
+  - Cada servicio offline incluye `suggested_fix` con la solución
+  - Nuevos endpoints: `/health/live` y `/health/ready`
+- ✅ **Health check methods**: Groq y Gemini tienen `health_check()` que verifica API key y lista modelos
+- ✅ **SynapseDashboard.exe**: Consola de depuración, timeout de socket reintentos, Worker header solo muestra esenciales (Jan no bloquea estado)
+- ✅ **start_synapse.bat**: Un clic para arrancar servidor + dashboard
+- ✅ **CSP Swagger UI**: Permite CDN de jsdelivr y unpkg
+- ✅ **Worker auto-launch**: Solo intenta WinRM si TrustedHosts configurado, RDP timeout 10s máx
+- ✅ **Ultra debate turns**: Ahora persiste cada intervención como `SequentialDebateTurn` en DB
+- ✅ **CI/CD**: GitHub Actions con tests de imports y pytest
+- ✅ **Nuevo repositorio**: `https://github.com/OscarFeMa/SynapseCode`
 
 ---
 
@@ -376,7 +396,7 @@ POST /api/v1/debate/consensus/create
 
 ---
 
-**Versión actual:** v2.2.0  
-**Última actualización:** 2026-05-12  
+**Versión actual:** v2.3.0  
+**Última actualización:** 2026-05-13  
 **Repositorio:** https://github.com/OscarFeMa/SynapseCode  
 **Estado:** Production Ready ✅
