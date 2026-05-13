@@ -200,7 +200,7 @@ class App:
         self._status("ip", "ok" if ip!="?" else "error", f"IP: {ip}")
 
         all_ok = ip != "?"
-        for name, key in [("ollama","ollama"),("lm_studio","lmstudio"),("jan","jan")]:
+        for name, key in [("ollama","ollama"),("lm_studio","lmstudio")]:
             info = ws.get(name, {})
             st = info.get("status","?")
             if st == "running":
@@ -208,6 +208,10 @@ class App:
             else:
                 self._status(key, "error", f"Puerto :{info.get('port','?')}")
                 all_ok = False
+        # Jan es opcional, no afecta estado general del Worker
+        jan_info = ws.get("jan", {})
+        self._status("jan", "ok" if jan_info.get("status")=="running" else "skip",
+                     f"Puerto :{jan_info.get('port','?')} (opcional)")
 
         self._worker("ok" if all_ok else "error", ip)
 
