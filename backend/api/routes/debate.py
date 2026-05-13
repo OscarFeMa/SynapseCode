@@ -774,17 +774,42 @@ async def get_debate(session_id: str):
 # EXPORTACIÓN DE RESULTADOS
 # ============================================================================
 
+def _build_clean_turns(session) -> list:
+    """Construye lista limpia de intervenciones: rol, quien, que dijo"""
+    turns = []
+    for t in session.turns:
+        if t.status.startswith("completed"):
+            turns.append({
+                "turno": t.turn_number,
+                "rol": t.agent.role.value,
+                "agente": t.agent.name,
+                "modelo": f"{t.agent.model} ({t.agent.provider})",
+                "intervencion": t.response_received.strip(),
+                "tokens": t.tokens_out,
+                "tiempo_ms": t.latency_ms,
+            })
+    return turns
+
+
 @router.get("/{session_id}/export/json")
 async def export_debate_json(session_id: str):
-    """Exporta el debate completo en formato JSON"""
+    """Exporta el debate en JSON limpio: solo intervenciones"""
     session = debate_controller.get_session(session_id)
     if not session:
         session_data = await debate_controller.get_debate_from_db(session_id)
         if not session_data:
             raise HTTPException(status_code=404, detail="Debate not found")
-        content = json.dumps(session_data, indent=2, default=str)
+        content = json.dumps(session_data, indent=2, default=str, ensure_ascii=False)
     else:
-        content = json.dumps(build_debate_response(session).model_dump(), indent=2, default=str)
+        clean = {
+            "tema": session.topic,
+            "estado": session.status,
+            "duracion_seg": round((session.completed_at - session.created_at).total_seconds(), 1) if session.completed_at and session.created_at else None,
+            "intervenciones": _build_clean_turns(session),
+        }
+        if session.final_verdict:
+            clean["veredicto"] = session.final_verdict.strip()
+        content = json.dumps(clean, indent=2, ensure_ascii=False)
     
     return Response(
         content=content,
@@ -795,42 +820,37 @@ async def export_debate_json(session_id: str):
 
 @router.get("/{session_id}/export/markdown")
 async def export_debate_markdown(session_id: str):
-    """Exporta el debate como Markdown"""
+    """Exporta el debate como Markdown limpio"""
     session = debate_controller.get_session(session_id)
-    
     if not session:
-        raise HTTPException(status_code=404, detail="Debate not found or still running. Wait for completion.")
-    
+        raise HTTPException(status_code=404, detail="Debate not found")
+
     lines = [
-        f"# Debate: {session.topic}",
+        f"# {session.topic}",
         f"",
-        f"**Session ID:** `{session.id}`",
-        f"**Estado:** {session.status}",
-        f"**Creado:** {session.created_at}",
-        f"**Completado:** {session.completed_at or 'en progreso'}",
-        f"",
-        f"## Estadísticas",
-        f"",
-        f"| Métrica | Valor |",
-        f"|---------|-------|",
-        f"| Total turnos | {len(session.turns)} |",
-        f"| Tokens In | {sum(t.tokens_in for t in session.turns):,} |",
-        f"| Tokens Out | {sum(t.tokens_out for t in session.turns):,} |",
-        f"| Tiempo total | {sum(t.latency_ms for t in session.turns)/1000:.1f}s |",
-        f"",
-        f"## Turnos",
+        f"_{'finalizado' if session.status == 'completed' else 'en progreso'}_ | "
+        f"{len(session.turns)} intervenciones",
         f"",
     ]
     
     for turn in session.turns:
         if turn.status.startswith("completed"):
+            role_tag = {
+                "analyst": "📊 Analista",
+                "critic": "⚡ Crítico",
+                "synthesizer": "🔗 Sintetizador",
+                "refiner": "🔧 Refinador",
+                "moderator": "⚖️ Moderador",
+                "validator": "✅ Validador",
+                "consensus": "🤝 Consenso",
+            }.get(turn.agent.role.value, "💬")
+            
             lines.extend([
-                f"### Turno {turn.turn_number}: {turn.agent.name} ({turn.agent.role.value})",
+                f"## {role_tag} — {turn.agent.name}",
                 f"",
-                f"**Modelo:** {turn.agent.model} ({turn.agent.provider})",
-                f"**Tokens:** {turn.tokens_out} | **Tiempo:** {turn.latency_ms}ms",
+                f"_{turn.agent.model}_",
                 f"",
-                turn.response_received,
+                turn.response_received.strip(),
                 f"",
                 f"---",
                 f"",
@@ -838,19 +858,9 @@ async def export_debate_markdown(session_id: str):
     
     if session.final_verdict:
         lines.extend([
-            f"## Veredicto Final",
+            f"## ⚖️ Veredicto Final",
             f"",
-            session.final_verdict,
-        ])
-    
-    if session.structured_report:
-        lines.extend([
-            f"",
-            f"## Reporte Estructurado",
-            f"",
-            f"```json",
-            json.dumps(session.structured_report, indent=2),
-            f"```",
+            session.final_verdict.strip(),
         ])
     
     content = "\n".join(lines)
@@ -863,35 +873,61 @@ async def export_debate_markdown(session_id: str):
 
 @router.get("/{session_id}/export/pdf")
 async def export_debate_pdf(session_id: str):
-    """Exporta el debate como PDF"""
+    """Exporta el debate como HTML imprimible (listo para PDF desde navegador)"""
     session = debate_controller.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Debate not found")
     
-    try:
-        import markdown
-        parts = [f"# Debate: {session.topic}"]
-        for turn in session.turns:
-            if turn.status.startswith("completed"):
-                parts.append(f"## {turn.agent.name} ({turn.agent.role.value})")
-                parts.append(turn.response_received)
-        md_content = "\n\n".join(parts)
-        html = markdown.markdown(md_content)
-        full_html = f"<html><body style='font-family:sans-serif;max-width:800px;margin:auto;padding:20px'>{html}</body></html>"
-        
-        try:
-            from weasyprint import HTML
-            pdf = HTML(string=full_html).write_pdf()
-            return Response(
-                content=pdf,
-                media_type="application/pdf",
-                headers={"Content-Disposition": f"attachment; filename=debate_{session_id}.pdf"}
-            )
-        except ImportError:
-            return Response(
-                content=full_html,
-                media_type="text/html",
-                headers={"Content-Disposition": f"attachment; filename=debate_{session_id}.html"}
-            )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+    turns_html = ""
+    for turn in session.turns:
+        if turn.status.startswith("completed"):
+            role_icon = {"analyst":"📊","critic":"⚡","synthesizer":"🔗","refiner":"🔧","moderator":"⚖️","validator":"✅","consensus":"🤝"}
+            icon = role_icon.get(turn.agent.role.value, "💬")
+            text = turn.response_received.strip().replace("\n", "<br>")
+            turns_html += f"""
+            <div class="turn">
+                <div class="turn-header">{icon} <strong>{turn.agent.name}</strong> <span class="role">({turn.agent.role.value})</span></div>
+                <div class="turn-model">{turn.agent.model}</div>
+                <div class="turn-text">{text}</div>
+            </div>"""
+    
+    verdict_html = ""
+    if session.final_verdict:
+        verdict_html = f"""
+        <div class="verdict">
+            <h2>⚖️ Veredicto Final</h2>
+            <p>{session.final_verdict.strip().replace(chr(10), '<br>')}</p>
+        </div>"""
+    
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>Debate: {session.topic[:60]}</title>
+<style>
+  body {{ font-family: 'Segoe UI', system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #1e293b; line-height: 1.6; }}
+  h1 {{ color: #2563eb; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }}
+  h2 {{ color: #1e293b; margin-top: 24px; }}
+  .meta {{ color: #64748b; font-size: 0.85rem; margin-bottom: 24px; }}
+  .turn {{ background: #f8fafc; border-left: 4px solid #2563eb; padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0; }}
+  .turn-header {{ font-size: 1.05rem; margin-bottom: 2px; }}
+  .role {{ color: #64748b; font-size: 0.8rem; font-weight: normal; }}
+  .turn-model {{ color: #94a3b8; font-size: 0.75rem; margin-bottom: 8px; }}
+  .turn-text {{ white-space: pre-wrap; font-size: 0.9rem; }}
+  .verdict {{ background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 20px 0; border-radius: 0 6px 6px 0; }}
+  hr {{ border: none; border-top: 1px solid #e2e8f0; margin: 16px 0; }}
+  @media print {{ body {{ margin: 20px; }} .turn {{ break-inside: avoid; }} }}
+</style>
+</head><body>
+<h1>{session.topic}</h1>
+<div class="meta">
+  {len(session.turns)} intervenciones | {session.status} |
+  {session.created_at.strftime('%d/%m/%Y %H:%M') if session.created_at else ''}
+</div>
+{turns_html}
+{verdict_html}
+</body></html>"""
+    
+    return Response(
+        content=html,
+        media_type="text/html",
+        headers={"Content-Disposition": f"inline; filename=debate_{session_id}.html"}
+    )
