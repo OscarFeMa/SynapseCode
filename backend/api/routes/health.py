@@ -63,10 +63,41 @@ async def check_service_health(client_class, settings_prefix: str) -> Dict[str, 
         result = await client.health_check()
         return result
     except Exception as e:
+        error_msg = str(e)
+        suggested = _get_suggested_fix(settings_prefix, error_msg)
         return {
             "status": "unavailable",
-            "error": str(e)
+            "error": error_msg,
+            "suggested_fix": suggested
         }
+
+
+def _get_suggested_fix(service: str, error: str) -> str:
+    """Sugiere soluciones para errores comunes por servicio"""
+    fixes = {
+        "ollama": "Verifica que Ollama este corriendo en el Worker: 'ollama serve'. Worker IP: " + str(settings.get_worker_host()),
+        "lm_studio": "Abre LM Studio en el Worker y activa Local Inference Server",
+        "jan": "Abre Jan en el Worker y activa el servidor API",
+        "openrouter": "La API key no tiene credito. Agrega minimo $1 en https://openrouter.ai/settings/credits",
+        "web_agent": "Ejecuta: playwright install chromium",
+        "huggingface": "Obtener token en https://huggingface.co/settings/tokens",
+    }
+    
+    if service in fixes:
+        return fixes[service]
+    
+    if "Cannot connect" in error or "Connection refused" in error.lower():
+        return "Verifica que el servicio este corriendo y sea accesible desde la red"
+    if "timeout" in error.lower():
+        return "El servicio no responde. Verifica conectividad de red"
+    if "401" in error or "Unauthorized" in error:
+        return "API key invalida. Verifica tus credenciales en .env"
+    if "402" in error or "Payment Required" in error:
+        return "Saldo insuficiente. Agrega credito a tu cuenta"
+    if "429" in error or "Rate Limit" in error:
+        return "Limite de tasa excedido. Espera 1 minuto y reintenta"
+    
+    return "Revisa los logs del servidor para mas detalles"
 
 
 async def collect_dependency_health() -> Dict[str, Any]:

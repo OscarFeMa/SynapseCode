@@ -200,8 +200,20 @@ async def root():
         "description": "Plataforma de razonamiento colectivo híbrido",
         "node_role": settings.NODE_ROLE,
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
+        "admin": "/admin"
     }
+
+
+@app.get("/admin", include_in_schema=False)
+async def admin_panel():
+    """Panel de administración web"""
+    from fastapi.responses import FileResponse, HTMLResponse
+    import os
+    admin_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "admin.html")
+    if os.path.exists(admin_path):
+        return FileResponse(admin_path)
+    return HTMLResponse("<h1>Admin panel no encontrado</h1>", status_code=404)
 
 
 if __name__ == "__main__":

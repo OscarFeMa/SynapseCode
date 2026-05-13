@@ -3,8 +3,9 @@ Synapse Council v2.0 - Sequential Debate API Routes
 Endpoints para debate secuencial multi-modelo
 """
 import asyncio
+import json
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Response
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -767,3 +768,130 @@ async def get_debate(session_id: str):
         return build_debate_response(session)
     
     raise HTTPException(status_code=404, detail="Debate session not found")
+
+
+# ============================================================================
+# EXPORTACIÓN DE RESULTADOS
+# ============================================================================
+
+@router.get("/{session_id}/export/json")
+async def export_debate_json(session_id: str):
+    """Exporta el debate completo en formato JSON"""
+    session = debate_controller.get_session(session_id)
+    if not session:
+        session_data = await debate_controller.get_debate_from_db(session_id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Debate not found")
+        content = json.dumps(session_data, indent=2, default=str)
+    else:
+        content = json.dumps(build_debate_response(session).model_dump(), indent=2, default=str)
+    
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=debate_{session_id}.json"}
+    )
+
+
+@router.get("/{session_id}/export/markdown")
+async def export_debate_markdown(session_id: str):
+    """Exporta el debate como Markdown"""
+    session = debate_controller.get_session(session_id)
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Debate not found or still running. Wait for completion.")
+    
+    lines = [
+        f"# Debate: {session.topic}",
+        f"",
+        f"**Session ID:** `{session.id}`",
+        f"**Estado:** {session.status}",
+        f"**Creado:** {session.created_at}",
+        f"**Completado:** {session.completed_at or 'en progreso'}",
+        f"",
+        f"## Estadísticas",
+        f"",
+        f"| Métrica | Valor |",
+        f"|---------|-------|",
+        f"| Total turnos | {len(session.turns)} |",
+        f"| Tokens In | {sum(t.tokens_in for t in session.turns):,} |",
+        f"| Tokens Out | {sum(t.tokens_out for t in session.turns):,} |",
+        f"| Tiempo total | {sum(t.latency_ms for t in session.turns)/1000:.1f}s |",
+        f"",
+        f"## Turnos",
+        f"",
+    ]
+    
+    for turn in session.turns:
+        if turn.status.startswith("completed"):
+            lines.extend([
+                f"### Turno {turn.turn_number}: {turn.agent.name} ({turn.agent.role.value})",
+                f"",
+                f"**Modelo:** {turn.agent.model} ({turn.agent.provider})",
+                f"**Tokens:** {turn.tokens_out} | **Tiempo:** {turn.latency_ms}ms",
+                f"",
+                turn.response_received,
+                f"",
+                f"---",
+                f"",
+            ])
+    
+    if session.final_verdict:
+        lines.extend([
+            f"## Veredicto Final",
+            f"",
+            session.final_verdict,
+        ])
+    
+    if session.structured_report:
+        lines.extend([
+            f"",
+            f"## Reporte Estructurado",
+            f"",
+            f"```json",
+            json.dumps(session.structured_report, indent=2),
+            f"```",
+        ])
+    
+    content = "\n".join(lines)
+    return Response(
+        content=content,
+        media_type="text/markdown",
+        headers={"Content-Disposition": f"attachment; filename=debate_{session_id}.md"}
+    )
+
+
+@router.get("/{session_id}/export/pdf")
+async def export_debate_pdf(session_id: str):
+    """Exporta el debate como PDF"""
+    session = debate_controller.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Debate not found")
+    
+    try:
+        import markdown
+        parts = [f"# Debate: {session.topic}"]
+        for turn in session.turns:
+            if turn.status.startswith("completed"):
+                parts.append(f"## {turn.agent.name} ({turn.agent.role.value})")
+                parts.append(turn.response_received)
+        md_content = "\n\n".join(parts)
+        html = markdown.markdown(md_content)
+        full_html = f"<html><body style='font-family:sans-serif;max-width:800px;margin:auto;padding:20px'>{html}</body></html>"
+        
+        try:
+            from weasyprint import HTML
+            pdf = HTML(string=full_html).write_pdf()
+            return Response(
+                content=pdf,
+                media_type="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename=debate_{session_id}.pdf"}
+            )
+        except ImportError:
+            return Response(
+                content=full_html,
+                media_type="text/html",
+                headers={"Content-Disposition": f"attachment; filename=debate_{session_id}.html"}
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")

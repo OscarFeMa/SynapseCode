@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synapse Admin Panel</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; }
+  h1 { color: #f59e0b; margin-bottom: 20px; font-size: 1.5rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .card { background: #1e293b; border-radius: 8px; padding: 16px; border: 1px solid #334155; }
+  .card h3 { color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+  .ok { background: #166534; color: #86efac; }
+  .warn { background: #854d0e; color: #fde68a; }
+  .err { background: #991b1b; color: #fca5a5; }
+  .skip { background: #334155; color: #cbd5e1; }
+  .service { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #334155; }
+  .service:last-child { border: 0; }
+  .service-name { font-weight: 500; }
+  .models { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .model-tag { background: #334155; padding: 2px 6px; border-radius: 3px; font-size: 0.7rem; color: #cbd5e1; }
+  .error-msg { color: #fca5a5; font-size: 0.8rem; margin-top: 4px; }
+  .fix { color: #fde68a; font-size: 0.75rem; margin-top: 2px; font-style: italic; }
+  .controls { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  button { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+  button:hover { background: #1d4ed8; }
+  button.danger { background: #dc2626; }
+  button.danger:hover { background: #b91c1c; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #334155; }
+  th { color: #94a3b8; font-weight: 600; }
+  .last-updated { color: #64748b; font-size: 0.75rem; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<h1>🔧 Synapse Admin Panel</h1>
+<p class="last-updated" id="lastUpdated">Cargando...</p>
+
+<div class="controls">
+  <button onclick="refreshAll()">🔄 Refrescar</button>
+  <button onclick="testGroq()">🧪 Test Groq</button>
+  <button onclick="testGemini()">🧪 Test Gemini</button>
+  <button class="danger" onclick="clearDebates()">🗑️ Limpiar sesiones</button>
+</div>
+
+<div class="grid" id="healthGrid">
+  <div class="card"><h3>Cargando health check...</h3></div>
+</div>
+
+<div class="grid">
+  <div class="card" id="workerCard">
+    <h3>🤖 Worker Services</h3>
+    <p>Cargando...</p>
+  </div>
+  <div class="card" id="debatesCard">
+    <h3>📋 Sesiones Activas</h3>
+    <p>Cargando...</p>
+  </div>
+</div>
+
+<div class="card" id="historyCard">
+  <h3>📜 Historial de Debates</h3>
+  <p>Cargando...</p>
+</div>
+
+<script>
+const API = 'http://192.168.1.41:8000';
+
+async function fetchJSON(path) {
+  const r = await fetch(API + path);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+function statusBadge(s) {
+  if (!s) return '<span class="status err">unknown</span>';
+  if (['healthy','online','available','alive'].includes(s)) return '<span class="status ok">● ' + s + '</span>';
+  if (['degraded','error','unavailable','unconfigured'].includes(s)) return '<span class="status err">● ' + s + '</span>';
+  if (['skipped','offline','stopped'].includes(s)) return '<span class="status skip">○ ' + s + '</span>';
+  return '<span class="status warn">● ' + s + '</span>';
+}
+
+async function refreshAll() {
+  document.getElementById('lastUpdated').textContent = 'Actualizando: ' + new Date().toLocaleTimeString();
+  
+  try {
+    // Health check
+    const h = await fetchJSON('/health');
+    const services = h.services || {};
+    const grid = document.getElementById('healthGrid');
+    grid.innerHTML = '';
+    
+    for (const [name, data] of Object.entries(services)) {
+      const status = data.status || 'unknown';
+      const models = data.models || data.free_models || null;
+      const error = data.error || '';
+      const fix = data.suggested_fix || '';
+      const user = data.user || '';
+      
+      let modelsHtml = '';
+      if (Array.isArray(models)) {
+        modelsHtml = '<div class="models">' + models.slice(0, 5).map(m => '<span class="model-tag">' + m + '</span>').join('') + (models.length > 5 ? '<span class="model-tag">+' + (models.length-5) + '</span>' : '') + '</div>';
+      }
+      
+      grid.innerHTML += '<div class="card"><h3>' + name + '</h3>' +
+        '<div class="service"><span class="service-name">' + name + '</span> ' + statusBadge(status) + '</div>' +
+        (user ? '<div style="font-size:0.8rem;color:#94a3b8">Usuario: ' + user + '</div>' : '') +
+        (error ? '<div class="error-msg">⚠️ ' + error + '</div>' : '') +
+        (fix ? '<div class="fix">💡 ' + fix + '</div>' : '') +
+        modelsHtml + '</div>';
+    }
+    
+    // Worker services
+    try {
+      const w = await fetchJSON('/api/v1/system/worker/services');
+      const svc = w.services || {};
+      document.getElementById('workerCard').innerHTML = '<h3>🤖 Worker Services</h3>' +
+        '<div>IP: ' + (w.worker_ip || '?') + '</div>' +
+        Object.entries(svc).map(([k,v]) => '<div class="service"><span class="service-name">' + k + '</span> ' + statusBadge(v.status) + '</div>').join('');
+    } catch(e) {
+      document.getElementById('workerCard').innerHTML = '<h3>🤖 Worker Services</h3><div class="error-msg">' + e.message + '</div>';
+    }
+    
+    // Active sessions
+    try {
+      const d = await fetchJSON('/api/v1/debates/list');
+      document.getElementById('debatesCard').innerHTML = '<h3>📋 Sesiones Activas (' + d.count + ')</h3>' +
+        (d.sessions || []).map(s => '<div class="service"><span class="service-name">' + (s.topic || '').slice(0, 40) + '...</span> ' + statusBadge(s.status) + '</div>').join('') +
+        (d.count === 0 ? '<div style="color:#64748b">No hay sesiones activas</div>' : '');
+    } catch(e) {
+      document.getElementById('debatesCard').innerHTML = '<h3>📋 Sesiones Activas</h3><div class="error-msg">' + e.message + '</div>';
+    }
+    
+    // History
+    try {
+      const hist = await fetchJSON('/api/v1/debates/history/list');
+      const sessions = hist.sessions || [];
+      document.getElementById('historyCard').innerHTML = '<h3>📜 Historial de Debates (' + sessions.length + ')</h3>' +
+        '<table><tr><th>Tema</th><th>Estado</th><th>Turnos</th><th>Tokens</th><th>Fecha</th></tr>' +
+        sessions.slice(0, 20).map(s => '<tr><td>' + (s.topic || '').slice(0, 50) + '</td><td>' + statusBadge(s.status) + '</td><td>' + (s.total_turns || '?') + '</td><td>' + (s.total_tokens_out || 0).toLocaleString() + '</td><td>' + (s.created_at || '').slice(0, 10) + '</td></tr>').join('') +
+        '</table>';
+    } catch(e) {
+      document.getElementById('historyCard').innerHTML = '<h3>📜 Historial</h3><div class="error-msg">' + e.message + '</div>';
+    }
+    
+  } catch(e) {
+    document.getElementById('healthGrid').innerHTML = '<div class="card"><h3>❌ Error</h3><div class="error-msg">' + e.message + '</div></div>';
+  }
+  
+  document.getElementById('lastUpdated').textContent = 'Actualizado: ' + new Date().toLocaleTimeString();
+}
+
+async function testGroq() {
+  try {
+    const r = await fetch(API + '/api/v1/system/chat/direct', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({engine:'groq',model:'llama-3.1-8b-instant',message:'Responde solo: OK'})
+    });
+    const d = await r.json();
+    alert('Groq OK: ' + d.response);
+  } catch(e) { alert('Groq error: ' + e.message); }
+}
+
+async function testGemini() {
+  try {
+    const r = await fetch(API + '/api/v1/system/chat/direct', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({engine:'gemini',model:'gemini-2.5-flash',message:'Responde solo: OK'})
+    });
+    const d = await r.json();
+    alert('Gemini OK: ' + d.response);
+  } catch(e) { alert('Gemini error: ' + e.message); }
+}
+
+async function clearDebates() {
+  if (!confirm('Eliminar todas las sesiones activas?')) return;
+  try {
+    const d = await fetchJSON('/api/v1/debates/list');
+    for (const s of (d.sessions || [])) {
+      await fetch(API + '/api/v1/debates/' + s.session_id, {method:'DELETE'});
+    }
+    refreshAll();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+refreshAll();
+setInterval(refreshAll, 30000);
+</script>
+</body>
+</html>
