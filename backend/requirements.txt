@@ -33,6 +33,7 @@ structlog==24.1.0
 uuid6==2024.1.12
 tenacity==8.2.3
 huggingface-hub>=0.24.0
+psutil>=5.9.0
 
 # ─── Testing ──────────────────────────────────────────────────
 pytest==8.0.0
