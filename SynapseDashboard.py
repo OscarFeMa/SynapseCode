@@ -220,7 +220,9 @@ class SynapseDashboard:
         self.worker_frame.pack(fill="x", pady=10)
 
         tk.Button(frame, text="🔄 Refrescar Worker", command=self._refresh_worker,
-                  bg="#334155", fg="white", relief="flat").pack(anchor="w")
+                  bg="#334155", fg="white", relief="flat").pack(side="left", padx=2)
+        tk.Button(frame, text="🚀 Lanzar todos los servicios", command=self._launch_worker_services,
+                  bg="#166534", fg="white", relief="flat").pack(side="left", padx=2)
 
     # ─── METHODS ──────────────────────────────────────────
     def log(self, msg):
@@ -365,6 +367,14 @@ class SynapseDashboard:
             color = "#86efac" if st == "running" else "#fca5a5"
             tk.Label(self.worker_frame, text=f"  {name}: ● {st} (:{port})",
                      fg=color, bg="#0f172a").pack(anchor="w")
+
+    def _launch_worker_services(self):
+        """Lanza todos los servicios del Worker via API"""
+        def run():
+            code, resp = api("POST", "/api/v1/system/worker/services/launch", {"service": "all"})
+            self.root.after(0, lambda: self.log(f"Worker: {resp.get('success', 'error')}"))
+            self.root.after(0, self._refresh_worker)
+        threading.Thread(target=run, daemon=True).start()
 
     def _update_metrics(self):
         self.metrics_text.delete("1.0", "end")

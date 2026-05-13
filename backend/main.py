@@ -89,6 +89,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("hybrid_memory_v2.start_failed", error=str(e))
     
+    # Verificar y lanzar servicios del Worker al iniciar (v2.2+)
+    if settings.is_master and settings.RDP_ENABLED:
+        try:
+            from backend.engine.worker_launcher import worker_service_manager
+            logger.info("worker.checking_services_on_startup")
+            results = await worker_service_manager.ensure_all_services()
+            for name, result in results.items():
+                action = result.get("action", "?")
+                status = "OK" if result.get("success") else "FAIL"
+                logger.info(f"worker.service_{status.lower()}", service=name, action=action)
+        except Exception as e:
+            logger.warning("worker.startup_check_failed", error=str(e))
+    
     # Iniciar descubrimiento de red
     await node_discoverer.start()
     
