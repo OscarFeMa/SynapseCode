@@ -12,7 +12,28 @@ from urllib.error import URLError, HTTPError
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 API = "http://127.0.0.1:8000"
-SERVER_CMD = [sys.executable, "-c",
+
+# Detectar si estamos compilados (PyInstaller) o en desarrollo
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    # Compilado como .exe - buscar python en PATH o ubicaciones comunes
+    _python = None
+    for _p in [os.environ.get('PYTHONPATH', ''), 
+               r'C:\Users\usuario\AppData\Local\Programs\Python\Python312\python.exe',
+               r'C:\Users\maked\AppData\Local\Programs\Python\Python312\python.exe',
+               r'C:\Python312\python.exe',
+               r'C:\Python311\python.exe']:
+        if _p and os.path.exists(_p):
+            _python = _p
+            break
+    if not _python:
+        # Intentar buscar python en PATH
+        import shutil
+        _python = shutil.which('python') or shutil.which('python3') or 'python'
+    _py = _python
+else:
+    _py = sys.executable
+
+SERVER_CMD = [_py, "-c",
     "import sys; sys.path.insert(0, '.'); from backend.main import app; import uvicorn; uvicorn.run(app, host='0.0.0.0', port=8000, log_level='warning')"]
 
 def api(method, path, data=None, timeout=5):
@@ -345,7 +366,13 @@ class SynapseDashboard:
         def run():
             self.server_proc = subprocess.Popen(SERVER_CMD, cwd=ROOT,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            time.sleep(5)
+            # Esperar a que el servidor arranque (hasta 15s)
+            for _ in range(15):
+                try:
+                    urlopen("http://127.0.0.1:8000/health", timeout=1)
+                    break
+                except:
+                    time.sleep(1)
             self.root.after(0, self._post_start)
         threading.Thread(target=run, daemon=True).start()
 
