@@ -20,6 +20,6 @@ exe = EXE(
     debug=False,
     strip=False,
     upx=False,
-    console=False,
+    console=True,
     icon=None,
 )

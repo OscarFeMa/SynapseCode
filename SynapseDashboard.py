@@ -13,15 +13,19 @@ from urllib.error import URLError, HTTPError
 API = "http://127.0.0.1:8000"
 
 def server_alive():
-    """Verifica si el puerto 8000 esta abierto (rapido, sin esperar health check)"""
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(1)
-        r = s.connect_ex(("127.0.0.1", 8000))
-        s.close()
-        return r == 0
-    except:
-        return False
+    """Verifica si el puerto 8000 esta abierto"""
+    for _ in range(3):  # Reintentar 3 veces con 1s de espera
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(2)
+            r = s.connect_ex(("127.0.0.1", 8000))
+            s.close()
+            if r == 0:
+                return True
+        except:
+            pass
+        time.sleep(1)
+    return False
 
 def api(method, path, data=None, timeout=5):
     url = API + path
