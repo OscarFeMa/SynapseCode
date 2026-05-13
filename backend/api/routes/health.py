@@ -52,6 +52,11 @@ async def check_service_health(client_class, settings_prefix: str) -> Dict[str, 
                 browser=settings.WEB_AGENT_BROWSER,
                 headless=settings.WEB_AGENT_HEADLESS,
             )
+        elif settings_prefix == "huggingface":
+            if not settings.HF_ENABLED or not settings.HF_TOKEN:
+                return {"status": "skipped", "reason": "HF_TOKEN not configured"}
+            from backend.adapters.huggingface import HuggingFaceClient
+            client = HuggingFaceClient(api_key=settings.HF_TOKEN)
         else:
             return {"status": "unknown", "error": "Unknown service"}
         
@@ -79,10 +84,11 @@ async def collect_dependency_health() -> Dict[str, Any]:
         check_service_health(JanClient, "jan"),
         check_service_health(OpenRouterClient, "openrouter"),
         check_service_health(WebAgentClient, "web_agent"),
+        check_service_health(None, "huggingface"),
         return_exceptions=True
     )
     
-    database_health, ollama_health, lm_studio_health, jan_health, openrouter_health, web_agent_health = results
+    database_health, ollama_health, lm_studio_health, jan_health, openrouter_health, web_agent_health, huggingface_health = results
     
     # Determinar estado general
     services_status = {
@@ -92,6 +98,7 @@ async def collect_dependency_health() -> Dict[str, Any]:
         "jan": jan_health.get("status", "unknown") if isinstance(jan_health, dict) else "error",
         "openrouter": openrouter_health.get("status", "unknown") if isinstance(openrouter_health, dict) else "error",
         "web_agent": web_agent_health.get("status", "unknown") if isinstance(web_agent_health, dict) else "error",
+        "huggingface": huggingface_health.get("status", "unknown") if isinstance(huggingface_health, dict) else "error",
     }
     
     critical_services = ["database"]
@@ -115,6 +122,7 @@ async def collect_dependency_health() -> Dict[str, Any]:
             "jan": jan_health if isinstance(jan_health, dict) else {"status": "error", "error": str(jan_health)},
             "openrouter": openrouter_health if isinstance(openrouter_health, dict) else {"status": "error", "error": str(openrouter_health)},
             "web_agent": web_agent_health if isinstance(web_agent_health, dict) else {"status": "error", "error": str(web_agent_health)},
+            "huggingface": huggingface_health if isinstance(huggingface_health, dict) else {"status": "error", "error": str(huggingface_health)},
         }
     }
     

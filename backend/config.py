@@ -87,6 +87,10 @@ class Settings(BaseSettings):
     WEB_AGENT_SESSION_DIR: str = "./data/browser_sessions"
     WEB_AGENT_CHROME_PATH: str = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
     WEB_AGENT_CHROME_PROFILE: str = ""  # Vacío = usa perfil por defecto del usuario
+
+    # ─── HuggingFace Inference API ───────────────────────────
+    HF_TOKEN: Optional[str] = None
+    HF_ENABLED: bool = True
     
     # ─── RDP Manager (Wake-on-RDP para Worker) ──────────────────
     RDP_ENABLED: bool = True
