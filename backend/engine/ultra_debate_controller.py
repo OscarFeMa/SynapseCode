@@ -293,11 +293,36 @@ class UltraDebateController:
                     total_tokens_out=sum(t.tokens_out for t in session.turns),
                     total_latency_ms=sum(t.latency_ms for t in session.turns),
                     final_verdict=session.final_verdict,
-                    structured_report=session.tribunal_verdict, # Reutilizar como reporte
+                    structured_report=session.tribunal_verdict,
                     created_at=session.created_at,
                     completed_at=session.completed_at
                 )
                 db.add(db_debate)
+                
+                # Guardar turnos individuales
+                for t in session.turns:
+                    db_turn = SequentialDebateTurn(
+                        debate_id=session.id,
+                        turn_number=t.turn_number,
+                        agent_id=t.agent.id,
+                        agent_name=t.agent.name,
+                        agent_role=t.agent.role.value,
+                        model=t.agent.model,
+                        provider=t.agent.provider,
+                        node=t.agent.node,
+                        engine=t.agent.engine,
+                        prompt_sent=t.prompt_sent[:10000] if t.prompt_sent else "",
+                        response_received=t.response_received[:20000] if t.response_received else "",
+                        tokens_in=t.tokens_in,
+                        tokens_out=t.tokens_out,
+                        latency_ms=t.latency_ms,
+                        status=t.status,
+                        started_at=t.started_at,
+                        completed_at=t.completed_at
+                    )
+                    db.add(db_turn)
+                
                 await db.commit()
+                logger.info("ultra_debate.persisted", session_id=session.id, turns=len(session.turns))
         except Exception as e:
             logger.error("ultra_debate.persistence_error", error=str(e))
