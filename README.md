@@ -1,29 +1,31 @@
-# 🧠 Synapse Code v2.4
+# 🧠 Synapse Code v2.7
 
 Plataforma de **razonamiento colectivo híbrido** que orquesta múltiples modelos de IA en un debate estructurado por roles, con veredicto soberano del **Tribunal de Magistrados**.
 
-Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (MakederPC) ejecuta modelos locales.
+Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.33) ejecuta modelos locales.
 
 ---
 
 ## 🎯 Características Principales
 
+- **Control Center v2.7**: Panel web completo en tiempo real (`/frontend/control-center`)
+  - 6 pestañas: Command, Launcher, Metrics, Tribunal, Models, History
+  - Estado de conexión Master ↔ Worker con detección automática de IP
+  - Monitor de servicios Worker (Ollama, LM Studio, Jan) con auto-lanzamiento
+  - Panel de Bases de Datos: SQLite local + Supabase Cloud con sync status
+  - Diseño "Neural Terminal" (Dark mode, animaciones, zero dependencies)
 - **Arquitectura Híbrida**: Master (orquestación) + Worker (Ollama, LM Studio, Jan)
-- **Tribunal de Magistrados**: 3 roles especializados con Protocolo de Consenso Forzado y fallback chains configurables
-- **Reducción al Absurdo**: Eliminación de sesgos de complacencia via técnica lógica
+- **Tribunal de Magistrados**: 3 roles especializados con Protocolo de Consenso Forzado
 - **Sistema de Reputación EMA**: Métricas dinámicas por modelo y rol (TSA, IID, PVT)
-- **Caché Semántica**: Respuestas cacheadas por similitud de embeddings (-40% latencia)
-- **Data Warehouse**: Agregaciones automáticas para análisis histórico de debates
-- **Prometheus Metrics**: Observabilidad con `/metrics` endpoint
+- **Caché Semántica**: Respuestas cacheadas por similitud de embeddings
+- **Data Warehouse**: Agregaciones automáticas para análisis histórico
 - **Múltiples Motores**: Ollama, LM Studio, Jan, Groq, Gemini, OpenRouter, DeepSeek
-- **Web Agent**: 10 sitios de IA vía Playwright con stealth anti-detección
-- **Debates Iterativos**: Multi-agente con cruzamientos críticos y consenso
-- **Continuación de Debates**: `POST /debates/{id}/continue` para añadir rondas
-- **Streaming en Tiempo Real**: WebSocket con token buffering optimizado
+- **Web Agent**: 10 sitios de IA vía Playwright
+- **Debates Iterativos**: Multi-agente con cruzamientos críticos
+- **Continuación/Pausa de Debates**: Control total del ciclo de vida
 - **Memoria Híbrida**: SQLite local + Supabase sync con queue persistente
-- **Auto-Recuperación**: WorkerServiceManager lanza servicios caídos automáticamente
-- **Control Center Web**: Panel completo en /admin con dashboard, debates, métricas
-- **Exportación**: JSON estructurado, Markdown, PDF de cualquier debate
+- **Auto-Recuperación**: WorkerServiceManager lanza servicios caídos
+- **Exportación**: JSON, Markdown, PDF de cualquier debate
 
 ---
 

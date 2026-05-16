@@ -1,9 +1,46 @@
-# 📜 Changelog - Synapse Council
+# 📜 Changelog - Synapse Code
 
 Todos los cambios notables de este proyecto serán documentados en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [2.7.0] - 2026-05-16
+
+### 🚀 Añadido (Added)
+
+#### SynapseCode Control Center v2.7 (Vanilla JS)
+- **Panel Web Completo**: 6 pestañas (Command, Launcher, Metrics, Tribunal, Models, History)
+- **Zero Dependencies**: React eliminado, ahora Vanilla JS puro (sin build, sin node_modules)
+- **Estado en Tiempo Real**: Polling automático cada 10s a todos los endpoints del backend
+- **Conexión Master-Worker**:
+  - Detección automática de IP del Worker vía `resolve_worker_ip()`
+  - Panel de estado con modo "CONECTADO" o "LOCAL"
+  - Heartbeat monitoring y fallback a comprobación de servicios
+- **Monitor de Servicios Worker**:
+  - Ollama, LM Studio, Jan con estado (RUNNING/STOPPED)
+  - Detección de servicios en `127.0.0.1` como fallback
+  - Botones de lanzamiento directo (`POST /worker/services/launch`)
+- **Panel de Bases de Datos**:
+  - Estado de SQLite (local) y Supabase (cloud)
+  - Sincronización: pendientes, reintentos, vencidos
+  - Botones: Forzar Sync, Sync Pendientes, Ver Cloud
+- **Diseño Neural Terminal**: Dark mode, grid de circuito, animaciones CSS
+- **WebSocket**: Conexión a `/ws/sessions/{id}` para streaming de debates
+
+#### Logging Rotatorio
+- **Archivos por tipo**: `synapse.log`, `synapse_error.log`, `synapse_engine.log`, `synapse_api.log`
+- **Rotación automática**: 10MB por archivo, 5 backups
+- **Configuración en `.env`**: `LOG_LEVEL`, `LOG_MAX_BYTES`, `LOG_BACKUP_COUNT`
+
+### 🔧 Mejoras Técnicas
+
+- **CORS**: Añadido `localhost:8080` para desarrollo frontend
+- **Jan URL**: Corregido a `http://localhost:1337/v1`
+- **Health Endpoint**: Ahora verifica servicios del Worker si no hay heartbeat TCP
+- **WebSocket URL**: Corregido a `/ws/sessions/{id}`
 
 ---
 
