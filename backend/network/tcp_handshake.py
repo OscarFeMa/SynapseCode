@@ -187,7 +187,7 @@ class TCPHandshake:
             local_ip = s.getsockname()[0]
             s.close()
             return local_ip
-        except:
+        except Exception:
             return "127.0.0.1"
 
     def is_connected(self) -> bool:

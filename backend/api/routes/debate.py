@@ -10,6 +10,10 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
 from pydantic import BaseModel
 
+from backend.engine.consensus_debate_controller import (
+    ConsensusDebateController,
+    get_consensus_debate_config,
+)
 from backend.engine.sequential_debate_controller import (
     AgentRole,
     DebateAgent,
@@ -23,6 +27,7 @@ from backend.monitoring.prometheus import (
     record_debate_report_cache_hit,
     record_debate_report_generated,
 )
+from backend.services.supabase_sync import get_supabase_service
 
 router = APIRouter(prefix="/debates", tags=["Sequential Debate"])
 
@@ -204,9 +209,6 @@ def build_debate_response(session) -> DebateResponse:
         completed_at=session.completed_at,
     )
 
-
-# Import Supabase service
-from backend.services.supabase_sync import get_supabase_service
 
 supabase_service = get_supabase_service()
 
@@ -811,11 +813,6 @@ async def delete_debate(session_id: str):
 # ============================================================================
 # CONSENSUS DEBATE ENDPOINTS
 # ============================================================================
-
-from backend.engine.consensus_debate_controller import (
-    ConsensusDebateController,
-    get_consensus_debate_config,
-)
 
 consensus_controller = ConsensusDebateController()
 

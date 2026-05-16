@@ -4,16 +4,38 @@ Punto de entrada principal del backend
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 
+from backend.adapters.http_client_manager import HTTPClientManager
+from backend.api.middleware import (
+    LoggingMiddleware,
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+)
+from backend.api.routes.cache import router as cache_router
+from backend.api.routes.debate import router as debate_router
+from backend.api.routes.debug import router as debug_router
+from backend.api.routes.health import router as health_router
+from backend.api.routes.network import router as network_router
+from backend.api.routes.runs import router as runs_router
+from backend.api.routes.sessions import router as sessions_router
+from backend.api.routes.system import router as system_router
+from backend.api.routes.websockets import router as websockets_router
 from backend.config import get_settings
 from backend.database.local_db import init_db
+from backend.engine.task_manager import task_manager
+from backend.logging_config import setup_logging
+from backend.monitoring.prometheus import render_prometheus_metrics
+from backend.network.discovery import node_discoverer
+from backend.network.heartbeat import HeartbeatManager
+from backend.network.tcp_handshake import TCPHandshake
 
 # Configurar logging básico para ver en consola
 logging.basicConfig(
@@ -22,28 +44,10 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()],
 )
 
-# Importar routers
-from backend.adapters.http_client_manager import HTTPClientManager
-from backend.api.routes.cache import router as cache_router
-from backend.api.routes.debate import router as debate_router
-from backend.api.routes.health import router as health_router
-from backend.api.routes.network import router as network_router
-from backend.api.routes.runs import router as runs_router
-from backend.api.routes.sessions import router as sessions_router
-from backend.api.routes.system import router as system_router
-from backend.api.routes.websockets import router as websockets_router
-from backend.engine.task_manager import task_manager
-from backend.monitoring.prometheus import render_prometheus_metrics
-from backend.network.discovery import node_discoverer
-from backend.network.heartbeat import HeartbeatManager
-from backend.network.tcp_handshake import TCPHandshake
-
 logger = structlog.get_logger()
 settings = get_settings()
 
 # Configurar logging estructurado con archivos rotatorios
-from backend.logging_config import setup_logging
-
 setup_logging(
     log_level=settings.LOG_LEVEL,
     log_dir=Path(settings.LOG_DIR),
@@ -87,7 +91,6 @@ async def lifespan(app: FastAPI):
         logger.warning("hybrid_memory_v2.start_failed", error=str(e))
 
     # Verificar y lanzar servicios del Worker al iniciar (v2.2+)
-    # Verificar servicios esenciales del Worker al iniciar (solo Ollama y LM Studio)
     if settings.is_master and settings.RDP_ENABLED:
         try:
             from backend.engine.worker_launcher import worker_service_manager
@@ -98,7 +101,6 @@ async def lifespan(app: FastAPI):
                 svc = status.get(name, {})
                 if svc.get("status") != "running":
                     logger.info(f"worker.{name}_offline_attempting_launch")
-                    # Intentar solo RDP (WinRM no disponible), con timeout corto
                     import asyncio
 
                     try:
@@ -131,7 +133,6 @@ async def lifespan(app: FastAPI):
         heartbeat_manager.start()
         logger.info("heartbeat.started", role="MASTER")
     else:
-        # Worker inicia heartbeat cuando conoce la IP del Master
         heartbeat_manager = HeartbeatManager(
             role="WORKER",
             interval=settings.HEARTBEAT_INTERVAL,
@@ -182,19 +183,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Middleware de seguridad (Fase 5)
-from backend.api.middleware import (
-    LoggingMiddleware,
-    RateLimitMiddleware,
-    SecurityHeadersMiddleware,
-)
-
 app.add_middleware(RateLimitMiddleware, requests_per_minute=120, burst_size=60)
-
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(LoggingMiddleware)
 
-# Configurar CORS (Debe ser el último en añadirse para ser el primero en procesar/último en salir)
+# Configurar CORS
 origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else ["*"]
 app.add_middleware(
     CORSMiddleware,
@@ -213,10 +206,6 @@ app.include_router(debate_router, prefix="/api/v1")
 app.include_router(runs_router, prefix="/api/v1")
 app.include_router(system_router, prefix="/api/v1")
 app.include_router(cache_router, prefix="/api/v1/cache")
-
-# Debug router (importación local para evitar imports circulares)
-from backend.api.routes.debug import router as debug_router
-
 app.include_router(debug_router)
 logger.info("debug_router.enabled")
 
@@ -247,10 +236,6 @@ async def prometheus_metrics():
 @app.get("/admin", include_in_schema=False)
 async def admin_panel():
     """Panel de administración web"""
-    import os
-
-    from fastapi.responses import FileResponse, HTMLResponse
-
     admin_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "admin.html")
     if os.path.exists(admin_path):
         return FileResponse(admin_path)

@@ -151,7 +151,7 @@ class GroqClient:
                                 if "content" in delta:
                                     response_text += delta["content"]
                                     yield delta["content"]
-                            except:
+                            except (json.JSONDecodeError, KeyError, IndexError):
                                 continue
                     return
         except httpx.HTTPStatusError:

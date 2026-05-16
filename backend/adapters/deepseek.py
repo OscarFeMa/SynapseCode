@@ -81,7 +81,7 @@ class DeepSeekClient:
                                 .get("error", {})
                                 .get("message", f"HTTP {response.status_code}")
                             )
-                        except:
+                        except (json.JSONDecodeError, UnicodeDecodeError, KeyError):
                             err = f"HTTP {response.status_code}: {error_body.decode()[:100]}"
                         yield f"[Error DeepSeek: {err}]"
                         return
@@ -94,7 +94,7 @@ class DeepSeekClient:
                                 delta = data["choices"][0]["delta"]
                                 if "content" in delta:
                                     yield delta["content"]
-                            except:
+                            except (json.JSONDecodeError, KeyError, IndexError):
                                 continue
         except Exception as e:
             logger.error("deepseek.request_failed", error=str(e))
