@@ -2,6 +2,9 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SynapseCode Control Center v2.7</title>
 <style>
@@ -236,7 +239,7 @@ const BASE = "http://localhost:8000";
 // ─── STATE ───
 let S = {
   tab:"command", health:null, debates:[], reps:{}, cache:null, trib:null, analytics:null, worker:null,
-  sysHealth:null, selModel:null, selDebate:null, streamMsgs:[], streamId:null, wsOk:false, wsCount:0,
+  sysHealth:null, dbSync:null, cloudStatus:null, selModel:null, selDebate:null, streamMsgs:[], streamId:null, wsOk:false, wsCount:0,
   interval:10000, pollOn:true, settingsOpen:false, toasts:[],
   chatMsgs:[], chatModel:"llama-3.1-8b", chatEngine:"groq",
   launch:{step:1,type:"sequential",topic:"",context:"",lang:"es",models:[],rounds:3,conv:true,cache:true,reductio:true,trib:true,expJson:true,expMd:true},
@@ -262,7 +265,7 @@ function setTab(t) { S.tab=t; S.selModel=null; S.selDebate=null; render(); }
 // ─── FETCH ───
 async function fetchData() {
   try {
-    const [h,d,r,c,t,a,w,sh] = await Promise.allSettled([
+    const [h,d,r,c,t,a,w,sh,db,cloud] = await Promise.allSettled([
       fetch(`${BASE}/health`).then(r=>r.json()),
       fetch(`${BASE}/api/v1/debates/list`).then(r=>r.json()),
       fetch(`${BASE}/api/v1/debates/reputation`).then(r=>r.json()),
@@ -271,6 +274,8 @@ async function fetchData() {
       fetch(`${BASE}/api/v1/system/analytics`).then(r=>r.json()),
       fetch(`${BASE}/api/v1/system/worker/services`).then(r=>r.json()),
       fetch(`${BASE}/api/v1/system/health`).then(r=>r.json()),
+      fetch(`${BASE}/api/v1/system/health/sync`).then(r=>r.json()),
+      fetch(`${BASE}/api/v1/debates/cloud/status`).then(r=>r.json()),
     ]);
     if(h.status==='fulfilled') S.health=h.value;
     if(d.status==='fulfilled') S.debates=d.value?.sessions||[];
@@ -280,6 +285,8 @@ async function fetchData() {
     if(a.status==='fulfilled') S.analytics=a.value;
     if(w.status==='fulfilled') S.worker=w.value;
     if(sh.status==='fulfilled') S.sysHealth=sh.value;
+    if(db.status==='fulfilled') S.dbSync=db.value;
+    if(cloud.status==='fulfilled') S.cloudStatus=cloud.value;
     render();
   } catch(e) { S.error=e.message; render(); }
 }
@@ -647,6 +654,74 @@ function tabHistory() {
         ${h.status==='completed'?`<button class="dbtn btn-sm" data-cont="${h.session_id}">🔄</button>`:''}
       </div></td></tr>`).join('')}
     </tbody></table></div>
+    ${dbPanel()}
+  </div>`;
+}
+
+function dbPanel() {
+  const db = S.dbSync;
+  const cloud = S.cloudStatus;
+  if(!db && !cloud) return '';
+
+  const sqliteOk = true; // SQLite siempre disponible si el backend corre
+  const supaOk = cloud?.enabled || db?.supabase?.enabled;
+  const syncOk = db?.status === 'healthy';
+  const pending = db?.queue?.pending || 0;
+
+  return `<div class="panel" style="margin-top:16">
+    <div class="panel-title">🗄️ Bases de Datos</div>
+    <div class="g2">
+      <!-- SQLite (Local) -->
+      <div style="background:var(--bg-surface);border-radius:8px;padding:12px;border-left:3px solid var(--green)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:600;font-size:13px">📦 SQLite (Local)</span>
+          <span class="ds running">ONLINE</span>
+        </div>
+        <div class="sn"><span>Ubicación</span><span style="font-family:var(--mono);font-size:11px">./synapse.db</span></div>
+        <div class="sn"><span>Tipo</span><span style="font-family:var(--mono);font-size:11px">Almacenamiento primario</span></div>
+        <div class="sn"><span>Debates locales</span><span style="font-family:var(--mono);font-size:11px">${S.debates.length}</span></div>
+      </div>
+
+      <!-- Supabase (Cloud) -->
+      <div style="background:var(--bg-surface);border-radius:8px;padding:12px;border-left:3px solid ${supaOk?'var(--green)':'var(--amber)'}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:600;font-size:13px">☁️ Supabase (Cloud)</span>
+          <span class="ds ${supaOk?'running':'paused'}">${supaOk?'ONLINE':'CONFIGURAR'}</span>
+        </div>
+        ${cloud?`
+          <div class="sn"><span>URL</span><span style="font-family:var(--mono);font-size:11px">${cloud.url||'--'}</span></div>
+          <div class="sn"><span>Estado</span><span style="font-family:var(--mono);font-size:11px">${cloud.status||'disabled'}</span></div>
+        `:`
+          <div class="sn"><span>Estado</span><span style="font-family:var(--mono);font-size:11px">No configurado</span></div>
+        `}
+        <div class="sn"><span>Sync</span><span style="font-family:var(--mono);font-size:11px">${supaOk?'Activa':'Pendiente'}</span></div>
+      </div>
+    </div>
+
+    <!-- Sync Status -->
+    ${db?`
+    <div style="margin-top:12;background:var(--bg-surface);border-radius:8px;padding:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-weight:600;font-size:13px">🔄 Sincronización</span>
+        <span class="ds ${syncOk?'running':db?.status==='blocked'?'failed':'paused'}">${db.status?.toUpperCase()||'--'}</span>
+      </div>
+      <div class="g4">
+        <div class="sn"><span>Pendientes</span><span style="font-family:var(--mono)">${pending}</span></div>
+        <div class="sn"><span>Con reintentos</span><span style="font-family:var(--mono)">${db.queue?.withRetries||0}</span></div>
+        <div class="sn"><span>Vencidos</span><span style="font-family:var(--mono)">${db.queue?.dueNow||0}</span></div>
+        <div class="sn"><span>En memoria</span><span style="font-family:var(--mono)">${db.queue?.inMemory||0}</span></div>
+      </div>
+      ${db.recommendation?`<div style="margin-top:8;font-size:11px;color:var(--muted);font-style:italic">💡 ${db.recommendation}</div>`:''}
+      ${db.queue?.lastError?`<div style="margin-top:8;font-size:11px;color:var(--red)">⚠️ Error: ${db.queue.lastError.message} (reintento #${db.queue.lastError.retryCount})</div>`:''}
+    </div>
+    `:''}
+
+    <!-- Actions -->
+    <div style="display:flex;gap:8px;margin-top:12">
+      <button class="btn btn-sm btn-sec" data-sync-now>🔄 Forzar Sync</button>
+      <button class="btn btn-sm btn-sec" data-sync-pending">📤 Sync Pendientes</button>
+      ${supaOk?`<button class="btn btn-sm btn-sec" data-cloud-list">☁️ Ver Cloud</button>`:''}
+    </div>
   </div>`;
 }
 
@@ -799,6 +874,17 @@ function bindEvents() {
 
   // Wake worker
   $('[data-wake]') && ($('[data-wake]').onclick = () => toast('Wake-on-LAN enviado','info'));
+
+  // Database sync actions
+  $('[data-sync-now]') && ($('[data-sync-now]').onclick = () => {
+    fetch(`${BASE}/api/v1/debates/cloud/sync/all`,{method:'POST'}).then(()=>toast('Sync forzada iniciada','ok')).catch(()=>toast('Error en sync','err'));
+  });
+  $('[data-sync-pending]') && ($('[data-sync-pending]').onclick = () => {
+    fetch(`${BASE}/api/v1/debates/cloud/sync/pending`,{method:'POST'}).then(()=>toast('Sync de pendientes iniciada','ok')).catch(()=>toast('Error en sync','err'));
+  });
+  $('[data-cloud-list]') && ($('[data-cloud-list]').onclick = () => {
+    fetch(`${BASE}/api/v1/debates/cloud/list`).then(r=>r.json()).then(d=>toast(`Cloud: ${d.count||0} debates`, 'info')).catch(()=>toast('Error listando cloud','err'));
+  });
 }
 
 function sendChat() {
