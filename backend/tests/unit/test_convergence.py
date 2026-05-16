@@ -1,6 +1,7 @@
 """
 Unit tests for convergence evaluator
 """
+
 from backend.engine.convergence import ConvergenceEvaluator
 
 
@@ -16,7 +17,7 @@ class TestConvergenceEvaluator:
             local_synthesis="Test synthesis about AI benefits",
             cloud_synthesis="AI is beneficial for society",
             round_number=2,
-            max_rounds=3
+            max_rounds=3,
         )
         assert hasattr(result, "similarity_score")
         assert hasattr(result, "should_stop")
@@ -28,6 +29,6 @@ class TestConvergenceEvaluator:
             local_synthesis="The sky is blue and clear",
             cloud_synthesis="The sky is blue and clear",
             round_number=3,
-            max_rounds=3
+            max_rounds=3,
         )
         assert result.similarity_score > 0.5

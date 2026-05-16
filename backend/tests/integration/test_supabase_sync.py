@@ -1,6 +1,7 @@
 """
 Integration tests for Supabase sync service
 """
+
 from backend.services.supabase_sync import SupabaseSyncService
 
 
@@ -21,6 +22,7 @@ class TestSupabaseSync:
     def test_supabase_sync_reductio_proofs_method_signature(self):
         service = SupabaseSyncService()
         import inspect
+
         sig = inspect.signature(service.sync_reductio_proofs)
         params = list(sig.parameters.keys())
         assert "debate_id" in params

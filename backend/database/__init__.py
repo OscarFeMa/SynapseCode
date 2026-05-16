@@ -1,14 +1,15 @@
 """
 Synapse Council v2.0 - Database Module
 """
-from backend.database.local_db import get_session, init_db, engine
+
+from backend.database.local_db import engine, get_session, init_db
 from backend.database.models import (
-    Session,
-    Round,
     AgentCall,
-    CrossReference,
     AgentReputation,
     ConfigProfile,
+    CrossReference,
+    Round,
+    Session,
     SystemEvent,
 )
 

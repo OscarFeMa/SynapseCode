@@ -1,25 +1,21 @@
 """
 Unit tests for imports and module structure
 """
-from backend.config import get_settings
-from backend.database.models import SequentialDebate, SequentialDebateTurn
-from backend.engine.debate_models import AgentRole, DebateAgent, DebateTurn, DebateSession
-from backend.adapters.ollama import OllamaClient
-from backend.adapters.groq import GroqClient
+
 from backend.adapters.gemini import GeminiClient
-from backend.adapters.lm_studio import LMStudioClient
-from backend.adapters.web_agent import WebAgentClient
-from backend.adapters.http_client_manager import HTTPClientManager
-from backend.engine.sequential_debate_controller import SequentialDebateController
-from backend.engine.tribunal import TribunalCouncil
-from backend.engine.convergence import ConvergenceEvaluator
-from backend.engine.quality_monitor import QualityMonitor
-from backend.engine.reputation_unified import ReputationManager
-from backend.engine.task_manager import TaskConfig
-from backend.engine.worker_launcher import WorkerServiceManager
+from backend.adapters.groq import GroqClient
+from backend.adapters.ollama import OllamaClient
 from backend.api.routes.health import router as health_router
 from backend.api.routes.system import router as system_router
-from backend.api.routes.debate import router as debate_router
+from backend.config import get_settings
+from backend.database.models import SequentialDebate, SequentialDebateTurn
+from backend.engine.convergence import ConvergenceEvaluator
+from backend.engine.debate_models import (
+    AgentRole,
+    DebateSession,
+)
+from backend.engine.sequential_debate_controller import SequentialDebateController
+from backend.engine.tribunal import TribunalCouncil
 from backend.main import app
 from backend.memory.hybrid_memory_v2 import get_hybrid_memory_v2
 
@@ -65,6 +61,7 @@ class TestImports:
 
     def test_tribunal_config_module(self):
         from backend.engine.tribunal_config import build_tribunal_config
+
         config = build_tribunal_config(get_settings())
         assert set(config.keys()) == {"evidence", "risk", "alignment"}
         assert config["evidence"].primary.slot == "magistrate_evidence"

@@ -2,23 +2,24 @@
 Synapse Council v2.0 - Agent Orchestrator
 Orquesta llamadas a agentes con paralelismo, persistencia y cross-references
 """
+
 import asyncio
 import uuid
-from datetime import datetime
-from typing import Dict, List, Any, Optional, AsyncGenerator, Callable
 from dataclasses import dataclass
-import structlog
+from datetime import datetime
+from typing import Callable, Dict, List, Optional
 
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.engine.local_engine_manager import LocalEngineManager, EngineType
 from backend.adapters.openrouter import OpenRouterClient
 from backend.adapters.web_agent import WebAgentClient
+from backend.config import get_settings
 from backend.database.local_db import AsyncSessionLocal
 from backend.database.models import AgentCall, CrossReference
-from backend.engine.quality_monitor import evaluate_response
 from backend.engine.intervention_taxonomy import detect_intervention_type
-from backend.config import get_settings
+from backend.engine.local_engine_manager import EngineType, LocalEngineManager
+from backend.engine.quality_monitor import evaluate_response
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -27,6 +28,7 @@ logger = structlog.get_logger()
 @dataclass
 class AgentConfig:
     """Configuración de un agente"""
+
     slot: str
     node: str  # LOCAL, CLOUD, WEB_AGENT
     engine: str  # ollama, lm_studio, jan, openrouter, web_agent
@@ -39,6 +41,7 @@ class AgentConfig:
 @dataclass
 class AgentResult:
     """Resultado de una llamada a agente"""
+
     call_id: str
     slot: str
     node: str
@@ -58,7 +61,7 @@ class AgentOrchestrator:
     - Cross-references entre agentes
     - Manejo de errores por agente
     """
-    
+
     def __init__(self):
         self._local_manager = None
         self._openrouter = None
@@ -77,7 +80,9 @@ class AgentOrchestrator:
     @property
     def openrouter(self):
         if self._openrouter is None:
-            self._openrouter = OpenRouterClient() if settings.OPENROUTER_API_KEY else None
+            self._openrouter = (
+                OpenRouterClient() if settings.OPENROUTER_API_KEY else None
+            )
         return self._openrouter
 
     @property
@@ -85,6 +90,7 @@ class AgentOrchestrator:
         if self._master_ollama is None:
             # Cliente para el Ollama local del Master (usado para Cloud models)
             from backend.adapters.ollama import OllamaClient
+
             self._master_ollama = OllamaClient(base_url=settings.OLLAMA_BASE_URL)
         return self._master_ollama
 
@@ -92,6 +98,7 @@ class AgentOrchestrator:
     def gemini(self):
         if self._gemini is None:
             from backend.adapters.gemini import GeminiClient
+
             self._gemini = GeminiClient() if settings.GEMINI_API_KEY else None
         return self._gemini
 
@@ -99,6 +106,7 @@ class AgentOrchestrator:
     def groq(self):
         if self._groq is None:
             from backend.adapters.groq import GroqClient
+
             self._groq = GroqClient() if settings.GROQ_API_KEY else None
         return self._groq
 
@@ -106,6 +114,7 @@ class AgentOrchestrator:
     def deepseek(self):
         if self._deepseek is None:
             from backend.adapters.deepseek import DeepSeekClient
+
             self._deepseek = DeepSeekClient() if settings.DEEPSEEK_API_KEY else None
         return self._deepseek
 
@@ -118,7 +127,7 @@ class AgentOrchestrator:
                 headless=settings.WEB_AGENT_HEADLESS,
             )
         return self._web_agent
-        
+
     async def call_agent(
         self,
         session_id: str,
@@ -129,7 +138,7 @@ class AgentOrchestrator:
         system_prompt: str,
         user_prompt: str,
         db_session: AsyncSession,
-        on_token: Optional[Callable[[str], None]] = None
+        on_token: Optional[Callable[[str], None]] = None,
     ) -> AgentResult:
         """
         Llama a un agente individual con persistencia completa
@@ -137,7 +146,7 @@ class AgentOrchestrator:
         call_id = str(uuid.uuid4())
         started_at = datetime.utcnow()
         start_time = asyncio.get_event_loop().time()
-        
+
         # Crear registro en DB
         agent_call = AgentCall(
             id=call_id,
@@ -155,10 +164,10 @@ class AgentOrchestrator:
             status="STREAMING" if on_token else "PENDING",
             started_at=started_at,
         )
-        
+
         db_session.add(agent_call)
         await db_session.commit()
-        
+
         logger.info(
             "agent_call.started",
             call_id=call_id,
@@ -166,22 +175,34 @@ class AgentOrchestrator:
             agent_slot=config.slot,
             phase=phase,
         )
-        
-        logger.info("call_agent.starting_generation", slot=config.slot, node=config.node, engine=config.engine, model=config.model)
-        
+
+        logger.info(
+            "call_agent.starting_generation",
+            slot=config.slot,
+            node=config.node,
+            engine=config.engine,
+            model=config.model,
+        )
+
         try:
             # Seleccionar motor y ejecutar
             response_parts = []
             tokens_in = len(user_prompt.split())  # Aproximación
             tokens_out = 0
-            
+
             if config.node == "LOCAL":
                 engine_type = EngineType(config.engine)
-                logger.info("call_agent.local_engine_selected", engine_type=engine_type.value)
-                
+                logger.info(
+                    "call_agent.local_engine_selected", engine_type=engine_type.value
+                )
+
                 # Forzar stream=True siempre para asegurar consumo completo del generador
-                logger.info("call_agent.calling_generate", model=config.model, prompt_preview=user_prompt[:50])
-                
+                logger.info(
+                    "call_agent.calling_generate",
+                    model=config.model,
+                    prompt_preview=user_prompt[:50],
+                )
+
                 # Generar con timeout para evitar bloqueos infinitos
                 token_count = 0
                 try:
@@ -193,7 +214,7 @@ class AgentOrchestrator:
                         system=system_prompt,
                         temperature=config.temperature,
                         max_tokens=config.max_tokens,
-                        stream=True
+                        stream=True,
                     ):
                         if not token or not token.strip():
                             continue
@@ -202,11 +223,19 @@ class AgentOrchestrator:
                         response_parts.append(token)
                         if on_token:
                             on_token(token)
-                    logger.info("call_agent.generate_completed", tokens_yielded=token_count, response_length=len("".join(response_parts)))
+                    logger.info(
+                        "call_agent.generate_completed",
+                        tokens_yielded=token_count,
+                        response_length=len("".join(response_parts)),
+                    )
                 except Exception as e:
-                    logger.error("call_agent.local_generation_error", model=config.model, error=str(e))
+                    logger.error(
+                        "call_agent.local_generation_error",
+                        model=config.model,
+                        error=str(e),
+                    )
                     raise
-                        
+
             elif config.node == "CLOUD":
                 if config.engine == "ollama":
                     # Ollama Cloud (ejecutado via Master local)
@@ -217,73 +246,73 @@ class AgentOrchestrator:
                         system=system_prompt,
                         options={
                             "temperature": config.temperature,
-                            "num_predict": config.max_tokens
+                            "num_predict": config.max_tokens,
                         },
-                        stream=True
+                        stream=True,
                     ):
                         tokens_out += 1
                         response_parts.append(token)
                         if on_token:
                             on_token(token)
-                
+
                 elif config.engine == "openrouter":
                     # OpenRouter
                     if not self.openrouter:
                         raise RuntimeError("OpenRouter not configured")
-                    
+
                     messages = [
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
+                        {"role": "user", "content": user_prompt},
                     ]
-                    
+
                     async for token in self.openrouter.chat_completion(
                         model=config.model,
                         messages=messages,
                         temperature=config.temperature,
                         max_tokens=config.max_tokens,
-                        stream=on_token is not None
+                        stream=on_token is not None,
                     ):
                         response_parts.append(token)
                         tokens_out += 1
                         if on_token and token:
                             on_token(token)
-                
+
                 elif config.engine == "gemini":
                     # Google Gemini API
                     if not self.gemini:
                         raise RuntimeError("Gemini API not configured")
-                    
+
                     messages = [
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
+                        {"role": "user", "content": user_prompt},
                     ]
                     async for token in self.gemini.chat_completion(
                         model=config.model,
                         messages=messages,
                         temperature=config.temperature,
                         max_tokens=config.max_tokens,
-                        stream=True
+                        stream=True,
                     ):
                         response_parts.append(token)
                         tokens_out += 1
                         if on_token:
                             on_token(token)
-                            
+
                 elif config.engine == "groq":
                     # Groq API
                     if not self.groq:
                         raise RuntimeError("Groq API not configured")
-                    
+
                     messages = [
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
+                        {"role": "user", "content": user_prompt},
                     ]
                     async for token in self.groq.chat_completion(
                         model=config.model,
                         messages=messages,
                         temperature=config.temperature,
                         max_tokens=config.max_tokens,
-                        stream=True
+                        stream=True,
                     ):
                         response_parts.append(token)
                         tokens_out += 1
@@ -294,17 +323,17 @@ class AgentOrchestrator:
                     # DeepSeek API
                     if not self.deepseek:
                         raise RuntimeError("DeepSeek API not configured")
-                    
+
                     messages = [
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
+                        {"role": "user", "content": user_prompt},
                     ]
                     async for token in self.deepseek.chat_completion(
                         model=config.model,
                         messages=messages,
                         temperature=config.temperature,
                         max_tokens=config.max_tokens,
-                        stream=True
+                        stream=True,
                     ):
                         response_parts.append(token)
                         tokens_out += 1
@@ -312,21 +341,21 @@ class AgentOrchestrator:
                             on_token(token)
                 else:
                     raise RuntimeError(f"Unsupported cloud engine: {config.engine}")
-                        
+
             elif config.node == "WEB_AGENT":
                 # Web Agent usa Playwright (no streaming)
                 result = await self.web_agent.query_chatgpt(user_prompt)
                 response_parts.append(result)
-            
+
             # Calcular métricas
             response_text = "".join(response_parts)
             completed_at = datetime.utcnow()
             latency_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
-            
+
             # Métricas avanzadas (v2.1)
             quality_score, _ = evaluate_response(response_text, config.slot)
             intervention_type = detect_intervention_type(response_text, config.slot)
-            
+
             # Actualizar en DB
             agent_call.status = "COMPLETED"
             agent_call.response = response_text
@@ -337,7 +366,7 @@ class AgentOrchestrator:
             agent_call.intervention_type = intervention_type
             agent_call.completed_at = completed_at
             await db_session.commit()
-            
+
             logger.info(
                 "agent_call.completed",
                 call_id=call_id,
@@ -345,7 +374,7 @@ class AgentOrchestrator:
                 latency_ms=latency_ms,
                 tokens_out=tokens_out,
             )
-            
+
             return AgentResult(
                 call_id=call_id,
                 slot=config.slot,
@@ -356,19 +385,19 @@ class AgentOrchestrator:
                 tokens_out=tokens_out,
                 latency_ms=latency_ms,
             )
-            
+
         except asyncio.TimeoutError:
             agent_call.status = "TIMEOUT"
             agent_call.error_message = "Request timeout"
             agent_call.completed_at = datetime.utcnow()
             await db_session.commit()
-            
+
             logger.error(
                 "agent_call.timeout",
                 call_id=call_id,
                 agent_slot=config.slot,
             )
-            
+
             return AgentResult(
                 call_id=call_id,
                 slot=config.slot,
@@ -376,21 +405,21 @@ class AgentOrchestrator:
                 status="TIMEOUT",
                 error_message="Request timeout",
             )
-            
+
         except Exception as e:
             error_msg = str(e)
             agent_call.status = "FAILED"
             agent_call.error_message = error_msg
             agent_call.completed_at = datetime.utcnow()
             await db_session.commit()
-            
+
             logger.error(
                 "agent_call.failed",
                 call_id=call_id,
                 agent_slot=config.slot,
                 error=error_msg,
             )
-            
+
             return AgentResult(
                 call_id=call_id,
                 slot=config.slot,
@@ -398,7 +427,7 @@ class AgentOrchestrator:
                 status="FAILED",
                 error_message=error_msg,
             )
-    
+
     async def call_agents_parallel(
         self,
         session_id: str,
@@ -408,7 +437,7 @@ class AgentOrchestrator:
         agent_configs: List[AgentConfig],
         prompts: Dict[str, tuple],  # {slot: (system_prompt, user_prompt)}
         db_session: AsyncSession,
-        on_agent_token: Optional[Callable[[str, str], None]] = None  # (slot, token)
+        on_agent_token: Optional[Callable[[str, str], None]] = None,  # (slot, token)
     ) -> Dict[str, AgentResult]:
         """
         Llama múltiples agentes en PARALELO con asyncio.gather().
@@ -438,17 +467,16 @@ class AgentOrchestrator:
 
         tasks = [_call_one(cfg) for cfg in agent_configs]
         results = await asyncio.gather(*tasks)
-        
+
         output: Dict[str, AgentResult] = {slot: res for slot, res in results}
         return output
 
-    
     async def create_cross_references(
         self,
         consumer_call_id: str,
         source_call_ids: List[str],
         context_type: str,
-        db_session: AsyncSession
+        db_session: AsyncSession,
     ):
         """
         Crea registros de cross-reference en la base de datos
@@ -461,20 +489,18 @@ class AgentOrchestrator:
                 context_type=context_type,
             )
             db_session.add(cross_ref)
-        
+
         await db_session.commit()
-        
+
         logger.debug(
             "cross_references.created",
             consumer=consumer_call_id,
             sources=len(source_call_ids),
             type=context_type,
         )
-    
+
     def check_failure_threshold(
-        self,
-        results: Dict[str, AgentResult],
-        threshold_percent: float = 0.5
+        self, results: Dict[str, AgentResult], threshold_percent: float = 0.5
     ) -> bool:
         """
         Verifica si se superó el umbral de fallos (>50% por defecto)
@@ -482,13 +508,13 @@ class AgentOrchestrator:
         """
         if not results:
             return True
-        
+
         total = len(results)
         failed = sum(1 for r in results.values() if r.status in ["FAILED", "TIMEOUT"])
-        
+
         failure_rate = failed / total
         should_abort = failure_rate > threshold_percent
-        
+
         if should_abort:
             logger.error(
                 "failure_threshold_exceeded",
@@ -496,5 +522,5 @@ class AgentOrchestrator:
                 total=total,
                 rate=failure_rate,
             )
-        
+
         return should_abort

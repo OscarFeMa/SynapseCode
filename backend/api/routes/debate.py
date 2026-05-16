@@ -2,20 +2,21 @@
 Synapse Council v2.0 - Sequential Debate API Routes
 Endpoints para debate secuencial multi-modelo
 """
-import asyncio
+
 import json
-from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Response
-from pydantic import BaseModel
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
+from pydantic import BaseModel
 
 from backend.engine.sequential_debate_controller import (
-    SequentialDebateController,
-    DebateAgent,
     AgentRole,
-    get_standard_debate_config,
+    DebateAgent,
+    SequentialDebateController,
+    get_cloud_ollama_config,
     get_local_only_config,
-    get_cloud_ollama_config
+    get_standard_debate_config,
 )
 from backend.engine.ultra_debate_controller import UltraDebateController
 from backend.monitoring.prometheus import (
@@ -29,17 +30,22 @@ router = APIRouter(prefix="/debates", tags=["Sequential Debate"])
 debate_controller = SequentialDebateController()
 ultra_controller = UltraDebateController()
 
+
 class DebateRequest(BaseModel):
     """Request para crear un debate"""
+
     topic: str
     mode: str = "standard"  # standard, local_only, custom
     max_turns: Optional[int] = None
     include_cloud: bool = True
-    agents: Optional[List[Dict[str, Any]]] = None  # Configuración personalizada de agentes
+    agents: Optional[List[Dict[str, Any]]] = (
+        None  # Configuración personalizada de agentes
+    )
 
 
 class DebateAgentResponse(BaseModel):
     """Respuesta de agente en el debate"""
+
     turn_number: int
     agent_name: str
     role: str
@@ -57,6 +63,7 @@ class DebateAgentResponse(BaseModel):
 
 class DebateResponse(BaseModel):
     """Respuesta completa del debate"""
+
     session_id: str
     topic: str
     status: str
@@ -71,6 +78,7 @@ class DebateResponse(BaseModel):
 
 class DebateStatusResponse(BaseModel):
     """Estado de una sesión de debate"""
+
     session_id: str
     status: str
     current_turn: Optional[int]
@@ -91,6 +99,7 @@ class DebateCreateResponse(BaseModel):
 
 class DebateContinueRequest(BaseModel):
     """Request para continuar un debate existente"""
+
     agents: Optional[List[Dict[str, Any]]] = None
     max_additional_turns: Optional[int] = None
     continuation_prompt: Optional[str] = None
@@ -98,6 +107,7 @@ class DebateContinueRequest(BaseModel):
 
 class DebatePauseRequest(BaseModel):
     """Request para pausar un debate"""
+
     reason: Optional[str] = None
 
 
@@ -125,6 +135,7 @@ class DebateListResponse(BaseModel):
     count: int
     sessions: List[Dict[str, Any]]
 
+
 @router.get("/list", response_model=DebateListResponse)
 async def list_debates():
     """Lista todas las sesiones de debate activas (en memoria)"""
@@ -138,11 +149,12 @@ async def list_debates():
                 "status": s.status,
                 "turns_completed": len([t for t in s.turns if t.status == "completed"]),
                 "total_turns": len(s.turns),
-                "created_at": s.created_at
+                "created_at": s.created_at,
             }
             for s in sessions
-        ]
+        ],
     }
+
 
 def build_debate_response(session) -> DebateResponse:
     """Helper para construir la respuesta estandarizada"""
@@ -151,26 +163,34 @@ def build_debate_response(session) -> DebateResponse:
         # Manejar tanto DebateTurn (dataclass) como dict (desde BD)
         if hasattr(turn, "turn_number"):
             # Dataclass
-            role_val = turn.agent.role.value if hasattr(turn.agent.role, "value") else turn.agent.role
-            turns_response.append(DebateAgentResponse(
-                turn_number=turn.turn_number,
-                agent_name=turn.agent.name,
-                role=str(role_val),
-                model=turn.agent.model,
-                provider=turn.agent.provider,
-                node=turn.agent.node,
-                response_preview=turn.response_received[:200] + "..." if len(turn.response_received) > 200 else turn.response_received,
-                tokens_in=turn.tokens_in,
-                tokens_out=turn.tokens_out,
-                latency_ms=turn.latency_ms,
-                status=turn.status,
-                started_at=turn.started_at,
-                completed_at=turn.completed_at
-            ))
+            role_val = (
+                turn.agent.role.value
+                if hasattr(turn.agent.role, "value")
+                else turn.agent.role
+            )
+            turns_response.append(
+                DebateAgentResponse(
+                    turn_number=turn.turn_number,
+                    agent_name=turn.agent.name,
+                    role=str(role_val),
+                    model=turn.agent.model,
+                    provider=turn.agent.provider,
+                    node=turn.agent.node,
+                    response_preview=turn.response_received[:200] + "..."
+                    if len(turn.response_received) > 200
+                    else turn.response_received,
+                    tokens_in=turn.tokens_in,
+                    tokens_out=turn.tokens_out,
+                    latency_ms=turn.latency_ms,
+                    status=turn.status,
+                    started_at=turn.started_at,
+                    completed_at=turn.completed_at,
+                )
+            )
         else:
             # Dict
             turns_response.append(DebateAgentResponse(**turn))
-            
+
     return DebateResponse(
         session_id=session.id,
         topic=session.topic,
@@ -181,11 +201,13 @@ def build_debate_response(session) -> DebateResponse:
         total_tokens_out=sum(t.tokens_out for t in session.turns),
         total_latency_ms=sum(t.latency_ms for t in session.turns),
         created_at=session.created_at,
-        completed_at=session.completed_at
+        completed_at=session.completed_at,
     )
+
 
 # Import Supabase service
 from backend.services.supabase_sync import get_supabase_service
+
 supabase_service = get_supabase_service()
 
 
@@ -193,15 +215,12 @@ supabase_service = get_supabase_service()
 # Endpoints de Supabase (Nube) - DEBEN IR PRIMERO para evitar conflicto de rutas
 # ============================================================================
 
+
 @router.get("/cloud/status")
 async def get_supabase_status():
     """Verifica estado de conexión con Supabase"""
     status = await supabase_service.test_connection()
-    return {
-        "enabled": supabase_service.enabled,
-        "url": supabase_service.url,
-        **status
-    }
+    return {"enabled": supabase_service.enabled, "url": supabase_service.url, **status}
 
 
 @router.get("/cloud/list")
@@ -209,13 +228,9 @@ async def list_cloud_debates(limit: int = 50):
     """Lista debates desde Supabase (nube)"""
     if not supabase_service.enabled:
         raise HTTPException(status_code=503, detail="Supabase not configured")
-    
+
     debates = await supabase_service.list_debates_from_cloud(limit)
-    return {
-        "source": "supabase_cloud",
-        "count": len(debates),
-        "debates": debates
-    }
+    return {"source": "supabase_cloud", "count": len(debates), "debates": debates}
 
 
 @router.get("/cloud/{session_id}")
@@ -223,15 +238,12 @@ async def get_cloud_debate(session_id: str):
     """Obtiene un debate específico desde Supabase"""
     if not supabase_service.enabled:
         raise HTTPException(status_code=503, detail="Supabase not configured")
-    
+
     debate = await supabase_service.get_debate_from_cloud(session_id)
     if not debate:
         raise HTTPException(status_code=404, detail="Debate not found in Supabase")
-    
-    return {
-        "source": "supabase_cloud",
-        **debate
-    }
+
+    return {"source": "supabase_cloud", **debate}
 
 
 @router.post("/cloud/sync/{session_id}")
@@ -239,12 +251,14 @@ async def sync_debate_to_cloud(session_id: str):
     """Fuerza sincronización manual de un debate a Supabase"""
     if not supabase_service.enabled:
         raise HTTPException(status_code=503, detail="Supabase not configured")
-    
+
     # Obtener desde BD local
     debate = await debate_controller.get_debate_from_db(session_id)
     if not debate:
-        raise HTTPException(status_code=404, detail="Debate not found in local database")
-    
+        raise HTTPException(
+            status_code=404, detail="Debate not found in local database"
+        )
+
     # Preparar datos completos
     debate_data = {
         "id": debate["id"],
@@ -258,37 +272,31 @@ async def sync_debate_to_cloud(session_id: str):
         "final_verdict": debate.get("final_verdict"),
         "created_at": debate["created_at"],
         "completed_at": debate.get("completed_at"),
-        "turns": debate.get("turns", [])
+        "turns": debate.get("turns", []),
     }
-    
+
     # Sincronizar
     result = await supabase_service.sync_debate(debate_data)
-    
+
     if result.get("synced"):
         return {
             "message": "Debate synced to Supabase successfully",
             "session_id": session_id,
             "supabase_url": result.get("supabase_url"),
-            "turns_synced": result.get("turns_synced")
+            "turns_synced": result.get("turns_synced"),
         }
     else:
         raise HTTPException(
-            status_code=500,
-            detail=f"Sync failed: {result.get('error')}"
+            status_code=500, detail=f"Sync failed: {result.get('error')}"
         )
-
-
 
 
 @router.get("/history/list", response_model=DebateListResponse)
 async def list_debate_history(limit: int = 50):
     """Lista debates históricos desde la base de datos"""
-    
+
     debates = await debate_controller.list_debates_from_db(limit=limit)
-    return {
-        "count": len(debates),
-        "sessions": debates
-    }
+    return {"count": len(debates), "sessions": debates}
 
 
 @router.get("/reputation")
@@ -299,15 +307,14 @@ async def list_reputations(min_turns: int = 1) -> Dict[str, Any]:
     """
     try:
         from backend.engine.reputation_unified import reputation_service
+
         reps = await reputation_service.list_all(min_turns=min_turns)
-        return {
-            "status": "ok",
-            "count": len(reps),
-            "reputations": reps
-        }
+        return {"status": "ok", "count": len(reps), "reputations": reps}
     except Exception as e:
         # logger.error("reputation.list_error", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Error listing reputations: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error listing reputations: {str(e)}"
+        )
 
 
 @router.get("/reputation/{model}/{role}")
@@ -317,25 +324,22 @@ async def get_reputation(model: str, role: str) -> Dict[str, Any]:
     """
     try:
         from backend.engine.reputation_unified import reputation_service
+
         rep = await reputation_service.get_reputation(model, role)
-        
+
         if rep is None:
             raise HTTPException(
-                status_code=404,
-                detail=f"No reputation found for {model}@{role}"
+                status_code=404, detail=f"No reputation found for {model}@{role}"
             )
-        
-        return {
-            "status": "ok",
-            "reputation": rep
-        }
+
+        return {"status": "ok", "reputation": rep}
     except HTTPException:
         raise
     except Exception as e:
         # logger.error("reputation.get_error", model=model, role=role, error=str(e))
-        raise HTTPException(status_code=500, detail=f"Error getting reputation: {str(e)}")
-
-
+        raise HTTPException(
+            status_code=500, detail=f"Error getting reputation: {str(e)}"
+        )
 
 
 @router.post("/create", status_code=202, response_model=DebateCreateResponse)
@@ -344,11 +348,12 @@ async def create_debate(request: DebateRequest, background_tasks: BackgroundTask
     Crea y ejecuta un debate secuencial multi-modelo (Asincrono).
     Retorna session_id inmediatamente.
     """
-    
+
     # 1. Crear ID y sesion base para que sea visible inmediatamente
     import uuid
+
     session_id = str(uuid.uuid4())
-    
+
     # Seleccionar configuración
     if request.agents:
         # Usar configuración personalizada del usuario
@@ -364,7 +369,7 @@ async def create_debate(request: DebateRequest, background_tasks: BackgroundTask
                 provider=agent_data.get("provider", "meta"),
                 system_prompt=agent_data.get("system_prompt", ""),
                 temperature=agent_data.get("temperature", 0.7),
-                max_tokens=agent_data.get("max_tokens", 500)
+                max_tokens=agent_data.get("max_tokens", 500),
             )
             agents.append(agent)
     elif request.mode == "local_only":
@@ -374,49 +379,66 @@ async def create_debate(request: DebateRequest, background_tasks: BackgroundTask
     elif request.mode == "ultra_crossing":
         # 1. Crear la sesión en el controlador de Ultra (esto la inicializa en memoria)
         # Nota: create_ultra_debate_with_id es async pero bloquea hasta el final
-        
+
         async def run_ultra():
             # Ejecutar el debate (esto toma tiempo)
-            await ultra_controller.create_ultra_debate_with_id(session_id, request.topic)
-        
+            await ultra_controller.create_ultra_debate_with_id(
+                session_id, request.topic
+            )
+
         # Registrar solo en ultra_controller (la API ya busca allí)
         background_tasks.add_task(run_ultra)
-        return {"session_id": session_id, "topic": request.topic, "status": "accepted", "mode": "ultra_crossing"}
+        return {
+            "session_id": session_id,
+            "topic": request.topic,
+            "status": "accepted",
+            "mode": "ultra_crossing",
+        }
     else:
         agents = get_standard_debate_config(request.topic)
-    
+
     # Limitar turns si se especifica
     if request.max_turns:
-        agents = agents[:request.max_turns]
-    
+        agents = agents[: request.max_turns]
+
     # Filtrar cloud si no se quiere
     if not request.include_cloud:
         agents = [a for a in agents if a.node == "LOCAL"]
-    
+
     # Tarea en segundo plano
     async def run_debate():
         await debate_controller.create_debate_with_id(
             session_id=session_id,
             topic=request.topic,
             agents_config=agents,
-            on_turn_start=lambda turn: print(f"Turn {turn.turn_number}: {turn.agent.name} ({turn.agent.model})"),
-            on_turn_complete=lambda turn: print(f"Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"),
-            on_model_load=lambda model, provider: print(f"Loading: {model} ({provider})"),
-            on_model_unload=lambda model, provider: print(f"Unloading: {model} ({provider})")
+            on_turn_start=lambda turn: print(
+                f"Turn {turn.turn_number}: {turn.agent.name} ({turn.agent.model})"
+            ),
+            on_turn_complete=lambda turn: print(
+                f"Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"
+            ),
+            on_model_load=lambda model, provider: print(
+                f"Loading: {model} ({provider})"
+            ),
+            on_model_unload=lambda model, provider: print(
+                f"Unloading: {model} ({provider})"
+            ),
         )
 
     background_tasks.add_task(run_debate)
-    
+
     return {
-        "session_id": session_id, 
-        "topic": request.topic, 
-        "status": "accepted", 
+        "session_id": session_id,
+        "topic": request.topic,
+        "status": "accepted",
         "mode": request.mode,
-        "total_turns": len(agents)
+        "total_turns": len(agents),
     }
 
 
-@router.post("/{session_id}/continue", status_code=202, response_model=DebateCreateResponse)
+@router.post(
+    "/{session_id}/continue", status_code=202, response_model=DebateCreateResponse
+)
 async def continue_debate(
     session_id: str,
     request: DebateContinueRequest,
@@ -432,11 +454,15 @@ async def continue_debate(
         if not debate_data:
             raise HTTPException(status_code=404, detail="Debate not found")
         if debate_data.get("status") not in ("completed", "failed"):
-            raise HTTPException(status_code=400, detail="Debate must be completed or failed to continue")
-    
+            raise HTTPException(
+                status_code=400, detail="Debate must be completed or failed to continue"
+            )
+
     if session and session.status not in ("completed", "failed"):
-        raise HTTPException(status_code=400, detail="Debate must be completed or failed to continue")
-    
+        raise HTTPException(
+            status_code=400, detail="Debate must be completed or failed to continue"
+        )
+
     agents = None
     if request.agents:
         agents = []
@@ -451,37 +477,46 @@ async def continue_debate(
                 provider=agent_data.get("provider", "meta"),
                 system_prompt=agent_data.get("system_prompt", ""),
                 temperature=agent_data.get("temperature", 0.7),
-                max_tokens=agent_data.get("max_tokens", 500)
+                max_tokens=agent_data.get("max_tokens", 500),
             )
             agents.append(agent)
-    
+
     async def run_continuation():
         result = await debate_controller.continue_debate(
             session_id=session_id,
             agents_config=agents,
             max_additional_turns=request.max_additional_turns,
             continuation_prompt=request.continuation_prompt,
-            on_turn_start=lambda turn: print(f"[Continue] Turn {turn.turn_number}: {turn.agent.name}"),
-            on_turn_complete=lambda turn: print(f"[Continue] Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"),
+            on_turn_start=lambda turn: print(
+                f"[Continue] Turn {turn.turn_number}: {turn.agent.name}"
+            ),
+            on_turn_complete=lambda turn: print(
+                f"[Continue] Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"
+            ),
         )
         if result:
-            print(f"[Continue] Debate {session_id} continued with {len(result.turns)} total turns")
+            print(
+                f"[Continue] Debate {session_id} continued with {len(result.turns)} total turns"
+            )
 
     background_tasks.add_task(run_continuation)
-    
+
     existing_turns = len(session.turns) if session else 0
     return {
         "session_id": session_id,
         "topic": session.topic if session else "unknown",
         "status": "accepted",
         "mode": "continuation",
-        "total_turns": existing_turns + (request.max_additional_turns or len(agents) if agents else 4),
-        "features": ["continuation", "context_persistence"]
+        "total_turns": existing_turns
+        + (request.max_additional_turns or len(agents) if agents else 4),
+        "features": ["continuation", "context_persistence"],
     }
 
 
 @router.post("/{session_id}/pause", response_model=DebateResumeResponse)
-async def pause_debate(session_id: str, request: DebatePauseRequest = DebatePauseRequest()):
+async def pause_debate(
+    session_id: str, request: DebatePauseRequest = DebatePauseRequest()
+):
     """
     Pausa un debate en ejecucion.
     El debate se puede reanudar con POST /debates/{id}/resume.
@@ -492,15 +527,17 @@ async def pause_debate(session_id: str, request: DebatePauseRequest = DebatePaus
         if not debate_data:
             raise HTTPException(status_code=404, detail="Debate not found")
         if debate_data.get("status") != "running":
-            raise HTTPException(status_code=400, detail="Debate must be running to pause")
-    
+            raise HTTPException(
+                status_code=400, detail="Debate must be running to pause"
+            )
+
     if session and session.status != "running":
         raise HTTPException(status_code=400, detail="Debate must be running to pause")
-    
+
     result = await debate_controller.pause_debate(session_id, reason=request.reason)
     if not result:
         raise HTTPException(status_code=400, detail="Failed to pause debate")
-    
+
     return {
         "session_id": session_id,
         "topic": result.topic,
@@ -511,7 +548,9 @@ async def pause_debate(session_id: str, request: DebatePauseRequest = DebatePaus
     }
 
 
-@router.post("/{session_id}/resume", status_code=202, response_model=DebateCreateResponse)
+@router.post(
+    "/{session_id}/resume", status_code=202, response_model=DebateCreateResponse
+)
 async def resume_debate(session_id: str, background_tasks: BackgroundTasks):
     """
     Reanuda un debate pausado desde donde se quedo.
@@ -523,22 +562,30 @@ async def resume_debate(session_id: str, background_tasks: BackgroundTasks):
         if not debate_data:
             raise HTTPException(status_code=404, detail="Debate not found")
         if debate_data.get("status") != "paused":
-            raise HTTPException(status_code=400, detail="Debate must be paused to resume")
-    
+            raise HTTPException(
+                status_code=400, detail="Debate must be paused to resume"
+            )
+
     if session and session.status != "paused":
         raise HTTPException(status_code=400, detail="Debate must be paused to resume")
-    
+
     async def run_resume():
         result = await debate_controller.resume_debate(
             session_id=session_id,
-            on_turn_start=lambda turn: print(f"[Resume] Turn {turn.turn_number}: {turn.agent.name}"),
-            on_turn_complete=lambda turn: print(f"[Resume] Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"),
+            on_turn_start=lambda turn: print(
+                f"[Resume] Turn {turn.turn_number}: {turn.agent.name}"
+            ),
+            on_turn_complete=lambda turn: print(
+                f"[Resume] Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"
+            ),
         )
         if result:
-            print(f"[Resume] Debate {session_id} resumed and completed with {len(result.turns)} total turns")
+            print(
+                f"[Resume] Debate {session_id} resumed and completed with {len(result.turns)} total turns"
+            )
 
     background_tasks.add_task(run_resume)
-    
+
     existing_turns = len(session.turns) if session else 0
     return {
         "session_id": session_id,
@@ -546,85 +593,87 @@ async def resume_debate(session_id: str, background_tasks: BackgroundTasks):
         "status": "accepted",
         "mode": "resume",
         "total_turns": existing_turns,
-        "features": ["resume", "context_persistence"]
+        "features": ["resume", "context_persistence"],
     }
-
-
 
 
 @router.get("/{session_id}/report", response_model=DebateReportResponse)
 async def get_debate_report(session_id: str):
     """Obtiene el informe estructurado JSON de un debate"""
-    
+
     # Intentar desde memoria
     session = debate_controller.get_session(session_id)
     if session:
-        if hasattr(session, 'structured_report') and session.structured_report:
+        if hasattr(session, "structured_report") and session.structured_report:
             record_debate_report_cache_hit("memory")
             return {
                 "session_id": session_id,
                 "structured_report": session.structured_report,
-                "source": "memory"
+                "source": "memory",
             }
         else:
             # Loguear que la sesión existe pero no tiene el reporte
             print(f"Session {session_id} found in memory but without structured report")
-    
+
     # Intentar desde BD
     debate = await debate_controller.get_debate_from_db(session_id)
     if debate:
-        if debate.get('structured_report'):
+        if debate.get("structured_report"):
             record_debate_report_cache_hit("database")
             return {
                 "session_id": session_id,
-                "structured_report": debate['structured_report'],
-                "source": "database"
+                "structured_report": debate["structured_report"],
+                "source": "database",
             }
         if debate.get("status") == "completed":
-            generated_report = await debate_controller.generate_structured_report_for_debate(session_id)
+            generated_report = (
+                await debate_controller.generate_structured_report_for_debate(
+                    session_id
+                )
+            )
             if generated_report:
                 record_debate_report_generated("database_backfill")
                 return {
                     "session_id": session_id,
                     "structured_report": generated_report,
-                    "source": "database_generated"
+                    "source": "database_generated",
                 }
 
         print(f"Debate {session_id} found in DB but without structured report")
-    
+
     raise HTTPException(
-        status_code=404, 
-        detail=f"Structured report not found for session {session_id}. Session may still be running or report generation failed."
+        status_code=404,
+        detail=f"Structured report not found for session {session_id}. Session may still be running or report generation failed.",
     )
 
 
 @router.get("/{session_id}/status", response_model=DebateStatusResponse)
 async def get_debate_status(session_id: str):
     """Obtiene el estado resumido de un debate"""
-    
+
     session = debate_controller.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Debate session not found")
-    
+
     current_turn = None
     for turn in session.turns:
         if turn.status == "running":
             current_turn = turn.turn_number
             break
-    
+
     return DebateStatusResponse(
         session_id=session.id,
         status=session.status,
         current_turn=current_turn,
         total_turns=len(session.turns),
-        topic=session.topic
+        topic=session.topic,
     )
 
 
 @router.get("/{session_id}/transcript", response_model=DebateTranscriptResponse)
 async def get_debate_transcript(session_id: str):
     """Obtiene la transcripción completa del debate (desde memoria o BD)"""
-    
+
     # Primero intentar desde memoria (sesiones activas)
     session = debate_controller.get_session(session_id)
     if session:
@@ -633,28 +682,30 @@ async def get_debate_transcript(session_id: str):
             f"Session ID: {session.id}",
             f"Estado: {session.status}",
             f"Iniciado: {session.created_at}",
-            ""
+            "",
         ]
-        
+
         for turn in session.turns:
-            lines.extend([
-                f"## Turno {turn.turn_number}: {turn.agent.name}",
-                f"**Rol:** {turn.agent.role.value}",
-                f"**Modelo:** {turn.agent.model} ({turn.agent.provider})",
-                f"**Nodo:** {turn.agent.node}",
-                f"**Tokens:** {turn.tokens_out} | **Tiempo:** {turn.latency_ms}ms",
-                "",
-                turn.response_received,
-                "",
-                "---",
-                ""
-            ])
-        
+            lines.extend(
+                [
+                    f"## Turno {turn.turn_number}: {turn.agent.name}",
+                    f"**Rol:** {turn.agent.role.value}",
+                    f"**Modelo:** {turn.agent.model} ({turn.agent.provider})",
+                    f"**Nodo:** {turn.agent.node}",
+                    f"**Tokens:** {turn.tokens_out} | **Tiempo:** {turn.latency_ms}ms",
+                    "",
+                    turn.response_received,
+                    "",
+                    "---",
+                    "",
+                ]
+            )
+
         if session.final_verdict:
             lines.extend(["", session.final_verdict])
-        
+
         return {"transcript": "\n".join(lines), "source": "memory"}
-    
+
     # Si no está en memoria, buscar en BD
     debate_data = await debate_controller.get_debate_from_db(session_id)
     if debate_data:
@@ -668,74 +719,78 @@ async def get_debate_transcript(session_id: str):
             "## Estadísticas",
             f"- Tokens In: {debate_data['total_tokens_in']:,}",
             f"- Tokens Out: {debate_data['total_tokens_out']:,}",
-            ""
+            "",
         ]
-        
-        for turn in debate_data['turns']:
-            lines.extend([
-                f"## Turno {turn['turn_number']}: {turn['agent_name']}",
-                f"**Rol:** {turn['agent_role']}",
-                f"**Modelo:** {turn['model']} ({turn['provider']})",
-                f"**Nodo:** {turn['node']}",
-                f"**Tokens:** {turn['tokens_out']} | **Tiempo:** {turn['latency_ms']}ms",
-                f"**Estado:** {turn['status']}",
-                "",
-                turn['response_preview'],
-                "",
-                "---",
-                ""
-            ])
-        
-        if debate_data.get('final_verdict'):
-            lines.extend(["", debate_data['final_verdict']])
-        
+
+        for turn in debate_data["turns"]:
+            lines.extend(
+                [
+                    f"## Turno {turn['turn_number']}: {turn['agent_name']}",
+                    f"**Rol:** {turn['agent_role']}",
+                    f"**Modelo:** {turn['model']} ({turn['provider']})",
+                    f"**Nodo:** {turn['node']}",
+                    f"**Tokens:** {turn['tokens_out']} | **Tiempo:** {turn['latency_ms']}ms",
+                    f"**Estado:** {turn['status']}",
+                    "",
+                    turn["response_preview"],
+                    "",
+                    "---",
+                    "",
+                ]
+            )
+
+        if debate_data.get("final_verdict"):
+            lines.extend(["", debate_data["final_verdict"]])
+
         # Agregar info de archivo si existe
-        if debate_data.get('transcript_path'):
-            lines.extend([
-                "",
-                f"📄 **Archivo completo:** `{debate_data['transcript_path']}`"
-            ])
-        
+        if debate_data.get("transcript_path"):
+            lines.extend(
+                ["", f"📄 **Archivo completo:** `{debate_data['transcript_path']}`"]
+            )
+
         return {"transcript": "\n".join(lines), "source": "database"}
-    
-    raise HTTPException(status_code=404, detail="Debate session not found in memory or database")
 
-
+    raise HTTPException(
+        status_code=404, detail="Debate session not found in memory or database"
+    )
 
 
 @router.get("/history/{session_id}")
 async def get_historical_debate(session_id: str):
     """Obtiene un debate histórico desde la base de datos"""
-    
+
     debate = await debate_controller.get_debate_from_db(session_id)
     if not debate:
         raise HTTPException(status_code=404, detail="Debate not found in database")
-    
+
     return debate
 
 
 @router.get("/history/{session_id}/file")
 async def get_debate_file(session_id: str):
     """Obtiene la ruta del archivo de transcripción guardado"""
-    
+
     debate = await debate_controller.get_debate_from_db(session_id)
     if not debate:
         raise HTTPException(status_code=404, detail="Debate not found")
-    
-    if not debate.get('transcript_path'):
-        raise HTTPException(status_code=404, detail="Transcript file not found for this debate")
-    
+
+    if not debate.get("transcript_path"):
+        raise HTTPException(
+            status_code=404, detail="Transcript file not found for this debate"
+        )
+
     # Leer archivo
     import os
-    filepath = debate['transcript_path']
+
+    filepath = debate["transcript_path"]
     if os.path.exists(filepath):
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
         return {
             "session_id": session_id,
             "filepath": filepath,
             "content": content,
-            "size_bytes": len(content)
+            "size_bytes": len(content),
         }
     else:
         raise HTTPException(status_code=404, detail=f"File not found: {filepath}")
@@ -744,11 +799,11 @@ async def get_debate_file(session_id: str):
 @router.delete("/{session_id}")
 async def delete_debate(session_id: str):
     """Elimina una sesión de debate"""
-    
+
     session = debate_controller.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Debate session not found")
-    
+
     del debate_controller.active_sessions[session_id]
     return {"message": "Debate session deleted from memory", "session_id": session_id}
 
@@ -759,7 +814,7 @@ async def delete_debate(session_id: str):
 
 from backend.engine.consensus_debate_controller import (
     ConsensusDebateController,
-    get_consensus_debate_config
+    get_consensus_debate_config,
 )
 
 consensus_controller = ConsensusDebateController()
@@ -767,39 +822,45 @@ consensus_controller = ConsensusDebateController()
 
 class ConsensusRequest(BaseModel):
     """Request para crear debate de consenso"""
+
     topic: str
     max_rounds: Optional[int] = 5
 
 
 @router.post("/consensus/create", status_code=202, response_model=DebateCreateResponse)
-async def create_consensus_debate(request: ConsensusRequest, background_tasks: BackgroundTasks):
+async def create_consensus_debate(
+    request: ConsensusRequest, background_tasks: BackgroundTasks
+):
     """
     Crea debate de CONSENSO (Asincrono).
     """
     import uuid
+
     session_id = str(uuid.uuid4())
-    
+
     agents = get_consensus_debate_config(request.topic)
-    
+
     if request.max_rounds:
         consensus_controller.MAX_ROUNDS = request.max_rounds
-    
+
     async def run_consensus():
         await consensus_controller.create_consensus_debate_with_id(
             session_id=session_id,
             topic=request.topic,
             agents_config=agents,
-            on_round_complete=lambda r: print(f"Round {r.round_number}: {r.global_consensus_score:.1%}"),
-            on_consensus_update=lambda s, st: print(f"Consensus: {s:.1%} [{st}]")
+            on_round_complete=lambda r: print(
+                f"Round {r.round_number}: {r.global_consensus_score:.1%}"
+            ),
+            on_consensus_update=lambda s, st: print(f"Consensus: {s:.1%} [{st}]"),
         )
 
     background_tasks.add_task(run_consensus)
-    
+
     return {
         "session_id": session_id,
         "topic": request.topic,
         "status": "accepted",
-        "total_agents": len(agents)
+        "total_agents": len(agents),
     }
 
 
@@ -807,8 +868,10 @@ async def create_consensus_debate(request: ConsensusRequest, background_tasks: B
 # DEBATE ITERATIVO CON CRUZAMIENTOS
 # ============================================================================
 
+
 class IterativeDebateRequest(BaseModel):
     """Request para crear debate iterativo avanzado"""
+
     topic: str
     mode: str = "iterative"
     max_iterations: Optional[int] = 3
@@ -816,19 +879,22 @@ class IterativeDebateRequest(BaseModel):
 
 
 @router.post("/create/iterative", status_code=202, response_model=DebateCreateResponse)
-async def create_iterative_debate(request: IterativeDebateRequest, background_tasks: BackgroundTasks):
+async def create_iterative_debate(
+    request: IterativeDebateRequest, background_tasks: BackgroundTasks
+):
     """
     Crea debate ITERATIVO avanzado con múltiples fases:
     - Análisis inicial de cada agente
     - Cruzamientos críticos (agentes se responden entre sí)
     - Validación de argumentos
     - Búsqueda de consenso
-    
+
     El contexto se mantiene entre iteraciones para refinamiento progresivo.
     """
     import uuid
+
     session_id = str(uuid.uuid4())
-    
+
     # Seleccionar configuración
     if request.agents:
         # Usar configuración personalizada del usuario
@@ -844,7 +910,7 @@ async def create_iterative_debate(request: IterativeDebateRequest, background_ta
                 provider=agent_data.get("provider", "mistral"),
                 system_prompt=agent_data.get("system_prompt", ""),
                 temperature=agent_data.get("temperature", 0.7),
-                max_tokens=agent_data.get("max_tokens", 800)
+                max_tokens=agent_data.get("max_tokens", 800),
             )
             agents.append(agent)
     else:
@@ -860,7 +926,7 @@ async def create_iterative_debate(request: IterativeDebateRequest, background_ta
                 provider="mistral",
                 system_prompt="Analiza el tema desde una perspectiva integral y fundamentada.",
                 temperature=0.7,
-                max_tokens=800
+                max_tokens=800,
             ),
             DebateAgent(
                 id="critic_1",
@@ -872,7 +938,7 @@ async def create_iterative_debate(request: IterativeDebateRequest, background_ta
                 provider="meta",
                 system_prompt="Cuestiona los argumentos presentados con rigor constructivo.",
                 temperature=0.6,
-                max_tokens=700
+                max_tokens=700,
             ),
             DebateAgent(
                 id="validator_1",
@@ -884,24 +950,28 @@ async def create_iterative_debate(request: IterativeDebateRequest, background_ta
                 provider="deepseek",
                 system_prompt="Valida la solidez lógica y factual de los argumentos.",
                 temperature=0.4,
-                max_tokens=600
-            )
+                max_tokens=600,
+            ),
         ]
-    
+
     max_iterations = request.max_iterations or 3
-    
+
     async def run_iterative():
         await debate_controller.run_iterative_debate(
             session_id=session_id,
             topic=request.topic,
             agents_config=agents,
             max_iterations=max_iterations,
-            on_iteration_complete=lambda i: print(f"Iteración {i.iteration_number} completada: {len(i.turns)} turnos, {len(i.cruzamientos)} cruzamientos"),
-            on_cruzamiento=lambda c: print(f"Cruzamiento: {c.from_agent} → {c.to_agent}")
+            on_iteration_complete=lambda i: print(
+                f"Iteración {i.iteration_number} completada: {len(i.turns)} turnos, {len(i.cruzamientos)} cruzamientos"
+            ),
+            on_cruzamiento=lambda c: print(
+                f"Cruzamiento: {c.from_agent} → {c.to_agent}"
+            ),
         )
-    
+
     background_tasks.add_task(run_iterative)
-    
+
     return {
         "session_id": session_id,
         "topic": request.topic,
@@ -914,8 +984,8 @@ async def create_iterative_debate(request: IterativeDebateRequest, background_ta
             "context_persistence",
             "critical_crossings",
             "validation_phase",
-            "consensus_search"
-        ]
+            "consensus_search",
+        ],
     }
 
 
@@ -923,20 +993,21 @@ async def create_iterative_debate(request: IterativeDebateRequest, background_ta
 # ENDPOINTS DE REPUTACIÓN EMA
 # ============================================================================
 
+
 @router.get("/{session_id}", response_model=DebateResponse)
 async def get_debate(session_id: str):
     """Obtiene el estado completo de una sesión de debate"""
-    
+
     # Primero buscar en debate_controller (standard, local_only, cloud_ollama)
     session = debate_controller.get_session(session_id)
     if session:
         return build_debate_response(session)
-    
+
     # Si no está, buscar en ultra_controller (ultra_crossing)
     session = ultra_controller.active_sessions.get(session_id)
     if session:
         return build_debate_response(session)
-    
+
     raise HTTPException(status_code=404, detail="Debate session not found")
 
 
@@ -944,27 +1015,34 @@ async def get_debate(session_id: str):
 # EXPORTACIÓN DE RESULTADOS
 # ============================================================================
 
+
 def _build_clean_turns(session) -> list:
     """Construye lista limpia de intervenciones: rol, quien, que dijo"""
     turns = []
     for t in session.turns:
         if t.status.startswith("completed"):
-            turns.append({
-                "turno": t.turn_number,
-                "rol": t.agent.role.value,
-                "agente": t.agent.name,
-                "modelo": f"{t.agent.model} ({t.agent.provider})",
-                "intervencion": t.response_received.strip(),
-                "tokens": t.tokens_out,
-                "tiempo_ms": t.latency_ms,
-            })
+            turns.append(
+                {
+                    "turno": t.turn_number,
+                    "rol": t.agent.role.value,
+                    "agente": t.agent.name,
+                    "modelo": f"{t.agent.model} ({t.agent.provider})",
+                    "intervencion": t.response_received.strip(),
+                    "tokens": t.tokens_out,
+                    "tiempo_ms": t.latency_ms,
+                }
+            )
     return turns
 
 
 def _serialize_turn(turn) -> Dict[str, Any]:
     """Serializa un turno a formato estructurado uniforme."""
     if hasattr(turn, "turn_number"):
-        role_value = turn.agent.role.value if hasattr(turn.agent.role, "value") else str(turn.agent.role)
+        role_value = (
+            turn.agent.role.value
+            if hasattr(turn.agent.role, "value")
+            else str(turn.agent.role)
+        )
         return {
             "turn_number": turn.turn_number,
             "agent": {
@@ -984,7 +1062,9 @@ def _serialize_turn(turn) -> Dict[str, Any]:
             },
             "status": turn.status,
             "started_at": turn.started_at.isoformat() if turn.started_at else None,
-            "completed_at": turn.completed_at.isoformat() if turn.completed_at else None,
+            "completed_at": turn.completed_at.isoformat()
+            if turn.completed_at
+            else None,
         }
 
     return {
@@ -998,15 +1078,21 @@ def _serialize_turn(turn) -> Dict[str, Any]:
             "node": turn.get("node"),
             "engine": turn.get("engine"),
         },
-        "content": (turn.get("response_received") or turn.get("response_preview") or "").strip(),
+        "content": (
+            turn.get("response_received") or turn.get("response_preview") or ""
+        ).strip(),
         "metrics": {
             "tokens_in": turn.get("tokens_in", 0),
             "tokens_out": turn.get("tokens_out", 0),
             "latency_ms": turn.get("latency_ms", 0),
         },
         "status": turn.get("status"),
-        "started_at": turn.get("started_at").isoformat() if hasattr(turn.get("started_at"), "isoformat") else turn.get("started_at"),
-        "completed_at": turn.get("completed_at").isoformat() if hasattr(turn.get("completed_at"), "isoformat") else turn.get("completed_at"),
+        "started_at": turn.get("started_at").isoformat()
+        if hasattr(turn.get("started_at"), "isoformat")
+        else turn.get("started_at"),
+        "completed_at": turn.get("completed_at").isoformat()
+        if hasattr(turn.get("completed_at"), "isoformat")
+        else turn.get("completed_at"),
     }
 
 
@@ -1014,26 +1100,38 @@ def _serialize_iterations(session) -> List[Dict[str, Any]]:
     """Serializa iteraciones si existen en memoria."""
     iterations = []
     for iteration in getattr(session, "iterations", []) or []:
-        iterations.append({
-            "number": iteration.iteration_number,
-            "phase": iteration.phase,
-            "started_at": iteration.started_at.isoformat() if iteration.started_at else None,
-            "completed_at": iteration.completed_at.isoformat() if iteration.completed_at else None,
-            "consensus_points": iteration.consensus_points,
-            "dissent_areas": iteration.disagreement_points,
-            "turns": [_serialize_turn(turn) for turn in iteration.turns if turn.status.startswith("completed")],
-            "cross_references": [
-                {
-                    "from_agent": cruzamiento.from_agent,
-                    "to_agent": cruzamiento.to_agent,
-                    "target_argument": cruzamiento.target_argument,
-                    "response": cruzamiento.response,
-                    "iteration": cruzamiento.iteration,
-                    "timestamp": cruzamiento.timestamp.isoformat() if cruzamiento.timestamp else None,
-                }
-                for cruzamiento in iteration.cruzamientos
-            ],
-        })
+        iterations.append(
+            {
+                "number": iteration.iteration_number,
+                "phase": iteration.phase,
+                "started_at": iteration.started_at.isoformat()
+                if iteration.started_at
+                else None,
+                "completed_at": iteration.completed_at.isoformat()
+                if iteration.completed_at
+                else None,
+                "consensus_points": iteration.consensus_points,
+                "dissent_areas": iteration.disagreement_points,
+                "turns": [
+                    _serialize_turn(turn)
+                    for turn in iteration.turns
+                    if turn.status.startswith("completed")
+                ],
+                "cross_references": [
+                    {
+                        "from_agent": cruzamiento.from_agent,
+                        "to_agent": cruzamiento.to_agent,
+                        "target_argument": cruzamiento.target_argument,
+                        "response": cruzamiento.response,
+                        "iteration": cruzamiento.iteration,
+                        "timestamp": cruzamiento.timestamp.isoformat()
+                        if cruzamiento.timestamp
+                        else None,
+                    }
+                    for cruzamiento in iteration.cruzamientos
+                ],
+            }
+        )
     return iterations
 
 
@@ -1052,8 +1150,14 @@ def _build_structured_export_from_session(session) -> Dict[str, Any]:
         "topic": session.topic,
         "status": session.status,
         "created_at": session.created_at.isoformat() if session.created_at else None,
-        "completed_at": session.completed_at.isoformat() if session.completed_at else None,
-        "duration_seconds": round((session.completed_at - session.created_at).total_seconds(), 1) if session.completed_at and session.created_at else None,
+        "completed_at": session.completed_at.isoformat()
+        if session.completed_at
+        else None,
+        "duration_seconds": round(
+            (session.completed_at - session.created_at).total_seconds(), 1
+        )
+        if session.completed_at and session.created_at
+        else None,
         "final_verdict": session.final_verdict,
         "structured_report": session.structured_report,
         "summary": {
@@ -1073,7 +1177,9 @@ def _build_structured_export_from_session(session) -> Dict[str, Any]:
     return export
 
 
-def _build_structured_export_from_db(session_id: str, debate_data: Dict[str, Any]) -> Dict[str, Any]:
+def _build_structured_export_from_db(
+    session_id: str, debate_data: Dict[str, Any]
+) -> Dict[str, Any]:
     """Construye exportación estructurada enriquecida desde datos persistidos."""
     serialized_turns = [
         _serialize_turn(turn)
@@ -1086,8 +1192,12 @@ def _build_structured_export_from_db(session_id: str, debate_data: Dict[str, Any
         "topic": debate_data.get("topic"),
         "mode": debate_data.get("mode"),
         "status": debate_data.get("status"),
-        "created_at": debate_data.get("created_at").isoformat() if hasattr(debate_data.get("created_at"), "isoformat") else debate_data.get("created_at"),
-        "completed_at": debate_data.get("completed_at").isoformat() if hasattr(debate_data.get("completed_at"), "isoformat") else debate_data.get("completed_at"),
+        "created_at": debate_data.get("created_at").isoformat()
+        if hasattr(debate_data.get("created_at"), "isoformat")
+        else debate_data.get("created_at"),
+        "completed_at": debate_data.get("completed_at").isoformat()
+        if hasattr(debate_data.get("completed_at"), "isoformat")
+        else debate_data.get("completed_at"),
         "final_verdict": debate_data.get("final_verdict"),
         "structured_report": debate_data.get("structured_report"),
         "transcript_path": debate_data.get("transcript_path"),
@@ -1121,11 +1231,13 @@ async def export_debate_json(session_id: str):
             indent=2,
             ensure_ascii=False,
         )
-    
+
     return Response(
         content=content,
         media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename=debate_{session_id}.json"}
+        headers={
+            "Content-Disposition": f"attachment; filename=debate_{session_id}.json"
+        },
     )
 
 
@@ -1138,12 +1250,12 @@ async def export_debate_markdown(session_id: str):
 
     lines = [
         f"# {session.topic}",
-        f"",
+        "",
         f"_{'finalizado' if session.status == 'completed' else 'en progreso'}_ | "
         f"{len(session.turns)} intervenciones",
-        f"",
+        "",
     ]
-    
+
     for turn in session.turns:
         if turn.status.startswith("completed"):
             role_tag = {
@@ -1155,30 +1267,34 @@ async def export_debate_markdown(session_id: str):
                 "validator": "✅ Validador",
                 "consensus": "🤝 Consenso",
             }.get(turn.agent.role.value, "💬")
-            
-            lines.extend([
-                f"## {role_tag} — {turn.agent.name}",
-                f"",
-                f"_{turn.agent.model}_",
-                f"",
-                turn.response_received.strip(),
-                f"",
-                f"---",
-                f"",
-            ])
-    
+
+            lines.extend(
+                [
+                    f"## {role_tag} — {turn.agent.name}",
+                    "",
+                    f"_{turn.agent.model}_",
+                    "",
+                    turn.response_received.strip(),
+                    "",
+                    "---",
+                    "",
+                ]
+            )
+
     if session.final_verdict:
-        lines.extend([
-            f"## ⚖️ Veredicto Final",
-            f"",
-            session.final_verdict.strip(),
-        ])
-    
+        lines.extend(
+            [
+                "## ⚖️ Veredicto Final",
+                "",
+                session.final_verdict.strip(),
+            ]
+        )
+
     content = "\n".join(lines)
     return Response(
         content=content,
         media_type="text/markdown",
-        headers={"Content-Disposition": f"attachment; filename=debate_{session_id}.md"}
+        headers={"Content-Disposition": f"attachment; filename=debate_{session_id}.md"},
     )
 
 
@@ -1188,11 +1304,19 @@ async def export_debate_pdf(session_id: str):
     session = debate_controller.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Debate not found")
-    
+
     turns_html = ""
     for turn in session.turns:
         if turn.status.startswith("completed"):
-            role_icon = {"analyst":"📊","critic":"⚡","synthesizer":"🔗","refiner":"🔧","moderator":"⚖️","validator":"✅","consensus":"🤝"}
+            role_icon = {
+                "analyst": "📊",
+                "critic": "⚡",
+                "synthesizer": "🔗",
+                "refiner": "🔧",
+                "moderator": "⚖️",
+                "validator": "✅",
+                "consensus": "🤝",
+            }
             icon = role_icon.get(turn.agent.role.value, "💬")
             text = turn.response_received.strip().replace("\n", "<br>")
             turns_html += f"""
@@ -1201,15 +1325,15 @@ async def export_debate_pdf(session_id: str):
                 <div class="turn-model">{turn.agent.model}</div>
                 <div class="turn-text">{text}</div>
             </div>"""
-    
+
     verdict_html = ""
     if session.final_verdict:
         verdict_html = f"""
         <div class="verdict">
             <h2>⚖️ Veredicto Final</h2>
-            <p>{session.final_verdict.strip().replace(chr(10), '<br>')}</p>
+            <p>{session.final_verdict.strip().replace(chr(10), "<br>")}</p>
         </div>"""
-    
+
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <title>Debate: {session.topic[:60]}</title>
@@ -1231,14 +1355,14 @@ async def export_debate_pdf(session_id: str):
 <h1>{session.topic}</h1>
 <div class="meta">
   {len(session.turns)} intervenciones | {session.status} |
-  {session.created_at.strftime('%d/%m/%Y %H:%M') if session.created_at else ''}
+  {session.created_at.strftime("%d/%m/%Y %H:%M") if session.created_at else ""}
 </div>
 {turns_html}
 {verdict_html}
 </body></html>"""
-    
+
     return Response(
         content=html,
         media_type="text/html",
-        headers={"Content-Disposition": f"inline; filename=debate_{session_id}.html"}
+        headers={"Content-Disposition": f"inline; filename=debate_{session_id}.html"},
     )

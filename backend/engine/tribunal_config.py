@@ -4,12 +4,12 @@ Configurable Tribunal magistrate profiles.
 Keeps TribunalCouncil focused on deliberation while this module owns role
 configuration, environment overrides and fallback chains.
 """
+
 from dataclasses import dataclass
 from typing import Dict, Iterable, List
 
 from backend.config import Settings, get_settings
 from backend.engine.agent_orchestrator import AgentConfig
-
 
 TRIBUNAL_ROLES = ("evidence", "risk", "alignment")
 
@@ -46,7 +46,9 @@ def _agent(
     )
 
 
-def _cloud_fallback(settings: Settings, role: str, temperature: float, max_tokens: int) -> AgentConfig:
+def _cloud_fallback(
+    settings: Settings, role: str, temperature: float, max_tokens: int
+) -> AgentConfig:
     return _agent(
         slot=f"magistrate_{role}_cloud_fallback",
         node="CLOUD",
@@ -82,7 +84,9 @@ def _dedupe_chain(configs: Iterable[AgentConfig]) -> List[AgentConfig]:
     return deduped
 
 
-def build_tribunal_config(settings: Settings | None = None) -> Dict[str, TribunalRoleConfig]:
+def build_tribunal_config(
+    settings: Settings | None = None,
+) -> Dict[str, TribunalRoleConfig]:
     settings = settings or get_settings()
 
     role_specs = {
@@ -123,7 +127,9 @@ def build_tribunal_config(settings: Settings | None = None) -> Dict[str, Tribuna
             temperature=spec["temperature"],
             max_tokens=spec["max_tokens"],
         )
-        fallback_candidates = [_local_reserve(role, spec["temperature"], spec["max_tokens"])]
+        fallback_candidates = [
+            _local_reserve(role, spec["temperature"], spec["max_tokens"])
+        ]
         if settings.TRIBUNAL_ENABLE_CLOUD_FALLBACK:
             fallback_candidates.append(
                 _cloud_fallback(settings, role, spec["temperature"], spec["max_tokens"])

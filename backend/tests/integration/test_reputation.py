@@ -1,7 +1,9 @@
 """
 Integration tests for reputation manager
 """
+
 import asyncio
+
 from backend.engine.reputation_unified import ReputationManager, reputation_service
 
 
@@ -23,9 +25,13 @@ class TestReputationManager:
             model = "test-model-rep"
             role = "analyst"
             await reputation_service.update_after_turn(
-                model=model, provider="test", role=role,
-                tokens_out=100, latency_ms=500, success=True,
-                intervention_type="analysis"
+                model=model,
+                provider="test",
+                role=role,
+                tokens_out=100,
+                latency_ms=500,
+                success=True,
+                intervention_type="analysis",
             )
             rep = await reputation_service.get_reputation(model, role)
             assert rep is not None

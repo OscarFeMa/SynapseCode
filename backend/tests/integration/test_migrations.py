@@ -1,7 +1,9 @@
 """
 Integration tests for SQLite migrations
 """
+
 from sqlalchemy import create_engine, text
+
 from backend.database.migrations.sqlite_migrations import run_sqlite_migrations
 
 
@@ -41,11 +43,15 @@ class TestSqliteMigrations:
 
             columns = {
                 row._mapping["name"]
-                for row in conn.execute(text("PRAGMA table_info(prompt_response_cache)"))
+                for row in conn.execute(
+                    text("PRAGMA table_info(prompt_response_cache)")
+                )
             }
             indexes = {
                 row._mapping["name"]
-                for row in conn.execute(text("PRAGMA index_list(prompt_response_cache)"))
+                for row in conn.execute(
+                    text("PRAGMA index_list(prompt_response_cache)")
+                )
             }
 
         assert {"prompt_embedding", "similarity_threshold", "expires_at"} <= columns

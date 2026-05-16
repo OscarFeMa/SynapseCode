@@ -2,12 +2,13 @@
 SynapseCode v2.7 - Logging Configuration
 Rotating file handlers + console output + structured logging
 """
-import os
+
 import logging
-import structlog
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
+
+import structlog
 
 LOGS_DIR = Path(__file__).parent.parent / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
@@ -129,7 +130,9 @@ def setup_logging(
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer() if file_output else structlog.dev.ConsoleRenderer(),
+            structlog.processors.JSONRenderer()
+            if file_output
+            else structlog.dev.ConsoleRenderer(),
         ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
@@ -140,6 +143,7 @@ def setup_logging(
 
 class _EngineFilter(logging.Filter):
     """Filtra logs relacionados con el motor de debate"""
+
     ENGINE_MODULES = {
         "backend.engine",
         "backend.engine.sequential_debate_controller",
@@ -176,6 +180,7 @@ class _EngineFilter(logging.Filter):
 
 class _APIFilter(logging.Filter):
     """Filtra logs relacionados con la API HTTP"""
+
     API_MODULES = {
         "backend.api",
         "backend.api.routes",

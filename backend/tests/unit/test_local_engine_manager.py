@@ -1,7 +1,8 @@
 """
 Unit tests for local engine manager
 """
-from backend.engine.local_engine_manager import LocalEngineManager, EngineType
+
+from backend.engine.local_engine_manager import EngineType, LocalEngineManager
 
 
 class TestLocalEngineManager:

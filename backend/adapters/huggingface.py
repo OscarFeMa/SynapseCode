@@ -9,8 +9,11 @@ Los modelos solo estan disponibles via:
 Se mantiene el adapter para compatibilidad, pero no hay endpoints
 gratuitos funcionales actualmente.
 """
+
+from typing import Any, AsyncGenerator, Dict, Optional
+
 import structlog
-from typing import Dict, Any, Optional, AsyncGenerator
+
 from backend.config import get_settings
 
 settings = get_settings()
@@ -28,10 +31,19 @@ class HuggingFaceClient:
 
     async def health_check(self) -> Dict[str, Any]:
         if not self.api_key:
-            return {"status": "unconfigured", "error": "Token no configurado", "note": "HuggingFace depreco la Inference API gratuita"}
+            return {
+                "status": "unconfigured",
+                "error": "Token no configurado",
+                "note": "HuggingFace depreco la Inference API gratuita",
+            }
         try:
             import httpx
-            r = httpx.get("https://huggingface.co/api/whoami-v2", headers={"Authorization": f"Bearer {self.api_key}"}, timeout=10)
+
+            r = httpx.get(
+                "https://huggingface.co/api/whoami-v2",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                timeout=10,
+            )
             user = r.json().get("name", "?") if r.status_code == 200 else "invalido"
             return {
                 "status": "unavailable",

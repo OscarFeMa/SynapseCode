@@ -1,7 +1,9 @@
 """
 Unit tests for semantic cache
 """
+
 import numpy as np
+
 from backend.caching.semantic_cache import SemanticCacheService
 
 

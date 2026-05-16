@@ -1,8 +1,11 @@
 """
 Unit tests for reductio absurdum engine
 """
+
 from backend.engine.reductio_absurdum import (
-    ReductioAbsurdumEngine, AbsurdumProof, ComplacencyScan,
+    AbsurdumProof,
+    ComplacencyScan,
+    ReductioAbsurdumEngine,
     get_reductio_absurdum_engine,
 )
 
@@ -28,7 +31,7 @@ class TestReductioAbsurdum:
             consensus_points=["La IA es buena", "La tecnologia avanza"],
             dissent_points=[],
             debate_history="Debate sobre IA",
-            iteration_number=1
+            iteration_number=1,
         )
         assert hasattr(scan, "overall_complacency_risk")
         assert hasattr(scan, "weak_assumptions")

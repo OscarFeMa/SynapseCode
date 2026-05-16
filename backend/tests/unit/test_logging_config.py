@@ -1,11 +1,18 @@
 """
 Unit tests for logging configuration
 """
+
 import logging
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
-from backend.logging_config import setup_logging, shutdown_logging, _EngineFilter, _APIFilter
+
+from backend.logging_config import (
+    _APIFilter,
+    _EngineFilter,
+    setup_logging,
+    shutdown_logging,
+)
 
 
 class TestLoggingConfig:
@@ -39,14 +46,20 @@ class TestLoggingConfig:
 
     def test_engine_filter(self):
         f = _EngineFilter()
-        record_engine = logging.LogRecord("backend.engine.sequential_debate_controller", 20, "", 0, "", (), None)
+        record_engine = logging.LogRecord(
+            "backend.engine.sequential_debate_controller", 20, "", 0, "", (), None
+        )
         record_other = logging.LogRecord("backend.config", 20, "", 0, "", (), None)
         assert f.filter(record_engine) is True
         assert f.filter(record_other) is False
 
     def test_api_filter(self):
         f = _APIFilter()
-        record_api = logging.LogRecord("backend.api.routes.debate", 20, "", 0, "", (), None)
-        record_other = logging.LogRecord("backend.engine.tribunal", 20, "", 0, "", (), None)
+        record_api = logging.LogRecord(
+            "backend.api.routes.debate", 20, "", 0, "", (), None
+        )
+        record_other = logging.LogRecord(
+            "backend.engine.tribunal", 20, "", 0, "", (), None
+        )
         assert f.filter(record_api) is True
         assert f.filter(record_other) is False

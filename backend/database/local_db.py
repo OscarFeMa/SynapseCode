@@ -2,10 +2,12 @@
 Synapse Council v2.0 - Local Database
 Engine y sesión async SQLite con aiosqlite
 """
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from backend.database.models import Base
-from backend.database.migrations.sqlite_migrations import run_sqlite_migrations
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from backend.config import get_settings
+from backend.database.migrations.sqlite_migrations import run_sqlite_migrations
+from backend.database.models import Base
 
 settings = get_settings()
 
