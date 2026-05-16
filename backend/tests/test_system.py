@@ -70,6 +70,18 @@ class TestImports:
         mem = get_hybrid_memory_v2()
         assert mem is not None
 
+    def test_tribunal_config_module(self):
+        from backend.config import get_settings
+        from backend.engine.tribunal_config import build_tribunal_config
+
+        config = build_tribunal_config(get_settings())
+
+        assert set(config.keys()) == {"evidence", "risk", "alignment"}
+        assert config["evidence"].primary.slot == "magistrate_evidence"
+        assert config["risk"].primary.slot == "magistrate_risk"
+        assert config["alignment"].primary.node == "LOCAL"
+        assert all(role_config.chain for role_config in config.values())
+
 
 class TestConfig:
     """Verifica configuraciones basicas"""
@@ -137,6 +149,23 @@ class TestAPIEndpoints:
         assert "synapse_supabase_sync_retries_total" in body
         assert "synapse_warehouse_debates_aggregated_total" in body
         assert 'path="/health/live"' in body
+
+    def test_tribunal_config_endpoint_returns_effective_roles(self, monkeypatch):
+        from backend.main import app
+        from backend.api.routes import system as system_routes
+        from fastapi.testclient import TestClient
+
+        monkeypatch.setattr(system_routes.settings, "ADMIN_API_LOCALHOST_ONLY", False)
+
+        client = TestClient(app)
+        response = client.get("/api/v1/system/tribunal/config")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["maxIterations"] >= 1
+        assert set(data["roles"].keys()) == {"evidence", "risk", "alignment"}
+        assert data["roles"]["evidence"]["primary"]["slot"] == "magistrate_evidence"
+        assert isinstance(data["roles"]["risk"]["fallbacks"], list)
 
     def test_debate_list_shape(self):
         from backend.main import app
@@ -472,6 +501,56 @@ class TestAPIEndpoints:
 
         assert controller._find_next_preload_model(agents, current_index=0) == "mistral:latest"
         assert controller._find_next_preload_model(agents, current_index=1) is None
+
+    def test_tribunal_uses_fallback_when_primary_magistrate_fails(self):
+        from backend.engine.agent_orchestrator import AgentResult
+        from backend.engine.tribunal import TribunalCouncil
+
+        class FakeOrchestrator:
+            def __init__(self):
+                self.calls = []
+
+            async def call_agent(self, **kwargs):
+                config = kwargs["config"]
+                self.calls.append(config.model)
+                if len(self.calls) == 1:
+                    return AgentResult(
+                        call_id="failed-primary",
+                        slot=config.slot,
+                        node=config.node,
+                        status="FAILED",
+                        error_message="model unavailable",
+                    )
+                return AgentResult(
+                    call_id="fallback-ok",
+                    slot=config.slot,
+                    node=config.node,
+                    status="COMPLETED",
+                    response="Fallback completo. Score: 88/100",
+                )
+
+        async def scenario():
+            tribunal = TribunalCouncil()
+            tribunal.orchestrator = FakeOrchestrator()
+            events = []
+
+            result = await tribunal._call_magistrate_with_fallback(
+                role="evidence",
+                session_id="tribunal-fallback",
+                round_id="round-1",
+                round_number=1,
+                phase="TRIBUNAL",
+                prompt="Evalua evidencias",
+                db_session=None,
+                on_event=lambda event, payload: events.append((event, payload)),
+            )
+
+            assert result.status == "COMPLETED"
+            assert result.call_id == "fallback-ok"
+            assert len(tribunal.orchestrator.calls) == 2
+            assert any(event == "tribunal_fallback" for event, _ in events)
+
+        asyncio.run(scenario())
 
     def test_local_agent_uses_deterministic_response_cache(self):
         from sqlalchemy import delete

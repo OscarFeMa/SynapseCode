@@ -5,7 +5,7 @@ Implementa el Protocolo de Consenso Forzado (PCO) con 3 magistrados:
 - Magistrado de Riesgos (abogado del diablo)
 - Magistrado de Alineación (product owner)
 
-Ejecución SIEMPRE en LOCAL (PC B) para soberanía neuronal.
+Ejecución configurable por rol, con preferencia local y fallback opcional.
 """
 import asyncio
 import re
@@ -17,12 +17,13 @@ import structlog
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.engine.agent_orchestrator import AgentOrchestrator, AgentConfig
+from backend.engine.agent_orchestrator import AgentOrchestrator, AgentConfig, AgentResult
 from backend.database.local_db import AsyncSessionLocal
 from backend.engine.prompts import PromptBuilder
 from backend.database.models import AgentCall
 from backend.config import get_settings
 from backend.engine.reductio_absurdum import get_reductio_absurdum_engine
+from backend.engine.tribunal_config import TribunalRoleConfig, build_tribunal_config
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -62,46 +63,94 @@ class TribunalCouncil:
     4. Máximo 3 iteraciones
     5. Si no hay acuerdo → resolución por méritos (dominio con mayor peso)
     
-    SIEMPRE se ejecuta en LOCAL (PC B) para garantizar soberanía.
+    Preferencia local con fallback configurable por rol.
     """
     
-    MAX_ITERATIONS = 3
-    
-    # Configuración de magistrados
-    MAGISTRATES = {
-        "evidence": AgentConfig(
-            slot="magistrate_evidence",
-            node="LOCAL",
-            engine="ollama",
-            model="llama3.1:8b",
-            role_label="Magistrado de Evidencias (Worker)",
-            temperature=0.2,
-            max_tokens=1500
-        ),
-        "risk": AgentConfig(
-            slot="magistrate_risk",
-            node="LOCAL",
-            engine="ollama",
-            model="mistral:7b",
-            role_label="Magistrado de Riesgos (Worker)",
-            temperature=0.3,
-            max_tokens=1500
-        ),
-        "alignment": AgentConfig(
-            slot="magistrate_alignment",
-            node="CLOUD",
-            engine="ollama",
-            model="llama3.2:latest",
-            role_label="Magistrado de Alineación (Master)",
-            temperature=0.4,
-            max_tokens=2000
-        ),
-    }
+    MAX_ITERATIONS = settings.TRIBUNAL_MAX_ITERATIONS
     
     def __init__(self):
         self.orchestrator = AgentOrchestrator()
         self.prompt_builder = PromptBuilder()
         self.reductio_engine = get_reductio_absurdum_engine()  # Motor de Reducción al Absurdo
+        self.role_configs = build_tribunal_config(settings)
+        self.MAGISTRATES = {
+            role: role_config.primary
+            for role, role_config in self.role_configs.items()
+        }
+
+    def get_role_config(self, role: str) -> TribunalRoleConfig:
+        return self.role_configs[role]
+
+    async def _call_magistrate_with_fallback(
+        self,
+        *,
+        role: str,
+        session_id: str,
+        round_id: str,
+        round_number: int,
+        phase: str,
+        prompt: str,
+        db_session: AsyncSession,
+        on_event: Optional[Callable[[str, Any], None]] = None,
+    ) -> AgentResult:
+        """Calls a magistrate using primary config, then configured fallbacks."""
+        last_result: Optional[AgentResult] = None
+        role_config = self.get_role_config(role)
+
+        for attempt, config in enumerate(role_config.chain, start=1):
+            if on_event and attempt > 1:
+                on_event(
+                    "tribunal_fallback",
+                    {
+                        "role": role,
+                        "attempt": attempt,
+                        "node": config.node,
+                        "engine": config.engine,
+                        "model": config.model,
+                    },
+                )
+
+            result = await self.orchestrator.call_agent(
+                session_id=session_id,
+                round_id=round_id,
+                round_number=round_number,
+                phase=phase,
+                config=config,
+                system_prompt="",
+                user_prompt=prompt,
+                db_session=db_session,
+                on_token=lambda t: on_event("tribunal_token", {"role": role, "token": t}) if on_event else None
+            )
+            last_result = result
+
+            if result.status == "COMPLETED" and result.response:
+                if attempt > 1:
+                    logger.info(
+                        "tribunal.fallback_succeeded",
+                        role=role,
+                        attempt=attempt,
+                        model=config.model,
+                    )
+                return result
+
+            logger.warning(
+                "tribunal.magistrate_attempt_failed",
+                role=role,
+                attempt=attempt,
+                node=config.node,
+                engine=config.engine,
+                model=config.model,
+                status=result.status,
+                error=result.error_message,
+            )
+
+        return last_result or AgentResult(
+            call_id="",
+            slot=role,
+            node="UNKNOWN",
+            status="FAILED",
+            response="FALLO_DE_SISTEMA: 0/100",
+        )
     
     async def issue_verdict(
         self,
@@ -163,16 +212,15 @@ class TribunalCouncil:
                 max_tokens=self.MAGISTRATES["alignment"].max_tokens
             )
             
-            alignment_result = await self.orchestrator.call_agent(
+            alignment_result = await self._call_magistrate_with_fallback(
+                role="alignment",
                 session_id=session_id,
                 round_id=round_id,
                 round_number=round_number,
                 phase="TRIBUNAL",
-                config=self.MAGISTRATES["alignment"],
-                system_prompt="",
-                user_prompt=alignment_prompt,
+                prompt=alignment_prompt,
                 db_session=db_session,
-                on_token=lambda t: on_event("tribunal_token", {"role": "alignment", "token": t}) if on_event else None
+                on_event=on_event
             )
             
             alignment_opinion = MagistrateOpinion(
@@ -214,33 +262,46 @@ class TribunalCouncil:
             )
             
             # Función helper para llamar a agente con su propia sesión (evita errores de concurrencia en SQLAlchemy)
-            async def call_with_own_session(config, prompt, role):
+            async def call_with_own_session(prompt, role):
                 async with AsyncSessionLocal() as session:
-                    return await self.orchestrator.call_agent(
+                    return await self._call_magistrate_with_fallback(
+                        role=role,
                         session_id=session_id,
                         round_id=round_id,
                         round_number=round_number,
                         phase="TRIBUNAL",
-                        config=config,
-                        system_prompt="",
-                        user_prompt=prompt,
+                        prompt=prompt,
                         db_session=session,
-                        on_token=lambda t: on_event("tribunal_token", {"role": role, "token": t}) if on_event else None
+                        on_event=on_event
                     )
 
             # Ejecutar ambos magistrados en paralelo con sesiones INDEPENDIENTES
             evidence_result, risk_result = await asyncio.gather(
-                call_with_own_session(self.MAGISTRATES["evidence"], evidence_prompt, "evidence"),
-                call_with_own_session(self.MAGISTRATES["risk"], risk_prompt, "risk"),
+                call_with_own_session(evidence_prompt, "evidence"),
+                call_with_own_session(risk_prompt, "risk"),
                 return_exceptions=True
             )
             
             # Helper para procesar resultado
             def parse_magistrate_result(result, role_name):
-                from backend.engine.agent_orchestrator import AgentResult
                 if isinstance(result, Exception):
                     logger.error(f"tribunal.magistrate_failed", role=role_name, error=str(result))
                     return AgentResult(call_id="", slot=role_name, node="UNKNOWN", status="FAILED", response="FALLO_DE_SISTEMA: 0/100")
+                if result.status != "COMPLETED" or not result.response:
+                    logger.error(
+                        "tribunal.magistrate_failed",
+                        role=role_name,
+                        status=result.status,
+                        error=result.error_message,
+                    )
+                    return AgentResult(
+                        call_id=result.call_id,
+                        slot=result.slot,
+                        node=result.node,
+                        status=result.status,
+                        response="FALLO_DE_SISTEMA: 0/100",
+                        error_message=result.error_message,
+                    )
                 return result
             
             # Procesar resultado de Evidencias
@@ -438,23 +499,17 @@ Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} itera
                            role=role,
                            iteration=iteration)
                 
-                # Ejecutar auto-cuestionamiento con el mismo modelo
-                config = self.MAGISTRATES[role]
-                
                 try:
                     async with AsyncSessionLocal() as session:
-                        challenge_result = await self.orchestrator.call_agent(
+                        challenge_result = await self._call_magistrate_with_fallback(
+                            role=role,
                             session_id=session_id,
                             round_id=session_id,
                             round_number=iteration,
                             phase="TRIBUNAL_SELF_CHALLENGE",
-                            config=config,
-                            system_prompt="",
-                            user_prompt=self_challenge_prompt,
+                            prompt=self_challenge_prompt,
                             db_session=session,
-                            on_token=lambda t: on_event("tribunal_self_challenge_token", {
-                                "role": role, "token": t
-                            }) if on_event else None
+                            on_event=on_event
                         )
                     
                     if on_event:
