@@ -1241,3 +1241,39 @@ class TestConfigSettings:
         s = get_settings()
         if not s.SUPABASE_URL or "CHANGEME" in (s.SUPABASE_URL or ""):
             assert s.SUPABASE_ENABLED is False or s.SUPABASE_URL is None
+
+    def test_model_timeout_default_ollama(self):
+        from backend.config import get_settings
+        s = get_settings()
+        timeout = s.get_model_timeout("llama3.2:latest", "ollama")
+        assert timeout == s.OLLAMA_TIMEOUT_SECONDS
+
+    def test_model_timeout_specific_70b(self):
+        from backend.config import get_settings
+        s = get_settings()
+        timeout = s.get_model_timeout("llama3.1:70b", "ollama")
+        assert timeout == 300
+
+    def test_model_timeout_specific_405b(self):
+        from backend.config import get_settings
+        s = get_settings()
+        timeout = s.get_model_timeout("llama3.1:405b", "ollama")
+        assert timeout == 600
+
+    def test_model_timeout_pattern_match(self):
+        from backend.config import get_settings
+        s = get_settings()
+        timeout = s.get_model_timeout("deepseek-r1:70b-instruct", "ollama")
+        assert timeout == 600
+
+    def test_model_timeout_cloud_default(self):
+        from backend.config import get_settings
+        s = get_settings()
+        timeout = s.get_model_timeout("gpt-4o", "openrouter")
+        assert timeout == s.OPENROUTER_TIMEOUT_SECONDS
+
+    def test_model_timeout_custom_default(self):
+        from backend.config import get_settings
+        s = get_settings()
+        timeout = s.get_model_timeout("unknown-model", "ollama", default=120)
+        assert timeout == 120

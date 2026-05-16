@@ -193,6 +193,7 @@ create_debate_with_id()
 
 | Versión | Fecha | Cambios principales |
 |---------|-------|-------------------|
+| **v2.6** | May 2026 | Timeout configurable por modelo, asyncio.wait_for para debates largos |
 | **v2.5** | May 2026 | Pausar/Reanudar debates, migracion SQLite para pause fields |
 | **v2.4** | May 2026 | Continuación de debates, caché semántica, Data Warehouse, Prometheus, Tribunal fallback chains, Reductio Absurdum, tests fijos |
 | **v2.3** | May 2026 | Control Center web, exportación limpia, health check inteligente, fixes |

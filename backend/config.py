@@ -3,9 +3,10 @@ Synapse Council v2.0 - Configuration
 Pydantic Settings para validación de variables de entorno
 """
 from pydantic import Field, field_validator, model_validator
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict
 from functools import lru_cache
 import socket
+import json
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -146,6 +147,26 @@ class Settings(BaseSettings):
     SEMANTIC_CACHE_TTL_HOURS: int = 24
     SEMANTIC_CACHE_SIMILARITY_THRESHOLD: float = 0.85
     
+    # ─── Model Timeouts (segundos por modelo) ──────────────────
+    # JSON string: {"model_pattern": timeout_seconds, ...}
+    # Patrones se buscan con 'in' (substring match)
+    # Default: OLLAMA_TIMEOUT_SECONDS para locales, OPENROUTER_TIMEOUT_SECONDS para cloud
+    MODEL_TIMEOUTS: str = """{
+        "llama3.1:70b": 300,
+        "llama3:70b": 300,
+        "llama3.1:405b": 600,
+        "deepseek-r1:32b": 300,
+        "deepseek-r1:70b": 600,
+        "mistral-large": 180,
+        "mixtral:8x22b": 300,
+        "qwen2.5:72b": 300,
+        "qwen2.5:32b": 180,
+        "codellama:70b": 300,
+        "nemotron": 300,
+        "70b": 300,
+        "405b": 600
+    }"""
+    
     # ─── Servidor ─────────────────────────────────────────────
     HOST: str = "0.0.0.0"
     PORT: int = 8000
@@ -236,6 +257,47 @@ class Settings(BaseSettings):
     def clear_worker_host_cache(self):
         """Limpia la cache de IP del Worker para forzar re-resolución DNS"""
         self.WORKER_HOST = None
+    
+    def get_model_timeout(self, model: str, engine: str = "ollama", default: Optional[int] = None) -> int:
+        """
+        Obtiene el timeout en segundos para un modelo especifico.
+        
+        Busca patrones en MODEL_TIMEOUTS (substring match).
+        Si no encuentra coincidencia, usa el default del engine.
+        
+        Args:
+            model: Nombre del modelo (ej: "llama3.1:70b")
+            engine: Engine del modelo (ollama, openrouter, etc)
+            default: Timeout por defecto (si None, usa el del engine)
+        
+        Returns:
+            Timeout en segundos
+        """
+        try:
+            timeouts = json.loads(self.MODEL_TIMEOUTS)
+        except (json.JSONDecodeError, TypeError):
+            timeouts = {}
+        
+        # Buscar coincidencia por patron (substring match, mas largo primero)
+        sorted_patterns = sorted(timeouts.keys(), key=len, reverse=True)
+        for pattern in sorted_patterns:
+            if pattern.lower() in model.lower():
+                return int(timeouts[pattern])
+        
+        # Default por engine
+        if default is not None:
+            return default
+        
+        engine_defaults = {
+            "ollama": self.OLLAMA_TIMEOUT_SECONDS,
+            "lm_studio": self.LM_STUDIO_TIMEOUT_SECONDS,
+            "jan": self.JAN_TIMEOUT_SECONDS,
+            "openrouter": self.OPENROUTER_TIMEOUT_SECONDS,
+            "groq": 30,
+            "gemini": 30,
+            "deepseek": 60,
+        }
+        return engine_defaults.get(engine.lower(), self.OLLAMA_TIMEOUT_SECONDS)
 
 
 @lru_cache()
