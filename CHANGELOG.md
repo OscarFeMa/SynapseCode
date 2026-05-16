@@ -7,6 +7,64 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ---
 
+## [2.4.0] - 2026-05-16
+
+### 🚀 Añadido (Added)
+
+#### Continuación de Debates
+- **`POST /api/v1/debates/{id}/continue`**: Continua debates completados con nuevos turnos
+- Reutiliza contexto acumulado del debate original
+- Soporta agentes personalizados o reutiliza los originales
+- Permite prompt de continuacion para guiar nuevas rondas
+- Persiste nuevos turnos en DB y regenera reporte estructurado
+
+#### Caché Semántica
+- **Embeddings + similitud coseno**: Cachea respuestas por contenido semantico
+- **Threshold configurable** (default 0.85)
+- **TTL configurable** (default 24h)
+- **Integrado en todos los adapters**: Groq, Gemini, OpenRouter, LM Studio, Jan
+- **API endpoints**: `/api/v1/cache/stats`, `/api/v1/cache/invalidate`, `/api/v1/cache/cleanup`
+- **Dashboard React**: `frontend/src/components/Cache/CacheDashboard.jsx`
+
+#### Data Warehouse / Analisis Historico
+- **Tablas de agregacion**: DebateAggregate, TopicTrending, ConsensusPattern, ModelPerformance, DailyMetricsSnapshot
+- **Triggers automaticos** en debate controllers para actualizar warehouse
+- **Script de backfill** para datos historicos
+- **Endpoint `/api/v1/system/analytics`**: Resumen de metricas del sistema
+- **Queries SQL** documentadas en `docs/ANALYTICS_QUERIES.md`
+
+#### Prometheus Metrics
+- **Endpoint `/metrics`**: Observabilidad completa en produccion
+- **Metricas**: debate_duration, tokens_generated, convergence_rounds, api_latency, cache_hit_ratio
+- **Integracion** con Grafana para dashboards
+
+#### Tribunal Fallback Chains
+- **Configuracion configurable** via `.env` para cada magistrado
+- **Fallback automatico**: Si el modelo primario falla, usa el secundario
+- **Endpoint `/api/v1/system/tribunal-config`**: Muestra configuracion activa
+
+#### Reduccion al Absurdo
+- **Motor completo**: `backend/engine/reductio_absurdum.py`
+- **Persistencia en DB**: Tabla `reductio_absurdum_proofs`
+- **Integrado en debates iterativos**: Ronda 2+ para eliminar complacencia
+
+### 🔧 Mejoras Tecnicas
+
+- **pytest-asyncio** actualizado a >=0.24.0 (compatible con pytest 8.3+)
+- **CI workflow** ahora falla si tests no pasan (eliminado `|| true`)
+- **Supabase sync** silent fail cuando no esta configurado (`SUPABASE_ENABLED=false`)
+- **Token buffering** en WebSocket para reducir overhead en debates largos
+- **Model preloading** en Ollama para reducir wait time entre turnos
+
+### 🐛 Corregido (Fixed)
+
+- **Tests**: pytest-asyncio incompatibility con pytest 8.x
+- **Supabase sync**: Error persistente cuando API key no valida
+- **Worker launcher**: Unicode escape error en docstrings
+- **RDP Manager**: Credenciales integradas de forma segura
+
+---
+
 ## [2.3.0] - 2026-05-13
 
 ### 🚀 Añadido (Added)

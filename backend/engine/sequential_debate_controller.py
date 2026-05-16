@@ -1310,6 +1310,320 @@ JSON:"""
         """Lista todas las sesiones de debate"""
         return list(self.active_sessions.values())
     
+    async def continue_debate(
+        self,
+        session_id: str,
+        agents_config: Optional[List[DebateAgent]] = None,
+        max_additional_turns: Optional[int] = None,
+        continuation_prompt: Optional[str] = None,
+        on_turn_start: Optional[Callable[[DebateTurn], None]] = None,
+        on_turn_complete: Optional[Callable[[DebateTurn], None]] = None,
+        on_model_load: Optional[Callable[[str, str], None]] = None,
+        on_model_unload: Optional[Callable[[str, str], None]] = None,
+    ) -> Optional[DebateSession]:
+        """
+        Continua un debate existente con nuevos turnos.
+        
+        Args:
+            session_id: ID del debate a continuar
+            agents_config: Agentes a usar (si None, reusa los del debate original)
+            max_additional_turns: Maximo de turnos adicionales (si None, usa len(agents))
+            continuation_prompt: Prompt adicional para guiar la continuacion
+            callbacks: Mismos callbacks que create_debate_with_id
+        
+        Returns:
+            DebateSession actualizada o None si no se encontro el debate
+        """
+        session = self.get_session(session_id)
+        if not session:
+            debate_data = await self.get_debate_from_db(session_id)
+            if not debate_data:
+                return None
+            session = await self._reconstruct_session_from_db(debate_data)
+            self.active_sessions[session_id] = session
+        
+        if session.status not in ("completed", "failed"):
+            return None
+        
+        session.status = "running"
+        session.completed_at = None
+        session.final_verdict = None
+        session.structured_report = None
+        
+        if not agents_config:
+            agents_config = self._extract_agents_from_session(session)
+        
+        if not agents_config:
+            agents_config = get_standard_debate_config(session.topic)
+        
+        num_turns = max_additional_turns or len(agents_config)
+        agents_config = agents_config[:num_turns]
+        
+        start_turn_number = len(session.turns) + 1
+        
+        try:
+            previous_model = None
+            
+            for idx, agent_config in enumerate(agents_config, start_turn_number):
+                next_preload_model = self._find_next_preload_model(agents_config, idx - start_turn_number)
+                if next_preload_model:
+                    self.local_manager.schedule_ollama_preload(next_preload_model)
+                
+                if previous_model and agent_config.node == "LOCAL" and agent_config.engine == "ollama":
+                    try:
+                        ollama_client = self.local_manager.engines.get(EngineType.OLLAMA)
+                        if ollama_client:
+                            await ollama_client.unload_model(previous_model)
+                    except Exception as e:
+                        logger.warning("sequential_debate.unload_failed",
+                                      session_id=session_id,
+                                      previous_model=previous_model,
+                                      error=str(e))
+                
+                turn = DebateTurn(
+                    turn_number=idx,
+                    agent=agent_config,
+                    prompt_sent="",
+                    started_at=datetime.now()
+                )
+                turn.status = "running"
+                
+                if on_model_load:
+                    on_model_load(agent_config.model, agent_config.provider)
+                
+                context_prompt = session.build_context_prompt(agent_config)
+                
+                if continuation_prompt:
+                    context_prompt += f"\n\n## Instruccion de Continuacion\n{continuation_prompt}"
+                
+                full_prompt = f"{context_prompt}\n\n{agent_config.system_prompt}"
+                turn.prompt_sent = full_prompt
+                
+                if on_turn_start:
+                    on_turn_start(turn)
+                
+                logger.info("sequential_debate.continuation_turn_start",
+                           session_id=session_id,
+                           turn=idx,
+                           agent=agent_config.name,
+                           model=agent_config.model)
+                
+                try:
+                    if agent_config.node == "LOCAL":
+                        response = await self._run_local_agent(agent_config, full_prompt, on_model_unload)
+                    else:
+                        response = await self._run_cloud_agent(agent_config, full_prompt)
+                    
+                    turn.response_received = response["text"]
+                    turn.tokens_in = response["tokens_in"]
+                    turn.tokens_out = response["tokens_out"]
+                    turn.latency_ms = response["latency_ms"]
+                    
+                    q_score, _ = evaluate_response(turn.response_received, agent_config.role.value)
+                    turn.quality_score = q_score
+                    
+                    turn.status = "completed"
+                    turn.completed_at = datetime.now()
+                    
+                    if agent_config.node == "LOCAL" and agent_config.engine == "ollama":
+                        previous_model = agent_config.model
+                    
+                    try:
+                        intervention_type = detect_intervention_type(
+                            turn.response_received, agent_config.role.value
+                        )
+                        await submit_reputation_update(
+                            reputation_service=reputation_service,
+                            model=agent_config.model,
+                            provider=agent_config.provider,
+                            role=agent_config.role.value,
+                            tokens_out=turn.tokens_out,
+                            latency_ms=turn.latency_ms,
+                            success=True,
+                            intervention_type=intervention_type
+                        )
+                    except Exception as e:
+                        logger.debug("reputation.update_failed", error=str(e), model=agent_config.model)
+                    
+                    logger.info("sequential_debate.continuation_turn_complete",
+                               session_id=session_id,
+                               turn=idx,
+                               tokens_out=turn.tokens_out,
+                               latency_ms=turn.latency_ms)
+                    
+                except Exception as e:
+                    turn.status = "failed"
+                    turn.response_received = f"[ERROR: {str(e)}]"
+                    logger.error("sequential_debate.continuation_turn_failed",
+                                session_id=session_id,
+                                turn=idx,
+                                error=str(e))
+                
+                if on_turn_complete:
+                    on_turn_complete(turn)
+                
+                session.turns.append(turn)
+                
+                try:
+                    async with AsyncSessionLocal() as db_session:
+                        agent_role_value = turn.agent.role.value if hasattr(turn.agent.role, 'value') else str(turn.agent.role)
+                        db_turn = SequentialDebateTurn(
+                            debate_id=session_id,
+                            turn_number=turn.turn_number,
+                            agent_id=turn.agent.id,
+                            agent_name=turn.agent.name,
+                            agent_role=agent_role_value,
+                            model=turn.agent.model,
+                            provider=turn.agent.provider,
+                            node=turn.agent.node,
+                            engine=turn.agent.engine,
+                            prompt_sent=turn.prompt_sent,
+                            response_received=turn.response_received,
+                            tokens_in=turn.tokens_in,
+                            tokens_out=turn.tokens_out,
+                            latency_ms=turn.latency_ms,
+                            status=turn.status,
+                            started_at=turn.started_at,
+                            completed_at=turn.completed_at
+                        )
+                        db_session.add(db_turn)
+                        await db_session.commit()
+                except Exception as e:
+                    logger.error("sequential_debate.continuation_turn_db_error",
+                                session_id=session_id,
+                                turn=turn.turn_number,
+                                error=str(e))
+                
+                await asyncio.sleep(1)
+            
+            completed_turns = [t for t in session.turns if t.status == "completed"]
+            if len(completed_turns) >= 2:
+                try:
+                    async with AsyncSessionLocal() as db_session:
+                        tribunal_result = await self._run_tribunal(session, db_session)
+                        if tribunal_result:
+                            session.tribunal_verdict = tribunal_result
+                            session.consensus_score = (
+                                tribunal_result.get("evidence_score", 50) +
+                                tribunal_result.get("risk_score", 50) +
+                                tribunal_result.get("alignment_score", 50)
+                            ) / 3
+                            session.convergence_level = "CONSENSUS_REACHED" if tribunal_result.get("consensus_reached") else "PARTIAL_CONSENSUS"
+                except Exception as e:
+                    logger.error("sequential_debate.continuation_tribunal_failed",
+                                session_id=session_id, error=str(e))
+            
+            if session.tribunal_verdict and session.tribunal_verdict.get("verdict_text"):
+                session.final_verdict = session.tribunal_verdict["verdict_text"]
+            else:
+                session.final_verdict = self._generate_verdict(session)
+            
+            try:
+                session.structured_report = await self._generate_structured_report(session)
+            except Exception as e:
+                logger.error("sequential_debate.continuation_report_failed", error=str(e))
+            
+            session.status = "completed"
+            session.completed_at = datetime.now()
+            
+            transcript_path = await self._save_transcript(session)
+            
+            try:
+                async with AsyncSessionLocal() as db_session:
+                    db_debate = await db_session.get(SequentialDebate, session_id)
+                    if db_debate:
+                        db_debate.status = "completed"
+                        db_debate.total_tokens_in = sum(t.tokens_in for t in session.turns)
+                        db_debate.total_tokens_out = sum(t.tokens_out for t in session.turns)
+                        db_debate.total_latency_ms = sum(t.latency_ms for t in session.turns)
+                        db_debate.final_verdict = session.final_verdict
+                        db_debate.structured_report = session.structured_report
+                        db_debate.transcript_path = transcript_path
+                        db_debate.completed_at = datetime.now()
+                        await db_session.commit()
+                        
+                        try:
+                            warehouse_mgr = _get_warehouse_manager()
+                            await warehouse_mgr.process_sequential_debate(session_id)
+                        except Exception as e:
+                            logger.warning("sequential_debate.continuation_warehouse_failed",
+                                          session_id=session_id, error=str(e))
+            except Exception as e:
+                logger.error("sequential_debate.continuation_final_db_error",
+                            session_id=session_id, error=str(e))
+            
+            logger.info("sequential_debate.continuation_completed",
+                       session_id=session_id,
+                       total_turns=len(session.turns),
+                       new_turns=len(agents_config))
+            
+            return session
+            
+        except Exception as e:
+            session.status = "failed"
+            logger.error("sequential_debate.continuation_exception",
+                        session_id=session_id, error=str(e))
+            try:
+                async with AsyncSessionLocal() as db_session:
+                    db_debate = await db_session.get(SequentialDebate, session_id)
+                    if db_debate:
+                        db_debate.status = "failed"
+                        await db_session.commit()
+            except Exception:
+                pass
+            return None
+    
+    async def _reconstruct_session_from_db(self, debate_data: Dict[str, Any]) -> DebateSession:
+        """Reconstruye una DebateSession desde datos de la base de datos"""
+        session = DebateSession(
+            id=debate_data["id"],
+            topic=debate_data["topic"],
+            status=debate_data["status"],
+            created_at=debate_data["created_at"] if isinstance(debate_data["created_at"], datetime) else datetime.now(),
+            completed_at=debate_data.get("completed_at"),
+            final_verdict=debate_data.get("final_verdict"),
+            structured_report=debate_data.get("structured_report"),
+        )
+        
+        for turn_data in debate_data.get("turns", []):
+            agent = DebateAgent(
+                id=turn_data.get("agent_id", turn_data.get("agent_name", "unknown")),
+                name=turn_data.get("agent_name", "Unknown Agent"),
+                role=AgentRole(turn_data.get("agent_role", "analyst")),
+                node=turn_data.get("node", "LOCAL"),
+                engine=turn_data.get("engine", "ollama"),
+                model=turn_data.get("model", "llama3.2:latest"),
+                provider=turn_data.get("provider", "meta"),
+                system_prompt="",
+                temperature=0.7,
+                max_tokens=500,
+            )
+            turn = DebateTurn(
+                turn_number=turn_data["turn_number"],
+                agent=agent,
+                prompt_sent="",
+                response_received=turn_data.get("response_received", turn_data.get("response_preview", "")),
+                tokens_in=turn_data.get("tokens_in", 0),
+                tokens_out=turn_data.get("tokens_out", 0),
+                latency_ms=turn_data.get("latency_ms", 0),
+                status=turn_data.get("status", "completed"),
+                started_at=turn_data.get("started_at"),
+                completed_at=turn_data.get("completed_at"),
+            )
+            session.turns.append(turn)
+        
+        return session
+    
+    def _extract_agents_from_session(self, session: DebateSession) -> List[DebateAgent]:
+        """Extrae la configuracion de agentes desde los turnos existentes"""
+        seen_ids = set()
+        agents = []
+        for turn in session.turns:
+            if turn.agent.id not in seen_ids:
+                seen_ids.add(turn.agent.id)
+                agents.append(turn.agent)
+        return agents
+    
     async def run_iterative_debate(
         self,
         session_id: str,

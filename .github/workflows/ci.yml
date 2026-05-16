@@ -22,7 +22,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r backend/requirements.txt
-        pip install pytest httpx
+        pip install pytest>=8.3.0 pytest-asyncio>=0.24.0 httpx
     
     - name: Create .env for tests
       run: |
@@ -40,7 +40,6 @@ jobs:
         print('[PASS] All imports OK')
         "
     
-    - name: Run API tests
+    - name: Run all tests
       run: |
-        pip install pytest
-        python -m pytest backend/tests/test_system.py -v --tb=short 2>&1 || true
+        python -m pytest backend/tests/test_system.py -v --tb=short
