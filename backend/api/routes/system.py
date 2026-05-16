@@ -444,13 +444,14 @@ async def get_tribunal_config_endpoint():
 
 @router.get("/health")
 async def health_check_endpoint():
-    """Health check del sistema"""
+    """Health check del sistema con detección de Worker por servicios"""
     from backend.main import heartbeat_manager
     
     worker_connected = False
     worker_ip = None
     last_heartbeat = None
     
+    # Método 1: Heartbeat TCP (si está activo)
     if heartbeat_manager:
         worker_connected = heartbeat_manager.is_alive()
         worker_ip = heartbeat_manager.get_peer_ip()
@@ -458,13 +459,39 @@ async def health_check_endpoint():
         if last_heartbeat:
             last_heartbeat = last_heartbeat.isoformat()
     
+    # Método 2: Si no hay heartbeat, verificar servicios del Worker
+    if not worker_connected:
+        try:
+            from backend.engine.worker_launcher import worker_service_manager
+            # Limpiar cache para obtener datos frescos
+            worker_service_manager._check_cache = {}
+            services = await worker_service_manager.check_all_services()
+            running_count = sum(1 for s in services.values() if s.get("status") == "running")
+            if running_count > 0:
+                worker_connected = True
+                resolved_ip = worker_service_manager._worker_ip or settings.get_worker_host()
+                if resolved_ip:
+                    worker_ip = resolved_ip
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Worker service check failed: {e}")
+    
+    # Fallback: si worker_connected pero sin IP, resolverla
+    if worker_connected and not worker_ip:
+        try:
+            from backend.config import get_settings
+            _settings = get_settings()
+            worker_ip = _settings.get_worker_host()
+        except Exception:
+            pass
+    
     return {
         "status": "healthy",
         "timestamp": time.time(),
         "worker_connected": worker_connected,
         "worker_ip": worker_ip,
         "last_heartbeat": last_heartbeat,
-        "transfer_speed": 0.0  # Debería medirse realmente
+        "transfer_speed": 0.0
     }
 
 

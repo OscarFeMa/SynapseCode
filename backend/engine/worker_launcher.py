@@ -99,6 +99,16 @@ class WorkerServiceManager:
         except (OSError, asyncio.TimeoutError, ConnectionRefusedError):
             return False
 
+    async def check_http_health(self, base_url: str, timeout: float = 3.0) -> bool:
+        """Verifica servicio vía HTTP health endpoint"""
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.get(f"{base_url}/models")
+                return resp.status_code == 200
+        except Exception:
+            return False
+
     async def check_all_services(self) -> Dict[str, Dict[str, Any]]:
         """Verifica el estado de todos los servicios en el Worker"""
         import time
@@ -123,23 +133,19 @@ class WorkerServiceManager:
                 results[name] = {"status": "running", "port": svc.port}
                 continue
 
-            # Also check on 127.0.0.1 (services may bind to localhost only)
-            if host != "127.0.0.1" and await self.check_port("127.0.0.1", svc.port):
-                svc.is_running = True
-                svc.running_on_port = svc.port
-                results[name] = {"status": "running", "port": svc.port}
-                continue
+            # Fallback: HTTP health check (for services that bind to localhost on worker)
+            if name == "jan":
+                jan_url = f"http://{host}:{svc.port}/v1"
+                if await self.check_http_health(jan_url):
+                    svc.is_running = True
+                    svc.running_on_port = svc.port
+                    results[name] = {"status": "running", "port": svc.port, "via": "http_health"}
+                    continue
 
             # Check alternate ports
             found = False
             for alt_port in svc.alt_ports:
                 if await self.check_port(host, alt_port):
-                    svc.is_running = True
-                    svc.running_on_port = alt_port
-                    results[name] = {"status": "running", "port": alt_port}
-                    found = True
-                    break
-                if host != "127.0.0.1" and await self.check_port("127.0.0.1", alt_port):
                     svc.is_running = True
                     svc.running_on_port = alt_port
                     results[name] = {"status": "running", "port": alt_port}
