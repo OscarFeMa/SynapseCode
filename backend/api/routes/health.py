@@ -215,7 +215,9 @@ async def collect_dependency_health() -> Dict[str, Any]:
             if isinstance(huggingface_health, dict)
             else {"status": "error", "error": str(huggingface_health)},
             "groq": groq_health if isinstance(groq_health, dict) else {"status": "error", "error": str(groq_health)},
-            "gemini": gemini_health if isinstance(gemini_health, dict) else {"status": "error", "error": str(gemini_health)},
+            "gemini": gemini_health
+            if isinstance(gemini_health, dict)
+            else {"status": "error", "error": str(gemini_health)},
         },
         "history": health_tracker.get_all_states(),
         "summary": health_tracker.get_summary(),

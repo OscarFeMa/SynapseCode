@@ -933,8 +933,7 @@ class ApiKeyUpdateRequest(BaseModel):
     api_key: str
 
 
-@router.post("/config/{service}/key",
-             dependencies=[Depends(require_admin_access)])
+@router.post("/config/{service}/key", dependencies=[Depends(require_admin_access)])
 async def update_api_key(service: str, req: ApiKeyUpdateRequest):
     """Actualiza una API key en tiempo de ejecución."""
     valid_services = {
@@ -945,7 +944,9 @@ async def update_api_key(service: str, req: ApiKeyUpdateRequest):
         "deepseek": "DEEPSEEK_API_KEY",
     }
     if service not in valid_services:
-        raise HTTPException(status_code=400, detail=f"Servicio no valido: {service}. Opciones: {list(valid_services.keys())}")
+        raise HTTPException(
+            status_code=400, detail=f"Servicio no valido: {service}. Opciones: {list(valid_services.keys())}"
+        )
 
     env_var = valid_services[service]
     setattr(settings, env_var, req.api_key)

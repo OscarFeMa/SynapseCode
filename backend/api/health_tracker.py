@@ -3,6 +3,7 @@ SynapseCode v2.7 - Health State Tracker
 Mantiene estado persistente entre health checks:
 - last_error, consecutive_failures, uptime, last_check_time
 """
+
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
@@ -11,6 +12,7 @@ from typing import Any, Dict, Optional
 @dataclass
 class ServiceHealthState:
     """Estado persistente de salud de un servicio"""
+
     name: str
     status: str = "unknown"
     last_error: Optional[str] = None
