@@ -4,2747 +4,816 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SynapseCode Control Center v2.7</title>
-
-<!-- Google Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-<!-- React 18 -->
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-<!-- Recharts -->
-<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js" crossorigin></script>
-
 <style>
-/* ═══════════════════════════════════════════
-   SYNAPSECODE CONTROL CENTER — NEURAL TERMINAL
-   ═══════════════════════════════════════════ */
-
 :root {
-  --bg-deep:      #050508;
-  --bg-panel:     #0C0D14;
-  --bg-surface:   #12141F;
-  --bg-elevated:  #1A1D2E;
-  --accent-green: #00FF88;
-  --accent-violet:#8B5CF6;
-  --accent-cyan:  #22D3EE;
-  --accent-amber: #F59E0B;
-  --accent-red:   #EF4444;
-  --text-primary: #F0F2FF;
-  --text-muted:   #6B7280;
-  --border:       rgba(139,92,246,0.2);
-  --glow-green:   0 0 20px rgba(0,255,136,0.4);
-  --glow-violet:  0 0 20px rgba(139,92,246,0.4);
-  --font-mono:    'JetBrains Mono', monospace;
-  --font-title:   'Syne', sans-serif;
-  --font-ui:      'Inter Tight', sans-serif;
-}
-
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-body {
-  background: var(--bg-deep);
-  color: var(--text-primary);
-  font-family: var(--font-ui);
-  overflow: hidden;
-  height: 100vh;
-}
-
-/* Circuit grid background */
-.app-container {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background-image:
-    linear-gradient(rgba(139,92,246,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(139,92,246,0.03) 1px, transparent 1px);
-  background-size: 30px 30px;
-}
-
-/* ═══ TOP BAR ═══ */
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  height: 48px;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  z-index: 100;
-}
-
-.topbar-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.topbar-logo {
-  font-family: var(--font-title);
-  font-weight: 800;
-  font-size: 16px;
-  background: linear-gradient(135deg, var(--accent-green), var(--accent-violet));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: -0.5px;
-}
-
-.topbar-version {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-muted);
-  background: var(--bg-elevated);
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.topbar-tabs {
-  display: flex;
-  gap: 2px;
-}
-
-.topbar-tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.2s;
-  position: relative;
-}
-
-.topbar-tab:hover {
-  color: var(--text-primary);
-  background: var(--bg-surface);
-}
-
-.topbar-tab.active {
-  color: var(--accent-green);
-  background: rgba(0,255,136,0.08);
-}
-
-.topbar-tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60%;
-  height: 2px;
-  background: var(--accent-green);
-  border-radius: 1px;
-}
-
-.tab-icon {
-  font-size: 14px;
-}
-
-.topbar-status {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.live-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--accent-green);
-}
-
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent-green);
-  animation: pulse-live 2s ease-in-out infinite;
-}
-
-@keyframes pulse-live {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,255,136,0.4); }
-  50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(0,255,136,0); }
-}
-
-.ws-badge {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 3px 8px;
-  border-radius: 4px;
-  background: rgba(0,255,136,0.1);
-  color: var(--accent-green);
-  border: 1px solid rgba(0,255,136,0.2);
-}
-
-.ws-badge.error {
-  background: rgba(239,68,68,0.1);
-  color: var(--accent-red);
-  border-color: rgba(239,68,68,0.2);
-}
-
-.demo-badge {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 3px 8px;
-  border-radius: 4px;
-  background: rgba(245,158,11,0.1);
-  color: var(--accent-amber);
-  border: 1px solid rgba(245,158,11,0.2);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.demo-badge:hover {
-  background: rgba(245,158,11,0.2);
-}
-
-.settings-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
-  transition: all 0.2s;
-  font-size: 16px;
-}
-
-.settings-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-surface);
-}
-
-/* ═══ MAIN CONTENT ═══ */
-.main-content {
-  flex: 1;
-  overflow: auto;
-  padding: 16px;
-}
-
-.tab-content {
-  height: 100%;
-}
-
-/* ═══ PANELS & CARDS ═══ */
-.panel {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
-}
-
-.panel-title {
-  font-family: var(--font-title);
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 12px;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  transition: all 0.2s;
-}
-
-.card:hover {
-  border-color: rgba(139,92,246,0.4);
-}
-
-/* ═══ GRID LAYOUTS ═══ */
-.grid-3col {
-  display: grid;
-  grid-template-columns: 30% 40% 30%;
-  gap: 12px;
-  height: 100%;
-}
-
-.grid-4col {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-
-.grid-2col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-/* ═══ METRIC GAUGE ═══ */
-.metric-gauge {
-  text-align: center;
-  padding: 16px;
-}
-
-.metric-value {
-  font-family: var(--font-mono);
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--accent-green);
-  line-height: 1.2;
-}
-
-.metric-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-top: 4px;
-}
-
-.metric-trend {
-  font-size: 11px;
-  margin-top: 4px;
-}
-
-.trend-up { color: var(--accent-green); }
-.trend-down { color: var(--accent-red); }
-
-/* ═══ SERVICE NODES ═══ */
-.service-node {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--bg-surface);
-  border-radius: 6px;
-  margin-bottom: 6px;
-  font-size: 12px;
-  transition: all 0.2s;
-}
-
-.service-node:hover {
-  background: var(--bg-elevated);
-}
-
-.service-name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
-}
-
-.service-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.status-dot.healthy { background: var(--accent-green); box-shadow: 0 0 6px rgba(0,255,136,0.5); }
-.status-dot.degraded { background: var(--accent-amber); box-shadow: 0 0 6px rgba(245,158,11,0.5); }
-.status-dot.unavailable { background: var(--accent-red); box-shadow: 0 0 6px rgba(239,68,68,0.5); }
-.status-dot.skipped { background: var(--text-muted); }
-
-/* ═══ DEBATE CARDS ═══ */
-.debate-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 8px;
-  transition: all 0.2s;
-}
-
-.debate-card:hover {
-  border-color: rgba(139,92,246,0.4);
-  transform: translateY(-1px);
-}
-
-.debate-card.running {
-  border-left: 3px solid var(--accent-green);
-  animation: debate-pulse 3s ease-in-out infinite;
-}
-
-@keyframes debate-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.1); }
-  50% { box-shadow: 0 0 0 4px rgba(0,255,136,0); }
-}
-
-.debate-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 8px;
-}
-
-.debate-title {
-  font-size: 13px;
-  font-weight: 600;
-  flex: 1;
-  margin-right: 8px;
-}
-
-.debate-status {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-
-.debate-status.running { background: rgba(0,255,136,0.15); color: var(--accent-green); }
-.debate-status.completed { background: rgba(34,211,238,0.15); color: var(--accent-cyan); }
-.debate-status.paused { background: rgba(245,158,11,0.15); color: var(--accent-amber); }
-.debate-status.failed { background: rgba(239,68,68,0.15); color: var(--accent-red); }
-
-.debate-progress {
-  height: 3px;
-  background: var(--bg-elevated);
-  border-radius: 2px;
-  overflow: hidden;
-  margin: 8px 0;
-}
-
-.debate-progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan));
-  border-radius: 2px;
-  transition: width 0.5s ease;
-}
-
-.debate-models {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
-}
-
-.model-chip {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 3px;
-  background: var(--bg-elevated);
-  color: var(--text-muted);
-}
-
-.debate-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.debate-btn {
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: var(--font-ui);
-}
-
-.debate-btn:hover {
-  border-color: var(--accent-violet);
-  color: var(--text-primary);
-}
-
-.debate-btn.primary {
-  background: rgba(0,255,136,0.1);
-  border-color: rgba(0,255,136,0.3);
-  color: var(--accent-green);
-}
-
-/* ═══ FORM ELEMENTS ═══ */
-.input-field {
-  width: 100%;
-  padding: 10px 14px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text-primary);
-  font-family: var(--font-ui);
-  font-size: 13px;
-  transition: all 0.2s;
-}
-
-.input-field:focus {
-  outline: none;
-  border-color: var(--accent-violet);
-  box-shadow: 0 0 0 2px rgba(139,92,246,0.2);
-}
-
-.input-field::placeholder {
-  color: var(--text-muted);
-}
-
-textarea.input-field {
-  resize: vertical;
-  min-height: 80px;
-}
-
-select.input-field {
-  cursor: pointer;
-}
-
-.label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-  display: block;
-}
-
-/* ═══ BUTTONS ═══ */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--accent-green), #00CC6A);
-  color: var(--bg-deep);
-  box-shadow: var(--glow-green);
-}
-
-.btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 0 30px rgba(0,255,136,0.5);
-}
-
-.btn-secondary {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-}
-
-.btn-secondary:hover {
-  border-color: var(--accent-violet);
-}
-
-.btn-danger {
-  background: rgba(239,68,68,0.15);
-  color: var(--accent-red);
-  border: 1px solid rgba(239,68,68,0.3);
-}
-
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 11px;
-}
-
-/* ═══ SLIDER ═══ */
-.slider-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.slider {
-  flex: 1;
-  -webkit-appearance: none;
-  height: 4px;
-  background: var(--bg-elevated);
-  border-radius: 2px;
-  outline: none;
-}
-
-.slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent-violet);
-  cursor: pointer;
-  box-shadow: 0 0 8px rgba(139,92,246,0.4);
-}
-
-.slider-value {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--accent-violet);
-  min-width: 40px;
-  text-align: right;
-}
-
-/* ═══ CHECKBOX ═══ */
-.checkbox-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.checkbox-group input[type="checkbox"] {
-  accent-color: var(--accent-violet);
-}
-
-.checkbox-group label {
-  font-size: 12px;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-/* ═══ TABLE ═══ */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.data-table th {
-  text-align: left;
-  padding: 8px 12px;
-  background: var(--bg-elevated);
-  color: var(--text-muted);
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 10px;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid var(--border);
-}
-
-.data-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(139,92,246,0.08);
-  color: var(--text-primary);
-}
-
-.data-table tr:hover td {
-  background: var(--bg-surface);
-}
-
-/* ═══ TOAST NOTIFICATIONS ═══ */
-.toast-container {
-  position: fixed;
-  top: 60px;
-  right: 16px;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.toast {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 12px;
-  min-width: 280px;
-  animation: slide-in 0.3s ease;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-}
-
-.toast.success { border-left: 3px solid var(--accent-green); }
-.toast.warning { border-left: 3px solid var(--accent-amber); }
-.toast.error { border-left: 3px solid var(--accent-red); }
-.toast.info { border-left: 3px solid var(--accent-violet); }
-
-@keyframes slide-in {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
-
-/* ═══ STREAM BAR ═══ */
-.stream-bar {
-  height: 32px;
-  background: var(--bg-panel);
-  border-top: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  gap: 12px;
-  flex-shrink: 0;
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-
-.stream-indicator {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--accent-green);
-}
-
-.stream-text {
-  flex: 1;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: var(--text-muted);
-}
-
-/* ═══ SETTINGS DRAWER ═══ */
-.drawer-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  z-index: 200;
-  animation: fade-in 0.2s ease;
-}
-
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 360px;
-  height: 100vh;
-  background: var(--bg-panel);
-  border-left: 1px solid var(--border);
-  z-index: 201;
-  padding: 20px;
-  overflow-y: auto;
-  animation: slide-right 0.3s ease;
-}
-
-@keyframes slide-right {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
-}
-
-.drawer-title {
-  font-family: var(--font-title);
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.drawer-close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 20px;
-  cursor: pointer;
-}
-
-/* ═══ TRIBUNAL DIAGRAM ═══ */
-.tribunal-diagram {
-  position: relative;
-  width: 100%;
-  height: 300px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tribunal-node {
-  position: absolute;
-  width: 120px;
-  padding: 12px;
-  background: var(--bg-surface);
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  text-align: center;
-  transition: all 0.3s;
-  cursor: pointer;
-}
-
-.tribunal-node:hover {
-  border-color: var(--accent-violet);
-  box-shadow: var(--glow-violet);
-}
-
-.tribunal-node.defensor { top: 20px; left: 30%; }
-.tribunal-node.fiscal { top: 20px; right: 30%; }
-.tribunal-node.arbitro { bottom: 20px; left: 50%; transform: translateX(-50%); }
-
-.tribunal-node.active {
-  animation: tribunal-glow 2s ease-in-out infinite;
-}
-
-@keyframes tribunal-glow {
-  0%, 100% { filter: drop-shadow(0 0 8px var(--accent-violet)); }
-  50% { filter: drop-shadow(0 0 20px var(--accent-violet)); }
-}
-
-.tribunal-role {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-
-.tribunal-model {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent-green);
-}
-
-.tribunal-crown {
-  font-size: 18px;
-  margin-bottom: 4px;
-}
-
-/* ═══ MODEL CARD ═══ */
-.model-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.model-card:hover {
-  border-color: var(--accent-violet);
-  transform: translateY(-1px);
-}
-
-.model-card.selected {
-  border-color: var(--accent-green);
-  box-shadow: var(--glow-green);
-}
-
-.model-name {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.model-provider {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-}
-
-.model-rep {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-}
-
-.rep-bar {
-  flex: 1;
-  height: 4px;
-  background: var(--bg-elevated);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.rep-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan));
-  border-radius: 2px;
-}
-
-/* ═══ SKELETON LOADER ═══ */
-.skeleton {
-  background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-elevated) 50%, var(--bg-surface) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 4px;
-}
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* ═══ ERROR BANNER ═══ */
-.error-banner {
-  background: rgba(239,68,68,0.1);
-  border: 1px solid rgba(239,68,68,0.3);
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--accent-red);
-}
-
-/* ═══ SCROLLBAR ═══ */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--bg-deep); }
-::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--accent-violet); }
-
-/* ═══ WIZARD STEPS ═══ */
-.wizard-steps {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.wizard-step {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  background: var(--bg-surface);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-}
-
-.wizard-step.active {
-  background: rgba(139,92,246,0.1);
-  border-color: var(--accent-violet);
-  color: var(--accent-violet);
-}
-
-.wizard-step.completed {
-  background: rgba(0,255,136,0.1);
-  border-color: var(--accent-green);
-  color: var(--accent-green);
-}
-
-.step-number {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 700;
-  background: var(--bg-elevated);
-}
-
-.wizard-step.active .step-number {
-  background: var(--accent-violet);
-  color: white;
-}
-
-.wizard-step.completed .step-number {
-  background: var(--accent-green);
-  color: var(--bg-deep);
-}
-
-/* ═══ DEBATE TYPE SELECTOR ═══ */
-.debate-type-selector {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.debate-type-btn {
-  flex: 1;
-  padding: 12px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text-muted);
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: center;
-}
-
-.debate-type-btn:hover {
-  border-color: var(--accent-violet);
-  color: var(--text-primary);
-}
-
-.debate-type-btn.active {
-  border-color: var(--accent-green);
-  background: rgba(0,255,136,0.08);
-  color: var(--accent-green);
-}
-
-/* ═══ CHAT ═══ */
-.chat-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.chat-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-}
-
-.chat-message {
-  margin-bottom: 12px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.chat-message.user {
-  background: rgba(139,92,246,0.1);
-  border: 1px solid rgba(139,92,246,0.2);
-  margin-left: 40px;
-}
-
-.chat-message.assistant {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  margin-right: 40px;
-}
-
-.chat-message .msg-role {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-
-.chat-message.user .msg-role { color: var(--accent-violet); }
-.chat-message.assistant .msg-role { color: var(--accent-green); }
-
-.chat-input-bar {
-  display: flex;
-  gap: 8px;
-  padding: 12px;
-  border-top: 1px solid var(--border);
-}
-
-.chat-input-bar input {
-  flex: 1;
-}
-
-/* ═══ FILTER BAR ═══ */
-.filter-bar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-
-.filter-bar .input-field {
-  max-width: 300px;
-}
-
-.filter-bar select {
-  min-width: 120px;
-}
-
-/* ═══ DETAIL PANEL ═══ */
-.detail-panel {
-  position: fixed;
-  top: 48px;
-  right: 0;
-  width: 480px;
-  height: calc(100vh - 48px);
-  background: var(--bg-panel);
-  border-left: 1px solid var(--border);
-  z-index: 150;
-  overflow-y: auto;
-  padding: 20px;
-  animation: slide-right 0.3s ease;
-}
-
-.detail-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 18px;
-  cursor: pointer;
-}
-
-/* ═══ POLLING CONTROL ═══ */
-.polling-control {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  background: var(--bg-surface);
-  border-radius: 8px;
-  margin-bottom: 16px;
-  font-size: 12px;
-}
-
-.polling-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.polling-toggle input {
-  accent-color: var(--accent-green);
-}
-
-/* ═══ RESPONSIVE ═══ */
-@media (max-width: 1280px) {
-  .grid-3col {
-    grid-template-columns: 1fr;
-  }
-  .grid-4col {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .detail-panel {
-    width: 100%;
-  }
-}
-
-/* ═══ LOADING SPINNER ═══ */
-.spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent-green);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ═══ EMPTY STATE ═══ */
-.empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--text-muted);
-}
-
-.empty-state-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-  opacity: 0.3;
-}
-
-.empty-state-text {
-  font-size: 14px;
-  margin-bottom: 8px;
-}
-
-.empty-state-sub {
-  font-size: 12px;
-  opacity: 0.6;
-}
+  --bg-deep: #050508; --bg-panel: #0C0D14; --bg-surface: #12141F; --bg-elevated: #1A1D2E;
+  --green: #00FF88; --violet: #8B5CF6; --cyan: #22D3EE; --amber: #F59E0B; --red: #EF4444;
+  --text: #F0F2FF; --muted: #6B7280; --border: rgba(139,92,246,0.2);
+  --mono: 'Consolas', 'Courier New', monospace; --sans: 'Segoe UI', system-ui, sans-serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background: var(--bg-deep); color: var(--text); font-family: var(--sans); overflow:hidden; height:100vh; }
+.app { height:100vh; display:flex; flex-direction:column; background-image: linear-gradient(rgba(139,92,246,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.03) 1px, transparent 1px); background-size:30px 30px; }
+
+/* TOPBAR */
+.topbar { display:flex; align-items:center; justify-content:space-between; padding:0 16px; height:48px; background:var(--bg-panel); border-bottom:1px solid var(--border); flex-shrink:0; }
+.brand { font-weight:800; font-size:16px; background:linear-gradient(135deg, var(--green), var(--violet)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.ver { font-family:var(--mono); font-size:10px; color:var(--muted); background:var(--bg-elevated); padding:2px 6px; border-radius:4px; margin-left:8px; }
+.tabs { display:flex; gap:2px; }
+.tab { display:flex; align-items:center; gap:6px; padding:8px 14px; background:transparent; border:none; color:var(--muted); font-size:12px; font-weight:500; cursor:pointer; border-radius:6px; transition:all 0.2s; }
+.tab:hover { color:var(--text); background:var(--bg-surface); }
+.tab.active { color:var(--green); background:rgba(0,255,136,0.08); }
+.tab.active::after { content:''; position:absolute; bottom:-1px; left:50%; transform:translateX(-50%); width:60%; height:2px; background:var(--green); border-radius:1px; }
+.tab { position:relative; }
+.status { display:flex; align-items:center; gap:12px; }
+.live { display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:11px; color:var(--green); }
+.dot { width:8px; height:8px; border-radius:50%; background:var(--green); animation:pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,255,136,0.4)} 50%{opacity:0.6;box-shadow:0 0 0 6px rgba(0,255,136,0)} }
+.badge { font-family:var(--mono); font-size:10px; padding:3px 8px; border-radius:4px; background:rgba(0,255,136,0.1); color:var(--green); border:1px solid rgba(0,255,136,0.2); }
+.badge.err { background:rgba(239,68,68,0.1); color:var(--red); border-color:rgba(239,68,68,0.2); }
+.demo-btn { font-family:var(--mono); font-size:10px; padding:3px 8px; border-radius:4px; background:rgba(245,158,11,0.1); color:var(--amber); border:1px solid rgba(245,158,11,0.2); cursor:pointer; }
+.settings-btn { background:none; border:none; color:var(--muted); cursor:pointer; padding:6px; border-radius:6px; font-size:16px; }
+.settings-btn:hover { color:var(--text); background:var(--bg-surface); }
+
+/* MAIN */
+.main { flex:1; overflow:auto; padding:16px; }
+.panel { background:var(--bg-panel); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px; }
+.panel-title { font-size:14px; font-weight:600; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.card { background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:12px; }
+.g3 { display:grid; grid-template-columns:30% 40% 30%; gap:12px; height:100%; }
+.g4 { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+.g2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+/* METRICS */
+.mg { text-align:center; padding:16px; }
+.mv { font-family:var(--mono); font-size:28px; font-weight:700; color:var(--green); }
+.ml { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-top:4px; }
+
+/* SERVICE NODES */
+.sn { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-surface); border-radius:6px; margin-bottom:6px; font-size:12px; }
+.sn:hover { background:var(--bg-elevated); }
+.sdot { width:6px; height:6px; border-radius:50%; }
+.sdot.ok { background:var(--green); box-shadow:0 0 6px rgba(0,255,136,0.5); }
+.sdot.warn { background:var(--amber); box-shadow:0 0 6px rgba(245,158,11,0.5); }
+.sdot.err { background:var(--red); box-shadow:0 0 6px rgba(239,68,68,0.5); }
+.sdot.skip { background:var(--muted); }
+
+/* DEBATE CARDS */
+.dc { background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:8px; transition:all 0.2s; }
+.dc:hover { border-color:rgba(139,92,246,0.4); transform:translateY(-1px); }
+.dc.running { border-left:3px solid var(--green); animation:dp 3s ease-in-out infinite; }
+@keyframes dp { 0%,100%{box-shadow:0 0 0 0 rgba(0,255,136,0.1)} 50%{box-shadow:0 0 0 4px rgba(0,255,136,0)} }
+.dh { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+.dt { font-size:13px; font-weight:600; flex:1; margin-right:8px; }
+.ds { font-family:var(--mono); font-size:10px; padding:2px 8px; border-radius:4px; text-transform:uppercase; }
+.ds.running { background:rgba(0,255,136,0.15); color:var(--green); }
+.ds.completed { background:rgba(34,211,238,0.15); color:var(--cyan); }
+.ds.paused { background:rgba(245,158,11,0.15); color:var(--amber); }
+.ds.failed { background:rgba(239,68,68,0.15); color:var(--red); }
+.dprog { height:3px; background:var(--bg-elevated); border-radius:2px; overflow:hidden; margin:8px 0; }
+.dprog-bar { height:100%; background:linear-gradient(90deg, var(--green), var(--cyan)); border-radius:2px; transition:width 0.5s; }
+.dmodels { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px; }
+.mchip { font-family:var(--mono); font-size:10px; padding:2px 6px; border-radius:3px; background:var(--bg-elevated); color:var(--muted); }
+.dactions { display:flex; gap:6px; }
+.dbtn { font-size:11px; padding:4px 10px; border-radius:4px; border:1px solid var(--border); background:var(--bg-elevated); color:var(--muted); cursor:pointer; transition:all 0.2s; }
+.dbtn:hover { border-color:var(--violet); color:var(--text); }
+.dbtn.pri { background:rgba(0,255,136,0.1); border-color:rgba(0,255,136,0.3); color:var(--green); }
+
+/* FORMS */
+.inp { width:100%; padding:10px 14px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:13px; }
+.inp:focus { outline:none; border-color:var(--violet); box-shadow:0 0 0 2px rgba(139,92,246,0.2); }
+.inp::placeholder { color:var(--muted); }
+textarea.inp { resize:vertical; min-height:80px; }
+select.inp { cursor:pointer; }
+.lbl { font-size:12px; font-weight:500; color:var(--muted); margin-bottom:6px; display:block; }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; border:none; transition:all 0.2s; }
+.btn-pri { background:linear-gradient(135deg, var(--green), #00CC6A); color:var(--bg-deep); box-shadow:0 0 20px rgba(0,255,136,0.4); }
+.btn-pri:hover { transform:translateY(-1px); box-shadow:0 0 30px rgba(0,255,136,0.5); }
+.btn-sec { background:var(--bg-elevated); color:var(--text); border:1px solid var(--border); }
+.btn-sec:hover { border-color:var(--violet); }
+.btn-sm { padding:6px 12px; font-size:11px; }
+
+/* SLIDER */
+.sl { flex:1; -webkit-appearance:none; height:4px; background:var(--bg-elevated); border-radius:2px; }
+.sl::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--violet); cursor:pointer; }
+.sv { font-family:var(--mono); font-size:12px; color:var(--violet); min-width:40px; text-align:right; }
+.slc { display:flex; align-items:center; gap:12px; }
+
+/* TABLE */
+table { width:100%; border-collapse:collapse; font-size:12px; }
+th { text-align:left; padding:8px 12px; background:var(--bg-elevated); color:var(--muted); font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.5px; border-bottom:1px solid var(--border); }
+td { padding:10px 12px; border-bottom:1px solid rgba(139,92,246,0.08); }
+tr:hover td { background:var(--bg-surface); }
+
+/* TOAST */
+.toasts { position:fixed; top:60px; right:16px; z-index:1000; display:flex; flex-direction:column; gap:8px; }
+.toast { display:flex; align-items:center; gap:10px; padding:12px 16px; background:var(--bg-panel); border:1px solid var(--border); border-radius:8px; font-size:12px; min-width:280px; animation:si 0.3s ease; box-shadow:0 8px 24px rgba(0,0,0,0.4); }
+.toast.ok { border-left:3px solid var(--green); }
+.toast.warn { border-left:3px solid var(--amber); }
+.toast.err { border-left:3px solid var(--red); }
+.toast.info { border-left:3px solid var(--violet); }
+@keyframes si { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+
+/* STREAM BAR */
+.stream { height:32px; background:var(--bg-panel); border-top:1px solid var(--border); display:flex; align-items:center; padding:0 12px; gap:12px; font-family:var(--mono); font-size:11px; flex-shrink:0; }
+.stream-text { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--muted); }
+
+/* DRAWER */
+.overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:200; }
+.drawer { position:fixed; top:0; right:0; width:360px; height:100vh; background:var(--bg-panel); border-left:1px solid var(--border); z-index:201; padding:20px; overflow-y:auto; }
+.drawer-title { font-size:16px; font-weight:700; margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+.drawer-x { position:absolute; top:16px; right:16px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; }
+
+/* TRIBUNAL */
+.td { position:relative; width:100%; height:300px; display:flex; align-items:center; justify-content:center; }
+.tn { position:absolute; width:120px; padding:12px; background:var(--bg-surface); border:2px solid var(--border); border-radius:12px; text-align:center; cursor:pointer; transition:all 0.3s; }
+.tn:hover { border-color:var(--violet); box-shadow:0 0 20px rgba(139,92,246,0.4); }
+.tn.def { top:20px; left:30%; }
+.tn.fis { top:20px; right:30%; }
+.tn.arb { bottom:20px; left:50%; transform:translateX(-50%); }
+.tn.active { animation:tg 2s ease-in-out infinite; }
+@keyframes tg { 0%,100%{filter:drop-shadow(0 0 8px var(--violet))} 50%{filter:drop-shadow(0 0 20px var(--violet))} }
+.tr { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:4px; }
+.tm { font-family:var(--mono); font-size:11px; font-weight:600; color:var(--green); }
+
+/* MODEL CARD */
+.mc { background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:12px; cursor:pointer; transition:all 0.2s; }
+.mc:hover { border-color:var(--violet); transform:translateY(-1px); }
+.mc.sel { border-color:var(--green); box-shadow:0 0 20px rgba(0,255,136,0.4); }
+.mn { font-family:var(--mono); font-size:12px; font-weight:600; margin-bottom:4px; }
+.mp { font-size:10px; color:var(--muted); margin-bottom:6px; }
+
+/* WIZARD */
+.ws { display:flex; gap:8px; margin-bottom:20px; }
+.wst { display:flex; align-items:center; gap:8px; padding:8px 16px; border-radius:6px; font-size:12px; font-weight:500; background:var(--bg-surface); color:var(--muted); border:1px solid var(--border); }
+.wst.active { background:rgba(139,92,246,0.1); border-color:var(--violet); color:var(--violet); }
+.wst.done { background:rgba(0,255,136,0.1); border-color:var(--green); color:var(--green); }
+.sn2 { width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; background:var(--bg-elevated); }
+.wst.active .sn2 { background:var(--violet); color:white; }
+.wst.done .sn2 { background:var(--green); color:var(--bg-deep); }
+
+/* DEBATE TYPE */
+.dts { display:flex; gap:8px; margin-bottom:16px; }
+.dtb { flex:1; padding:12px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; color:var(--muted); font-size:12px; font-weight:500; cursor:pointer; text-align:center; transition:all 0.2s; }
+.dtb:hover { border-color:var(--violet); color:var(--text); }
+.dtb.active { border-color:var(--green); background:rgba(0,255,136,0.08); color:var(--green); }
+
+/* CHAT */
+.chat { display:flex; flex-direction:column; height:100%; }
+.chat-msgs { flex:1; overflow-y:auto; padding:12px; }
+.cm { margin-bottom:12px; padding:10px 14px; border-radius:8px; font-size:13px; line-height:1.5; }
+.cm.user { background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.2); margin-left:40px; }
+.cm.assistant { background:var(--bg-surface); border:1px solid var(--border); margin-right:40px; }
+.cm .mr { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+.cm.user .mr { color:var(--violet); }
+.cm.assistant .mr { color:var(--green); }
+.cib { display:flex; gap:8px; padding:12px; border-top:1px solid var(--border); }
+
+/* FILTER */
+.fb { display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+.fb .inp { max-width:300px; }
+
+/* DETAIL PANEL */
+.dp { position:fixed; top:48px; right:0; width:480px; height:calc(100vh - 48px); background:var(--bg-panel); border-left:1px solid var(--border); z-index:150; overflow-y:auto; padding:20px; }
+.dp-x { position:absolute; top:12px; right:12px; background:none; border:none; color:var(--muted); font-size:18px; cursor:pointer; }
+
+/* POLLING */
+.pc { display:flex; align-items:center; gap:12px; padding:8px 16px; background:var(--bg-surface); border-radius:8px; margin-bottom:16px; font-size:12px; }
+.pc input { accent-color:var(--green); }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:var(--bg-deep); }
+::-webkit-scrollbar-thumb { background:var(--bg-elevated); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:var(--violet); }
+
+/* SKELETON */
+.sk { background:linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-elevated) 50%, var(--bg-surface) 75%); background-size:200% 100%; animation:sh 1.5s infinite; border-radius:4px; }
+@keyframes sh { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* EMPTY */
+.empty { text-align:center; padding:40px 20px; color:var(--muted); }
+.empty-i { font-size:48px; margin-bottom:12px; opacity:0.3; }
+
+/* SPINNER */
+.spin { width:20px; height:20px; border:2px solid var(--border); border-top-color:var(--green); border-radius:50%; animation:sp 0.8s linear infinite; }
+@keyframes sp { to{transform:rotate(360deg)} }
+
+/* CB */
+.cb { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.cb input { accent-color:var(--violet); }
+.cb label { font-size:12px; color:var(--muted); cursor:pointer; }
+
+/* BAR CHART (CSS only) */
+.bar-chart { display:flex; align-items:flex-end; gap:4px; height:120px; padding:8px 0; }
+.bar-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; }
+.bar { width:100%; background:linear-gradient(180deg, var(--green), rgba(0,255,136,0.3)); border-radius:3px 3px 0 0; transition:height 0.5s; min-height:2px; }
+.bar-label { font-size:9px; color:var(--muted); font-family:var(--mono); }
+.bar-val { font-size:9px; color:var(--green); font-family:var(--mono); }
+
+/* DONUT (CSS only) */
+.donut-wrap { display:flex; align-items:center; justify-content:center; gap:20px; }
+.donut { width:120px; height:120px; border-radius:50%; position:relative; }
+.donut-legend { display:flex; flex-direction:column; gap:4px; }
+.legend-item { display:flex; align-items:center; gap:6px; font-size:11px; }
+.legend-dot { width:8px; height:8px; border-radius:2px; }
+
+/* REP BAR */
+.rb { flex:1; height:4px; background:var(--bg-elevated); border-radius:2px; overflow:hidden; }
+.rf { height:100%; background:linear-gradient(90deg, var(--green), var(--cyan)); border-radius:2px; }
+
+@media (max-width:1280px) { .g3 { grid-template-columns:1fr; } .g4 { grid-template-columns:repeat(2,1fr); } }
 </style>
 </head>
 <body>
-<div id="root"></div>
+<div class="app" id="app"></div>
+<script>
+// ═══════════════════════════════════════════════════════
+// SYNAPSECODE CONTROL CENTER v2.7 — VANILLA JS
+// ═══════════════════════════════════════════════════════
 
-<script type="text/babel">
-// ═══════════════════════════════════════════════════════════
-// SYNAPSECODE CONTROL CENTER v2.7
-// Neural Terminal — React 18 + Recharts
-// ═══════════════════════════════════════════════════════════
+const BASE = "http://localhost:8000";
 
-const { useState, useEffect, useContext, useReducer, useRef, useCallback, useMemo } = React;
-const { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } = Recharts;
+// ─── MOCK DATA ───
+const M_HEALTH = { status:"healthy", services:{ database:{status:"healthy"}, ollama:{status:"healthy",models:["llama3:8b","mistral:7b","qwen2.5:14b","deepseek-r1:7b"]}, lm_studio:{status:"healthy",models:["gemma-4-e4b","deepseek-coder"]}, jan:{status:"unavailable"}, openrouter:{status:"healthy",models:["meta-llama/llama-3.1-70b"]}, web_agent:{status:"skipped"}, huggingface:{status:"skipped"}, groq:{status:"healthy",models:["llama-3.1-8b","llama-3.3-70b"]}, gemini:{status:"healthy",models:["gemini-2.5-flash"]} }};
+const M_DEBATES = [
+  {session_id:"deb-001",topic:"¿Puede la IA desarrollar consciencia genuina?",status:"running",turns_completed:3,total_turns:5,created_at:new Date(Date.now()-3600000).toISOString(),models:["llama3:8b","gemini-2.5-flash","qwen2.5:14b","deepseek-r1:7b"]},
+  {session_id:"deb-002",topic:"El futuro del trabajo en la era de la automatización",status:"completed",turns_completed:5,total_turns:5,created_at:new Date(Date.now()-7200000).toISOString(),models:["llama3:8b","mistral:7b","groq-llama"]},
+  {session_id:"deb-003",topic:"¿Debería regularse el desarrollo de AGI?",status:"completed",turns_completed:4,total_turns:4,created_at:new Date(Date.now()-86400000).toISOString(),models:["llama3:8b","gemini-2.5-flash"]},
+  {session_id:"deb-004",topic:"Machine learning cuántico: ¿revolución o hype?",status:"paused",turns_completed:2,total_turns:5,created_at:new Date(Date.now()-172800000).toISOString(),models:["deepseek-r1:7b","qwen2.5:14b","mistral:7b"]},
+  {session_id:"deb-005",topic:"Ética en la toma de decisiones algorítmicas",status:"completed",turns_completed:6,total_turns:6,created_at:new Date(Date.now()-259200000).toISOString(),models:["llama3:8b","gemini-2.5-flash","groq-llama","qwen2.5:14b"]},
+];
+const M_REPS = {"llama3:8b":{tsa:8.7,iid:8.2,pvt:8.5,global:8.5,debates:34,wins:18},"mistral:7b":{tsa:8.2,iid:7.9,pvt:8.0,global:8.0,debates:28,wins:12},"qwen2.5:14b":{tsa:9.1,iid:8.8,pvt:9.0,global:9.0,debates:22,wins:15},"deepseek-r1:7b":{tsa:8.9,iid:8.5,pvt:8.7,global:8.7,debates:19,wins:11},"gemini-2.5-flash":{tsa:9.0,iid:8.9,pvt:9.1,global:9.0,debates:25,wins:16},"groq-llama-3.3-70b":{tsa:9.3,iid:9.1,pvt:9.2,global:9.2,debates:15,wins:12}};
+const M_CACHE = {total_entries:1247,total_hits:834,hit_rate:66.9,enabled:true,similarity_threshold:0.85,ttl_hours:24};
+const M_TRIB = {maxIterations:3,cloudFallbackEnabled:true,roles:{defensor:{primary:{model:"llama3:8b",engine:"ollama"},fallbacks:[{model:"mistral:7b",engine:"ollama"}]},fiscal:{primary:{model:"gemini-2.5-flash",engine:"gemini"},fallbacks:[{model:"llama-3.3-70b",engine:"groq"}]},arbitro:{primary:{model:"deepseek-r1:7b",engine:"ollama"},fallbacks:[{model:"meta-llama/llama-3.1-70b",engine:"openrouter"}]}}};
+const M_METRICS = [{hour:"00",v:2},{hour:"02",v:1},{hour:"04",v:0},{hour:"06",v:3},{hour:"08",v:8},{hour:"10",v:12},{hour:"12",v:15},{hour:"14",v:18},{hour:"16",v:14},{hour:"18",v:10},{hour:"20",v:6},{hour:"22",v:3}];
+const M_USAGE = [{name:"llama3:8b",v:34,c:"#00FF88"},{name:"gemini-2.5-flash",v:25,c:"#8B5CF6"},{name:"qwen2.5:14b",v:22,c:"#22D3EE"},{name:"mistral:7b",v:28,c:"#F59E0B"},{name:"deepseek-r1:7b",v:19,c:"#EF4444"},{name:"groq-70b",v:15,c:"#EC4899"}];
+const M_WORKER = {ollama:{status:"running",port:11434},lm_studio:{status:"running",port:1234},jan:{status:"stopped",port:1337}};
+const M_ANALYTICS = {dailySummary:{totalDebatesCompleted:142,totalDebatesFailed:3,totalTurnsExecuted:568,totalTokensGenerated:1200000,avgDebateDurationSeconds:180}};
 
-const BASE_URL = "http://localhost:8000";
+// ─── STATE ───
+let S = {
+  tab:"command", health:null, debates:[], reps:{}, cache:null, trib:null, analytics:null, worker:null,
+  selModel:null, selDebate:null, streamMsgs:[], streamId:null, wsOk:false, wsCount:0,
+  interval:10000, pollOn:true, demo:true, settingsOpen:false, toasts:[],
+  chatMsgs:[], chatModel:"llama-3.1-8b", chatEngine:"groq",
+  launch:{step:1,type:"sequential",topic:"",context:"",lang:"es",models:[],rounds:3,conv:true,cache:true,reductio:true,trib:true,expJson:true,expMd:true},
+  hFilter:{search:"",status:"all"}, loading:false, error:null,
+};
 
-// ═══════════════════════════════════════════════════════════
-// MOCK DATA
-// ═══════════════════════════════════════════════════════════
+// ─── HELPERS ───
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const el = (tag, cls, html, attrs) => { const e = document.createElement(tag); if(cls) e.className=cls; if(html!==undefined) e.innerHTML=html; if(attrs) Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v)); return e; };
+const fmtDate = d => { if(!d) return '--'; const diff = Date.now()-new Date(d); if(diff<3600000) return `Hace ${Math.floor(diff/60000)}m`; if(diff<86400000) return `Hace ${Math.floor(diff/3600000)}h`; return new Date(d).toLocaleDateString(); };
+const statusDot = s => ['healthy','online','available'].includes(s)?'ok':['degraded'].includes(s)?'warn':['skipped'].includes(s)?'skip':'err';
 
-const MOCK_HEALTH = {
-  status: "healthy",
-  version: "2.7.0",
-  node_role: "MASTER",
-  services: {
-    database: { status: "healthy", url: "sqlite+aiosqlite:///./synapse.db" },
-    ollama: { status: "healthy", models: ["llama3:8b", "mistral:7b", "qwen2.5:14b", "deepseek-r1:7b"] },
-    lm_studio: { status: "healthy", models: ["gemma-4-e4b", "deepseek-coder"] },
-    jan: { status: "unavailable", error: "Connection refused" },
-    openrouter: { status: "healthy", models: ["meta-llama/llama-3.1-70b", "mistralai/mixtral-8x22b"] },
-    web_agent: { status: "skipped", reason: "Not enabled" },
-    huggingface: { status: "skipped", reason: "HF_TOKEN not configured" },
-    groq: { status: "healthy", models: ["llama-3.1-8b", "llama-3.3-70b"] },
-    gemini: { status: "healthy", models: ["gemini-2.5-flash"] },
+function toast(msg, type='info') {
+  const id = Date.now();
+  S.toasts.push({id, msg, type});
+  render();
+  setTimeout(() => { S.toasts = S.toasts.filter(t=>t.id!==id); render(); }, 5000);
+}
+
+function setTab(t) { S.tab=t; S.selModel=null; S.selDebate=null; render(); }
+function toggleDemo() { S.demo=!S.demo; toast(S.demo?'Demo mode ON':'Live mode', S.demo?'warn':'ok'); fetchData(); }
+
+// ─── FETCH ───
+async function fetchData() {
+  if(S.demo) {
+    S.health=M_HEALTH; S.debates=M_DEBATES; S.reps=M_REPS; S.cache=M_CACHE; S.trib=M_TRIB; S.analytics=M_ANALYTICS; S.worker=M_WORKER;
+    render(); return;
   }
-};
+  try {
+    const [h,d,r,c,t,a,w] = await Promise.allSettled([
+      fetch(`${BASE}/health`).then(r=>r.json()),
+      fetch(`${BASE}/api/v1/debates/list`).then(r=>r.json()),
+      fetch(`${BASE}/api/v1/debates/reputation`).then(r=>r.json()),
+      fetch(`${BASE}/api/v1/cache/stats`).then(r=>r.json()),
+      fetch(`${BASE}/api/v1/system/tribunal/config`).then(r=>r.json()),
+      fetch(`${BASE}/api/v1/system/analytics`).then(r=>r.json()),
+      fetch(`${BASE}/api/v1/system/worker/services`).then(r=>r.json()),
+    ]);
+    if(h.status==='fulfilled') S.health=h.value;
+    if(d.status==='fulfilled') S.debates=d.value?.sessions||[];
+    if(r.status==='fulfilled') S.reps=r.value?.reputations||{};
+    if(c.status==='fulfilled') S.cache=c.value;
+    if(t.status==='fulfilled') S.trib=t.value;
+    if(a.status==='fulfilled') S.analytics=a.value;
+    if(w.status==='fulfilled') S.worker=w.value;
+    render();
+  } catch(e) { S.error=e.message; render(); }
+}
 
-const MOCK_DEBATES = [
-  { session_id: "deb-001", topic: "¿Puede la IA desarrollar consciencia genuina?", status: "running", turns_completed: 3, total_turns: 5, created_at: new Date(Date.now() - 3600000).toISOString(), models: ["llama3:8b", "gemini-2.5-flash", "qwen2.5:14b", "deepseek-r1:7b"] },
-  { session_id: "deb-002", topic: "El futuro del trabajo en la era de la automatización", status: "completed", turns_completed: 5, total_turns: 5, created_at: new Date(Date.now() - 7200000).toISOString(), models: ["llama3:8b", "mistral:7b", "groq-llama"] },
-  { session_id: "deb-003", topic: "¿Debería regularse el desarrollo de AGI?", status: "completed", turns_completed: 4, total_turns: 4, created_at: new Date(Date.now() - 86400000).toISOString(), models: ["llama3:8b", "gemini-2.5-flash"] },
-  { session_id: "deb-004", topic: "Machine learning cuántico: ¿revolución o hype?", status: "paused", turns_completed: 2, total_turns: 5, created_at: new Date(Date.now() - 172800000).toISOString(), models: ["deepseek-r1:7b", "qwen2.5:14b", "mistral:7b"] },
-  { session_id: "deb-005", topic: "Ética en la toma de decisiones algorítmicas", status: "completed", turns_completed: 6, total_turns: 6, created_at: new Date(Date.now() - 259200000).toISOString(), models: ["llama3:8b", "gemini-2.5-flash", "groq-llama", "qwen2.5:14b"] },
-];
+// ─── RENDER ───
+function render() {
+  const app = $('#app');
+  app.innerHTML = `
+    ${topbar()}
+    <div class="main">${tabContent()}</div>
+    ${streamBar()}
+    ${toasts()}
+    ${S.settingsOpen?settingsDrawer():''}
+    ${S.selDebate?detailPanel():''}
+  `;
+  bindEvents();
+}
 
-const MOCK_REPUTATIONS = {
-  "llama3:8b": { tsa: 8.7, iid: 8.2, pvt: 8.5, global: 8.5, debates: 34, wins: 18 },
-  "mistral:7b": { tsa: 8.2, iid: 7.9, pvt: 8.0, global: 8.0, debates: 28, wins: 12 },
-  "qwen2.5:14b": { tsa: 9.1, iid: 8.8, pvt: 9.0, global: 9.0, debates: 22, wins: 15 },
-  "deepseek-r1:7b": { tsa: 8.9, iid: 8.5, pvt: 8.7, global: 8.7, debates: 19, wins: 11 },
-  "gemini-2.5-flash": { tsa: 9.0, iid: 8.9, pvt: 9.1, global: 9.0, debates: 25, wins: 16 },
-  "groq-llama-3.3-70b": { tsa: 9.3, iid: 9.1, pvt: 9.2, global: 9.2, debates: 15, wins: 12 },
-};
+function topbar() {
+  const tabs = [{id:'command',icon:'⚡',l:'CMD'},{id:'launcher',icon:'🔥',l:'DBT'},{id:'metrics',icon:'📊',l:'MTR'},{id:'tribunal',icon:'🏛️',l:'TRB'},{id:'models',icon:'🧬',l:'MOD'},{id:'history',icon:'🗄️',l:'HST'}];
+  return `<div class="topbar">
+    <div><span class="brand">SYNAPSE</span><span class="ver">v2.7</span></div>
+    <div class="tabs">${tabs.map(t=>`<button class="tab ${S.tab===t.id?'active':''}" data-tab="${t.id}">${t.icon} ${t.l}</button>`).join('')}</div>
+    <div class="status">
+      <div class="live"><span class="dot"></span>LIVE</div>
+      <span class="badge ${S.wsOk?'':'err'}">${S.wsOk?'WS:OK':'WS:ERR'}</span>
+      <span class="demo-btn" data-demo>${S.demo?'🎮 DEMO':'📡 LIVE'}</span>
+      <button class="settings-btn" data-settings>⚙</button>
+    </div>
+  </div>`;
+}
 
-const MOCK_CACHE_STATS = {
-  total_entries: 1247,
-  total_hits: 834,
-  entries_with_embeddings: 1247,
-  hit_rate: 66.9,
-  enabled: true,
-  similarity_threshold: 0.85,
-  ttl_hours: 24,
-};
-
-const MOCK_TRIBUNAL_CONFIG = {
-  maxIterations: 3,
-  cloudFallbackEnabled: true,
-  roles: {
-    defensor: {
-      primary: { slot: "defensor", node: "LOCAL", engine: "ollama", model: "llama3:8b", roleLabel: "Defensor", temperature: 0.7, maxTokens: 1024 },
-      fallbacks: [
-        { slot: "defensor", node: "LOCAL", engine: "ollama", model: "mistral:7b", roleLabel: "Defensor FB1", temperature: 0.7, maxTokens: 1024 },
-        { slot: "defensor", node: "CLOUD", engine: "groq", model: "llama-3.1-8b", roleLabel: "Defensor FB2", temperature: 0.7, maxTokens: 1024 },
-      ]
-    },
-    fiscal: {
-      primary: { slot: "fiscal", node: "CLOUD", engine: "gemini", model: "gemini-2.5-flash", roleLabel: "Fiscal", temperature: 0.6, maxTokens: 1024 },
-      fallbacks: [
-        { slot: "fiscal", node: "CLOUD", engine: "groq", model: "llama-3.3-70b", roleLabel: "Fiscal FB1", temperature: 0.6, maxTokens: 1024 },
-      ]
-    },
-    arbitro: {
-      primary: { slot: "arbitro", node: "LOCAL", engine: "ollama", model: "deepseek-r1:7b", roleLabel: "Árbitro", temperature: 0.4, maxTokens: 512 },
-      fallbacks: [
-        { slot: "arbitro", node: "CLOUD", engine: "openrouter", model: "meta-llama/llama-3.1-70b", roleLabel: "Árbitro FB1", temperature: 0.4, maxTokens: 512 },
-      ]
-    },
+function tabContent() {
+  switch(S.tab) {
+    case 'command': return tabCommand();
+    case 'launcher': return tabLauncher();
+    case 'metrics': return tabMetrics();
+    case 'tribunal': return tabTribunal();
+    case 'models': return tabModels();
+    case 'history': return tabHistory();
+    default: return '';
   }
-};
+}
 
-const MOCK_METRICS_TIMELINE = [
-  { hour: "00:00", debates: 2, tokens: 15000 },
-  { hour: "02:00", debates: 1, tokens: 8000 },
-  { hour: "04:00", debates: 0, tokens: 0 },
-  { hour: "06:00", debates: 3, tokens: 22000 },
-  { hour: "08:00", debates: 8, tokens: 65000 },
-  { hour: "10:00", debates: 12, tokens: 98000 },
-  { hour: "12:00", debates: 15, tokens: 120000 },
-  { hour: "14:00", debates: 18, tokens: 145000 },
-  { hour: "16:00", debates: 14, tokens: 110000 },
-  { hour: "18:00", debates: 10, tokens: 85000 },
-  { hour: "20:00", debates: 6, tokens: 48000 },
-  { hour: "22:00", debates: 3, tokens: 25000 },
-];
+// ─── TAB 1: COMMAND ───
+function tabCommand() {
+  const h = S.health;
+  const svcs = h?.services||{};
+  const topReps = Object.entries(S.reps).sort((a,b)=>(b[1]?.global||0)-(a[1]?.global||0)).slice(0,3);
+  const ds = S.analytics?.dailySummary||{};
 
-const MOCK_MODEL_USAGE = [
-  { name: "llama3:8b", value: 34, color: "#00FF88" },
-  { name: "gemini-2.5-flash", value: 25, color: "#8B5CF6" },
-  { name: "qwen2.5:14b", value: 22, color: "#22D3EE" },
-  { name: "mistral:7b", value: 28, color: "#F59E0B" },
-  { name: "deepseek-r1:7b", value: 19, color: "#EF4444" },
-  { name: "groq-llama-70b", value: 15, color: "#EC4899" },
-];
+  return `<div class="g3">
+    <div>
+      <div class="panel"><div class="panel-title">🖥️ System Health</div>
+        ${Object.entries(svcs).map(([n,s])=>`<div class="sn"><span>${n}</span><span style="display:flex;align-items:center;gap:6px;font-size:10px"><span class="sdot ${statusDot(s.status)}"></span>${s.status}</span></div>`).join('')||'<div class="sk" style="height:200px"></div>'}
+      </div>
+      <div class="panel"><div class="panel-title">📡 Worker</div>
+        <div class="sn"><span>IP: 192.168.1.44</span><span style="display:flex;align-items:center;gap:6px;font-size:10px"><span class="sdot ok"></span>CONNECTED</span></div>
+        <button class="btn btn-sm btn-sec" style="margin-top:8px;width:100%" data-wake>🔌 Wake-on-LAN</button>
+      </div>
+      <div class="panel"><div class="panel-title">🏆 Top Models</div>
+        ${topReps.map(([m,r])=>`<div class="sn" style="cursor:pointer" data-model="${m}"><span style="font-family:var(--mono);font-size:11px">${m}</span><span style="font-family:var(--mono);font-size:12px;color:var(--green)">${r.global?.toFixed(1)}</span></div>`).join('')}
+      </div>
+    </div>
+    <div class="panel" style="height:100%;display:flex;flex-direction:column">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="panel-title" style="margin:0">🔥 Active Debates</div>
+        <button class="btn btn-sm btn-pri" data-tab2>+ NUEVO DEBATE</button>
+      </div>
+      <div style="flex:1;overflow-y:auto">
+        ${S.debates.length===0?'<div class="empty"><div class="empty-i">🧠</div><div>No hay debates activos</div></div>':''}
+        ${S.debates.map(d=>`<div class="dc ${d.status==='running'?'running':''}">
+          <div class="dh"><span class="dt">${d.topic}</span><span class="ds ${d.status}">${d.status}</span></div>
+          <div class="dprog"><div class="dprog-bar" style="width:${(d.turns_completed/d.total_turns)*100}%"></div></div>
+          <div class="dmodels">${(d.models||[]).map(m=>`<span class="mchip">${m}</span>`).join('')}</div>
+          <div class="dactions">
+            <button class="dbtn" data-view="${d.session_id}">👁 Ver</button>
+            ${d.status==='running'?'<button class="dbtn">⏸ Pausar</button>':''}
+            ${d.status==='completed'?`<button class="dbtn" data-exp="${d.session_id}">📥 Export</button><button class="dbtn pri" data-cont="${d.session_id}">🔄 Continuar</button>`:''}
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div>
+      <div class="g4" style="margin-bottom:12px">
+        <div class="card mg"><div class="mv">${ds.totalDebatesCompleted||0}</div><div class="ml">Debates Hoy</div></div>
+        <div class="card mg"><div class="mv">${S.cache?S.cache.hit_rate+'%':'--'}</div><div class="ml">Hit Rate</div></div>
+        <div class="card mg"><div class="mv">${ds.avgDebateDurationSeconds?(ds.avgDebateDurationSeconds/60).toFixed(1)+'m':'--'}</div><div class="ml">Duración Media</div></div>
+        <div class="card mg"><div class="mv">${ds.totalTokensGenerated?(ds.totalTokensGenerated/1e6).toFixed(1)+'M':'--'}</div><div class="ml">Tokens</div></div>
+      </div>
+      <div class="panel"><div class="panel-title">📈 Actividad 24h</div>${barChart(M_METRICS)}</div>
+      <div class="panel"><div class="panel-title">💾 Cache</div>
+        ${S.cache?`<div class="sn"><span>Entries</span><span style="font-family:var(--mono)">${S.cache.total_entries}</span></div><div class="sn"><span>Hits</span><span style="font-family:var(--mono);color:var(--green)">${S.cache.total_hits}</span></div><div class="sn"><span>TTL</span><span style="font-family:var(--mono)">${S.cache.ttl_hours}h</span></div>`:'<div class="sk" style="height:80px"></div>'}
+      </div>
+    </div>
+  </div>`;
+}
 
-const MOCK_WORKER_SERVICES = {
-  ollama: { status: "running", pid: 1234, port: 11434 },
-  lm_studio: { status: "running", pid: 5678, port: 1234 },
-  jan: { status: "stopped", pid: null, port: 1337 },
-};
+function barChart(data) {
+  const max = Math.max(...data.map(d=>d.v),1);
+  return `<div class="bar-chart">${data.map(d=>`<div class="bar-col"><div class="bar-val">${d.v}</div><div class="bar" style="height:${(d.v/max)*100}%"></div><div class="bar-label">${d.hour}</div></div>`).join('')}</div>`;
+}
 
-// ═══════════════════════════════════════════════════════════
-// STATE MANAGEMENT
-// ═══════════════════════════════════════════════════════════
+// ─── TAB 2: LAUNCHER ───
+function tabLauncher() {
+  const L = S.launch;
+  if(L.type==='chat') return tabChat();
 
-const initialState = {
-  activeTab: "command",
-  health: null,
-  debates: [],
-  history: [],
-  reputations: {},
-  cacheStats: null,
-  tribunalConfig: null,
-  analytics: null,
-  workerServices: null,
-  metrics: null,
-  selectedModel: null,
-  selectedDebate: null,
-  streamMessages: [],
-  activeStreamDebate: null,
-  wsConnected: false,
-  wsMessageCount: 0,
-  pollingInterval: 10000,
-  pollingEnabled: true,
-  demoMode: false,
-  settingsOpen: false,
-  notifications: [],
-  backendUrl: BASE_URL,
-  themeAccent: "green",
-  loading: false,
-  error: null,
-  chatMessages: [],
-  chatModel: "llama-3.1-8b",
-  chatEngine: "groq",
-  debateLauncher: {
-    step: 1,
-    type: "sequential",
-    topic: "",
-    context: "",
-    language: "es",
-    selectedModels: [],
-    rounds: 3,
-    maxRounds: 5,
-    convergence: true,
-    convergenceThreshold: 0.85,
-    cache: true,
-    reductio: true,
-    tribunal: true,
-    tribunalRoles: { defensor: true, fiscal: true, arbitro: true },
-    consensusProtocol: "forced",
-    exportJson: true,
-    exportMd: true,
-    exportPdf: false,
-    supabase: true,
-  },
-  historyFilter: { search: "", status: "all", model: "all", dateRange: "7d" },
-  historyPage: 1,
-};
+  const allModels = getAllModels();
+  const valid = L.topic.trim() && L.models.length > 0;
 
-const synapseReducer = (state, action) => {
-  switch (action.type) {
-    case 'SET_HEALTH': return { ...state, health: action.payload };
-    case 'SET_DEBATES': return { ...state, debates: action.payload };
-    case 'SET_HISTORY': return { ...state, history: action.payload };
-    case 'SET_REPUTATION': return { ...state, reputations: action.payload };
-    case 'SET_CACHE_STATS': return { ...state, cacheStats: action.payload };
-    case 'SET_TRIBUNAL_CONFIG': return { ...state, tribunalConfig: action.payload };
-    case 'SET_ANALYTICS': return { ...state, analytics: action.payload };
-    case 'SET_WORKER_SERVICES': return { ...state, workerServices: action.payload };
-    case 'SET_METRICS': return { ...state, metrics: action.payload };
-    case 'SET_ACTIVE_TAB': return { ...state, activeTab: action.payload, selectedModel: null, selectedDebate: null };
-    case 'SELECT_MODEL': return { ...state, selectedModel: action.payload, activeTab: action.payload ? 'models' : state.activeTab };
-    case 'SELECT_DEBATE': return { ...state, selectedDebate: action.payload };
-    case 'ADD_STREAM_MSG': return { ...state, streamMessages: [...state.streamMessages.slice(-100), action.payload] };
-    case 'SET_ACTIVE_STREAM': return { ...state, activeStreamDebate: action.payload };
-    case 'SET_WS_CONNECTED': return { ...state, wsConnected: action.payload };
-    case 'INC_WS_COUNT': return { ...state, wsMessageCount: state.wsMessageCount + 1 };
-    case 'SET_POLLING_INTERVAL': return { ...state, pollingInterval: action.payload };
-    case 'SET_POLLING_ENABLED': return { ...state, pollingEnabled: action.payload };
-    case 'TOGGLE_DEMO': return { ...state, demoMode: !state.demoMode };
-    case 'SET_SETTINGS_OPEN': return { ...state, settingsOpen: action.payload };
-    case 'ADD_NOTIFICATION': return { ...state, notifications: [...state.notifications, { id: Date.now(), ...action.payload }] };
-    case 'REMOVE_NOTIFICATION': return { ...state, notifications: state.notifications.filter(n => n.id !== action.payload) };
-    case 'SET_BACKEND_URL': return { ...state, backendUrl: action.payload };
-    case 'SET_THEME_ACCENT': return { ...state, themeAccent: action.payload };
-    case 'SET_LOADING': return { ...state, loading: action.payload };
-    case 'SET_ERROR': return { ...state, error: action.payload };
-    case 'SET_CHAT_MESSAGES': return { ...state, chatMessages: action.payload };
-    case 'ADD_CHAT_MESSAGE': return { ...state, chatMessages: [...state.chatMessages, action.payload] };
-    case 'SET_CHAT_MODEL': return { ...state, chatModel: action.payload };
-    case 'SET_CHAT_ENGINE': return { ...state, chatEngine: action.payload };
-    case 'SET_LAUNCHER': return { ...state, debateLauncher: { ...state.debateLauncher, ...action.payload } };
-    case 'RESET_LAUNCHER': return { ...state, debateLauncher: initialState.debateLauncher };
-    case 'SET_LAUNCHER_STEP': return { ...state, debateLauncher: { ...state.debateLauncher, step: action.payload } };
-    case 'SET_HISTORY_FILTER': return { ...state, historyFilter: { ...state.historyFilter, ...action.payload } };
-    case 'SET_HISTORY_PAGE': return { ...state, historyPage: action.payload };
-    default: return state;
+  return `<div>
+    <div class="dts">
+      ${[{id:'sequential',l:'SECUENCIAL'},{id:'iterative',l:'ITERATIVO'},{id:'tribunal',l:'TRIBUNAL'},{id:'chat',l:'CHAT DIRECTO'}].map(t=>`<button class="dtb ${L.type===t.id?'active':''}" data-dtype="${t.id}">${t.l}</button>`).join('')}
+    </div>
+    <div class="ws">
+      ${[{n:1,l:'Tema'},{n:2,l:'Modelos'},{n:3,l:'Config'}].map(s=>`<div class="wst ${L.step===s.n?'active':L.step>s.n?'done':''}"><span class="sn2">${L.step>s.n?'✓':s.n}</span>${s.l}</div>`).join('')}
+    </div>
+    ${L.step===1?`<div class="panel">
+      <div class="panel-title">📝 Pregunta Central</div>
+      <textarea class="inp" rows="4" placeholder="Escribe la pregunta del debate..." data-ltopic>${L.topic}</textarea>
+      <div style="margin-top:12px"><label class="lbl">Contexto (opcional)</label><input class="inp" placeholder="Contexto adicional..." data-lctx value="${L.context}"></div>
+      <div style="margin-top:12px"><label class="lbl">Idioma</label>
+        <div style="display:flex;gap:12px">${[{id:'es',l:'Español'},{id:'en',l:'English'},{id:'auto',l:'Auto'}].map(l=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="radio" name="lang" ${L.lang===l.id?'checked':''} data-llang="${l.id}">${l.l}</label>`).join('')}</div>
+      </div>
+      <button class="btn btn-pri" style="margin-top:16px" data-next>Siguiente →</button>
+    </div>`:''}
+    ${L.step===2?`<div>
+      <div class="panel"><div class="panel-title">🧬 Modelos (${L.models.length} seleccionados)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+          ${allModels.map(m=>{const sel=L.models.find(x=>x.name===m.name);return`<div class="mc ${sel?'sel':''}" data-tmodel="${m.name}"><div class="mn">${m.name}</div><div class="mp">${m.provider.toUpperCase()} · ${m.node}</div>${sel?'<div style="font-size:10px;color:var(--green)">✓ Seleccionado</div>':''}</div>`}).join('')}
+        </div>
+      </div>
+      ${L.models.length?`<div class="panel"><div class="panel-title">⚙️ Config de Modelos</div>
+        ${L.models.map(m=>`<div style="margin-bottom:16;padding-bottom:16;border-bottom:1px solid var(--border)">
+          <div style="font-family:var(--mono);font-size:12px;font-weight:600;margin-bottom:8px">${m.name}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div><label class="lbl">Temp: ${m.temp||0.7}</label><input type="range" class="sl" min="0" max="1" step="0.1" value="${m.temp||0.7}" data-mcfg="${m.name}|temp"></div>
+            <div><label class="lbl">Tokens: ${m.tokens||2048}</label><input type="range" class="sl" min="256" max="4096" step="256" value="${m.tokens||2048}" data-mcfg="${m.name}|tokens"></div>
+          </div>
+          <div style="margin-top:8"><label class="lbl">Rol</label><select class="inp" style="max-width:200px" data-mrole="${m.name}"><option value="analyst" ${(m.role||'analyst')==='analyst'?'selected':''}>Analista</option><option value="critic" ${(m.role||'analyst')==='critic'?'selected':''}>Crítico</option><option value="validator" ${(m.role||'analyst')==='validator'?'selected':''}>Validador</option></select></div>
+        </div>`).join('')}
+      </div>`:''}
+      <div style="display:flex;gap:8px"><button class="btn btn-sec" data-prev>← Atrás</button><button class="btn btn-pri" data-next>Siguiente →</button></div>
+    </div>`:''}
+    ${L.step===3?`<div>
+      <div class="g2">
+        <div class="panel"><div class="panel-title">⚙️ Configuración</div>
+          <div style="margin-bottom:12"><label class="lbl">Rondas</label><select class="inp" data-lrounds>${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${L.rounds===n?'selected':''}>${n}</option>`).join('')}</select></div>
+          <div class="cb"><input type="checkbox" id="lc" ${L.conv?'checked':''} data-lchk="conv"><label for="lc">Convergencia anticipada</label></div>
+          <div class="cb"><input type="checkbox" id="lca" ${L.cache?'checked':''} data-lchk="cache"><label for="lca">Caché semántica</label></div>
+          <div class="cb"><input type="checkbox" id="lr" ${L.reductio?'checked':''} data-lchk="reductio"><label for="lr">Reducción al absurdo</label></div>
+          <div class="cb"><input type="checkbox" id="lt" ${L.trib?'checked':''} data-lchk="trib"><label for="lt">Tribunal activo</label></div>
+        </div>
+        <div class="panel"><div class="panel-title">📊 Preview</div>
+          <div class="sn"><span>Modelos</span><span style="font-family:var(--mono)">${L.models.length}</span></div>
+          <div class="sn"><span>Rondas</span><span style="font-family:var(--mono)">${L.rounds}</span></div>
+          <div class="sn"><span>Turnos est.</span><span style="font-family:var(--mono)">${L.models.length*L.rounds}</span></div>
+          <div class="sn"><span>Tiempo est.</span><span style="font-family:var(--mono)">~${Math.ceil(L.models.length*L.rounds*0.05)} min</span></div>
+          <div style="margin-top:12"><label class="lbl">Exportar</label>
+            <div class="cb"><input type="checkbox" id="lj" ${L.expJson?'checked':''} data-lchk="expJson"><label for="lj">JSON</label></div>
+            <div class="cb"><input type="checkbox" id="lm" ${L.expMd?'checked':''} data-lchk="expMd"><label for="lm">Markdown</label></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16"><button class="btn btn-sec" data-prev>← Atrás</button><button class="btn btn-pri" data-launch ${valid?'':'disabled'}>▶ INICIAR DEBATE</button></div>
+    </div>`:''}
+  </div>`;
+}
+
+function getAllModels() {
+  if(!S.health?.services) return [];
+  const models = [];
+  const add = (svc, engine, node) => { if(S.health.services[svc]?.models) S.health.services[svc].models.forEach(m=>models.push({name:m,provider:svc,engine,node})); };
+  add('ollama','ollama','LOCAL'); add('lm_studio','lm_studio','LOCAL'); add('groq','groq','CLOUD'); add('gemini','gemini','CLOUD'); add('openrouter','openrouter','CLOUD');
+  return models;
+}
+
+function tabChat() {
+  return `<div class="panel" style="height:calc(100vh - 140px);display:flex;flex-direction:column">
+    <div class="panel-title">💬 Chat Directo</div>
+    <div style="display:flex;gap:8px;margin-bottom:12">
+      <select class="inp" style="max-width:200px" data-cengine><option value="groq" ${S.chatEngine==='groq'?'selected':''}>Groq</option><option value="gemini" ${S.chatEngine==='gemini'?'selected':''}>Gemini</option><option value="openrouter" ${S.chatEngine==='openrouter'?'selected':''}>OpenRouter</option></select>
+      <input class="inp" value="${S.chatModel}" data-cmodel placeholder="Modelo">
+    </div>
+    <div class="chat-msgs" style="flex:1">
+      ${S.chatMsgs.map(m=>`<div class="cm ${m.role}"><div class="mr">${m.role==='user'?'TÚ':S.chatModel}</div><div>${m.content}</div></div>`).join('')}
+    </div>
+    <div class="cib"><input class="inp" placeholder="Escribe un mensaje..." data-cinput><button class="btn btn-pri btn-sm" data-csend>Enviar</button></div>
+  </div>`;
+}
+
+// ─── TAB 3: METRICS ───
+function tabMetrics() {
+  const ds = S.analytics?.dailySummary||{};
+  const sorted = Object.entries(S.reps).sort((a,b)=>(b[1]?.global||0)-(a[1]?.global||0));
+
+  return `<div>
+    <div class="pc"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" ${S.pollOn?'checked':''} data-pollon> Auto-refresh</label><span style="color:var(--muted)">Intervalo: ${S.interval/1000}s</span><button class="btn btn-sm btn-sec" data-refresh>↻ Actualizar</button></div>
+    <div class="g4" style="margin-bottom:16">
+      <div class="card mg"><div class="mv">${ds.totalDebatesCompleted||0}</div><div class="ml">Completados</div><div style="font-size:11px;color:var(--green)">+12 hoy ↑</div></div>
+      <div class="card mg"><div class="mv">${S.cache?S.cache.hit_rate+'%':'--'}</div><div class="ml">Hit Rate</div><div style="font-size:11px;color:var(--green)">↑ desde 60%</div></div>
+      <div class="card mg"><div class="mv">${ds.avgDebateDurationSeconds?(ds.avgDebateDurationSeconds/60).toFixed(1)+'m':'--'}</div><div class="ml">Duración Media</div></div>
+      <div class="card mg"><div class="mv">${ds.totalTokensGenerated?(ds.totalTokensGenerated/1e6).toFixed(1)+'M':'--'}</div><div class="ml">Tokens</div><div style="font-size:11px;color:var(--green)">+45k hoy</div></div>
+    </div>
+    <div class="g2" style="margin-bottom:16">
+      <div class="panel"><div class="panel-title">📈 Debates por Hora</div>${barChart(M_METRICS)}</div>
+      <div class="panel"><div class="panel-title">🍩 Uso por Modelo</div>${donutChart(M_USAGE)}</div>
+    </div>
+    <div class="panel"><div class="panel-title">🏆 Leaderboard</div>
+      <table><thead><tr><th>Modelo</th><th>TSA</th><th>IID</th><th>PVT</th><th>Score</th><th>Debates</th><th>Wins</th><th>WR</th></tr></thead><tbody>
+        ${sorted.map(([m,r])=>`<tr style="cursor:pointer" data-model="${m}"><td style="font-family:var(--mono);font-size:11px">${m}</td><td>${r.tsa?.toFixed(1)}</td><td>${r.iid?.toFixed(1)}</td><td>${r.pvt?.toFixed(1)}</td><td style="color:var(--green);font-weight:600">${r.global?.toFixed(1)}</td><td>${r.debates}</td><td>${r.wins}</td><td>${r.debates?((r.wins/r.debates)*100).toFixed(0)+'%':'--'}</td></tr>`).join('')}
+      </tbody></table>
+    </div>
+    ${S.cache?`<div class="panel"><div class="panel-title">💾 Cache Analytics</div>
+      <div class="g4"><div class="sn"><span>Entries</span><span style="font-family:var(--mono)">${S.cache.total_entries}</span></div><div class="sn"><span>Hits</span><span style="font-family:var(--mono);color:var(--green)">${S.cache.total_hits}</span></div><div class="sn"><span>Rate</span><span style="font-family:var(--mono);color:var(--green)">${S.cache.hit_rate}%</span></div><div class="sn"><span>TTL</span><span style="font-family:var(--mono)">${S.cache.ttl_hours}h</span></div></div>
+      <div style="display:flex;gap:8px;margin-top:12"><button class="btn btn-sm btn-sec" data-inv>Invalidar</button><button class="btn btn-sm btn-sec" data-clean>Limpiar</button></div>
+    </div>`:''}
+  </div>`;
+}
+
+function donutChart(data) {
+  const total = data.reduce((s,d)=>s+d.v,0);
+  let cum = 0;
+  const grad = data.map(d => { const pct = (d.v/total)*100; const stop = `${cum}% ${cum+pct}%`; cum+=pct; return `${d.c} ${stop}`; }).join(', ');
+  return `<div class="donut-wrap">
+    <div class="donut" style="background:conic-gradient(${grad})"></div>
+    <div class="donut-legend">${data.map(d=>`<div class="legend-item"><span class="legend-dot" style="background:${d.c}"></span>${d.name}: ${d.v}</div>`).join('')}</div>
+  </div>`;
+}
+
+// ─── TAB 4: TRIBUNAL ───
+function tabTribunal() {
+  const t = S.trib;
+  if(!t) return '<div class="panel"><div class="sk" style="height:400px"></div></div>';
+  const verdicts = S.debates.filter(d=>d.status==='completed').slice(0,5);
+
+  return `<div>
+    <div class="panel"><div class="panel-title">🏛️ Tribunal de Magistrados</div>
+      <div class="td">
+        <div class="tn def active"><div class="tr">Defensor</div><div>🛡️</div><div class="tm">${t.roles?.defensor?.primary?.model||'N/A'}</div><div style="font-size:10px;color:var(--muted);margin-top:4px">${t.roles?.defensor?.primary?.engine||''}</div></div>
+        <div class="tn fis active"><div class="tr">Fiscal</div><div>⚔️</div><div class="tm">${t.roles?.fiscal?.primary?.model||'N/A'}</div><div style="font-size:10px;color:var(--muted);margin-top:4px">${t.roles?.fiscal?.primary?.engine||''}</div></div>
+        <div class="tn arb active"><div class="tr">Árbitro</div><div>👑</div><div class="tm">${t.roles?.arbitro?.primary?.model||'N/A'}</div><div style="font-size:10px;color:var(--muted);margin-top:4px">${t.roles?.arbitro?.primary?.engine||''}</div></div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="panel"><div class="panel-title">⚙️ Configuración</div>
+        ${Object.entries(t.roles||{}).map(([role,data])=>`<div style="margin-bottom:16"><div style="font-size:12px;font-weight:600;text-transform:capitalize;color:var(--violet);margin-bottom:8px">${role}</div>
+          <div class="sn"><span>Principal</span><span style="font-family:var(--mono);font-size:11px">${data.primary?.model}</span></div>
+          ${(data.fallbacks||[]).map((fb,i)=>`<div class="sn" style="margin-left:16"><span style="font-size:10px">FB ${i+1}</span><span style="font-family:var(--mono);font-size:10px">${fb.model}</span></div>`).join('')}
+        </div>`).join('')}
+        <div class="sn"><span>Max Iter</span><span style="font-family:var(--mono)">${t.maxIterations}</span></div>
+        <div class="sn"><span>Cloud FB</span><span style="color:${t.cloudFallbackEnabled?'var(--green)':'var(--red)'}">${t.cloudFallbackEnabled?'✓ Sí':'✗ No'}</span></div>
+      </div>
+      <div class="panel"><div class="panel-title">📜 Veredictos</div>
+        ${verdicts.length===0?'<div class="empty"><div>Sin veredictos</div></div>':''}
+        ${verdicts.map(v=>`<div class="sn" style="cursor:pointer" data-view="${v.session_id}"><div><div style="font-size:11px;font-weight:500">${v.topic?.substring(0,50)}...</div><div style="font-size:10px;color:var(--muted)">${fmtDate(v.created_at)}</div></div><span class="ds ${v.status}">${v.status}</span></div>`).join('')}
+      </div>
+    </div>
+    <div class="panel" style="margin-top:16"><div class="panel-title">🧪 Simular Tribunal</div>
+      <textarea class="inp" rows="3" placeholder="Posición controvertida..." data-siminput></textarea>
+      <button class="btn btn-pri" style="margin-top:12" data-simbtn>Simular Tribunal</button>
+    </div>
+  </div>`;
+}
+
+// ─── TAB 5: MODELS ───
+function tabModels() {
+  const providers = [];
+  const svc = S.health?.services||{};
+  const addP = (name, status, models, node) => { if(models?.length) providers.push({name,status,models:models.map(m=>({name,rep:S.reps[m]?.global||0})),node}); };
+  addP('OLLAMA', svc.ollama?.status, svc.ollama?.models, 'LOCAL');
+  addP('LM STUDIO', svc.lm_studio?.status, svc.lm_studio?.models, 'LOCAL');
+  addP('GROQ', svc.groq?.status, svc.groq?.models, 'CLOUD');
+  addP('GEMINI', svc.gemini?.status, svc.gemini?.models, 'CLOUD');
+  addP('OPENROUTER', svc.openrouter?.status, svc.openrouter?.models, 'CLOUD');
+
+  const sel = S.selModel ? S.reps[S.selModel] : null;
+
+  return `<div class="g2">
+    <div>
+      ${providers.map(p=>`<div class="panel"><div class="panel-title">▼ ${p.name} (${p.node.toLowerCase()}) <span class="sdot ${statusDot(p.status)}" style="margin-left:8px"></span><span style="font-size:10px;color:var(--muted);margin-left:4px">${p.status?.toUpperCase()}</span></div>
+        ${p.models.map(m=>`<div class="sn" style="cursor:pointer;${S.selModel===m.name?'border:1px solid var(--green)':''}" data-model="${m.name}"><span style="font-family:var(--mono);font-size:11px">${m.name}</span><span style="font-family:var(--mono);font-size:11px;color:${m.rep>0?'var(--green)':'var(--muted)'}">Rep: ${m.rep>0?m.rep.toFixed(1):'N/A'}</span></div>`).join('')}
+      </div>`).join('')}
+    </div>
+    <div>
+      ${S.selModel?`<div class="panel">
+        <div class="panel-title">${S.selModel} <span class="ds running">ACTIVO</span></div>
+        <div style="margin-bottom:16"><div style="font-size:12px;color:var(--muted);margin-bottom:12">REPUTACIÓN EMA</div>
+          ${['tsa','iid','pvt'].map(k=>{const v=sel?.[k]||0;const labels={tsa:'TSA (Coherencia)',iid:'IID (Info Density)',pvt:'PVT (Veracidad)'};return`<div style="margin-bottom:8"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2"><span>${labels[k]}</span><span style="font-family:var(--mono);color:var(--green)">${v.toFixed(1)}</span></div><div class="rb"><div class="rf" style="width:${v*10}%"></div></div></div>`}).join('')}
+          <div style="margin-top:8;display:flex;justify-content:space-between;font-size:11px"><span>Score Global</span><span style="font-family:var(--mono);color:var(--green);font-weight:600">${(sel?.global||0).toFixed(1)}</span></div>
+        </div>
+        <div style="margin-bottom:16"><div style="font-size:12px;color:var(--muted);margin-bottom:8">ESTADÍSTICAS</div>
+          <div class="sn"><span>Debates</span><span style="font-family:var(--mono)">${sel?.debates||0}</span></div>
+          <div class="sn"><span>Victorias</span><span style="font-family:var(--mono);color:var(--green)">${sel?.wins||0}</span></div>
+        </div>
+      </div>`:`<div class="panel"><div class="empty"><div class="empty-i">🧬</div><div>Selecciona un modelo</div></div></div>`}
+      <div class="panel" style="margin-top:12"><div class="panel-title">🔧 Worker Services</div>
+        ${S.worker?`<div class="sn"><span>IP</span><span style="font-family:var(--mono)">${S.worker.worker_ip||'192.168.1.44'}</span></div>
+          ${Object.entries(S.worker.services||{}).map(([svc,data])=>`<div class="sn"><span>${svc}</span><div style="display:flex;align-items:center;gap:8px"><span class="sdot ${data.status==='running'?'ok':'err'}"></span><span style="font-family:var(--mono);font-size:10px">${data.status}</span><button class="dbtn btn-sm" data-launch-svc="${svc}">Launch</button></div></div>`).join('')}`:'<div class="sk" style="height:100px"></div>'}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── TAB 6: HISTORY ───
+function tabHistory() {
+  const filtered = S.debates.filter(h => {
+    if(S.hFilter.status!=='all' && h.status!==S.hFilter.status) return false;
+    if(S.hFilter.search && !h.topic?.toLowerCase().includes(S.hFilter.search.toLowerCase())) return false;
+    return true;
+  });
+
+  return `<div>
+    <div class="fb">
+      <input class="inp" placeholder="🔍 Buscar..." value="${S.hFilter.search}" data-hsearch>
+      <select class="inp" style="max-width:140px" data-hstatus><option value="all" ${S.hFilter.status==='all'?'selected':''}>Todos</option><option value="completed" ${S.hFilter.status==='completed'?'selected':''}>Completados</option><option value="running" ${S.hFilter.status==='running'?'selected':''}>En curso</option><option value="paused" ${S.hFilter.status==='paused'?'selected':''}>Pausados</option><option value="failed" ${S.hFilter.status==='failed'?'selected':''}>Fallidos</option></select>
+      <span style="font-size:12px;color:var(--muted)">${filtered.length} debates</span>
+    </div>
+    <div class="panel"><table><thead><tr><th>ID</th><th>Pregunta</th><th>Estado</th><th>Turnos</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>
+      ${filtered.length===0?'<tr><td colspan="6"><div class="empty"><div>Sin debates</div></div></td></tr>':''}
+      ${filtered.map(h=>`<tr><td style="font-family:var(--mono);font-size:10px">${h.session_id?.slice(0,8)}</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.topic}</td><td><span class="ds ${h.status}">${h.status}</span></td><td style="font-family:var(--mono);font-size:11px">${h.turns_completed}/${h.total_turns}</td><td style="font-size:11px">${fmtDate(h.created_at)}</td><td><div style="display:flex;gap:4px">
+        <button class="dbtn btn-sm" data-view="${h.session_id}">👁</button>
+        <button class="dbtn btn-sm" data-exp="${h.session_id}">📥</button>
+        ${h.status==='completed'?`<button class="dbtn btn-sm" data-cont="${h.session_id}">🔄</button>`:''}
+      </div></td></tr>`).join('')}
+    </tbody></table></div>
+  </div>`;
+}
+
+function detailPanel() {
+  const d = S.debates.find(x=>x.session_id===S.selDebate);
+  if(!d) return '';
+  return `<div class="dp"><button class="dp-x" data-close-dp>✕</button>
+    <div style="margin-bottom:16"><div style="font-size:16px;font-weight:600;margin-bottom:8px">${d.topic}</div><span class="ds ${d.status}">${d.status}</span></div>
+    <div style="margin-bottom:16"><div style="font-size:12px;color:var(--muted);margin-bottom:8">EXPORTAR</div>
+      <div style="display:flex;gap:6px"><button class="btn btn-sm btn-sec" data-exp-json>📥 JSON</button><button class="btn btn-sm btn-sec" data-exp-md>📄 Markdown</button><button class="btn btn-sm btn-sec" data-exp-pdf>🖨️ PDF</button></div>
+    </div>
+    ${d.status==='completed'?`<button class="btn btn-sm btn-pri" style="margin-bottom:16;width:100%" data-cont-debate>🔄 Continuar Debate</button>`:''}
+    <div style="background:var(--bg-surface);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11;white-space:pre-wrap;max-height:400;overflow-y:auto;line-height:1.6">
+# ${d.topic}
+
+${(d.models||[]).map(m=>`## ${m}\nParticipante en el debate.\n`).join('\n---\n')}
+    </div>
+  </div>`;
+}
+
+function streamBar() {
+  if(!S.streamId) return '';
+  const last = S.streamMsgs[S.streamMsgs.length-1];
+  return `<div class="stream"><div style="display:flex;align-items:center;gap:6px;color:var(--green)"><span class="dot" style="width:6px;height:6px"></span>STREAM: ${S.streamId.slice(0,8)}...</div><div class="stream-text">${last?`[${last.agent||'?'}] ${last.content?.substring(0,120)||''}`:'Esperando...'}</div><span style="color:var(--muted);font-size:10px">${S.streamMsgs.length} msgs</span></div>`;
+}
+
+function toasts() {
+  if(!S.toasts.length) return '';
+  return `<div class="toasts">${S.toasts.map(t=>`<div class="toast ${t.type}"><span>${t.msg}</span></div>`).join('')}</div>`;
+}
+
+function settingsDrawer() {
+  return `<div class="overlay" data-close-settings></div><div class="drawer">
+    <button class="drawer-x" data-close-settings>✕</button>
+    <div class="drawer-title">CONFIGURACIÓN GLOBAL</div>
+    <div style="margin-bottom:16"><label class="lbl">Backend URL</label><input class="inp" value="${BASE}" disabled></div>
+    <div style="margin-bottom:16"><label class="lbl">Polling: ${S.interval/1000}s</label><div class="slc"><input type="range" class="sl" min="2" max="30" value="${S.interval/1000}" data-pollint><span class="sv">${S.interval/1000}s</span></div></div>
+    <div class="cb"><input type="checkbox" id="ws-auto" ${S.wsOk?'checked':''}><label for="ws-auto">WebSocket auto</label></div>
+    <div class="cb" style="margin-top:16"><input type="checkbox" id="stream-tok" checked><label for="stream-tok">Tokens en tiempo real</label></div>
+  </div>`;
+}
+
+// ─── EVENT BINDING ───
+function bindEvents() {
+  // Tabs
+  $$('.tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+  $('[data-tab2]') && ($('[data-tab2]').onclick = () => setTab('launcher'));
+
+  // Demo toggle
+  $('[data-demo]') && ($('[data-demo]').onclick = toggleDemo);
+
+  // Settings
+  $('[data-settings]') && ($('[data-settings]').onclick = () => { S.settingsOpen=true; render(); });
+  $$('[data-close-settings]').forEach(b => b.onclick = () => { S.settingsOpen=false; render(); });
+
+  // Close detail panel
+  $$('[data-close-dp]').forEach(b => b.onclick = () => { S.selDebate=null; render(); });
+
+  // View debate
+  $$('[data-view]').forEach(b => b.onclick = () => { S.selDebate=b.dataset.view; render(); });
+
+  // Model select
+  $$('[data-model]').forEach(b => b.onclick = () => { S.selModel=b.dataset.model; render(); });
+
+  // Export
+  $$('[data-exp]').forEach(b => b.onclick = () => window.open(`${BASE}/api/v1/debates/${b.dataset.exp}/export/json`,'_blank'));
+
+  // Continue debate
+  $$('[data-cont]').forEach(b => b.onclick = () => {
+    if(!S.demo) fetch(`${BASE}/api/v1/debates/${b.dataset.cont}/continue`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>toast('Debate continuado','ok'));
+    else toast('Debate continuado (demo)','ok');
+  });
+
+  // Debate type
+  $$('[data-dtype]').forEach(b => b.onclick = () => { S.launch.type=b.dataset.dtype; if(b.dataset.dtype==='chat'){S.launch.type='chat';render();} else {S.launch.step=1;render();} });
+
+  // Wizard navigation
+  $('[data-next]') && ($('[data-next]').onclick = () => { if(S.launch.step<3){S.launch.step++;render();} });
+  $('[data-prev]') && ($('[data-prev]').onclick = () => { if(S.launch.step>1){S.launch.step--;render();} });
+
+  // Launch topic
+  $('[data-ltopic]') && ($('[data-ltopic]').oninput = e => { S.launch.topic=e.target.value; });
+  $('[data-lctx]') && ($('[data-lctx]').oninput = e => { S.launch.context=e.target.value; });
+  $$('[data-llang]').forEach(b => b.onchange = () => { S.launch.lang=b.dataset.llang; });
+
+  // Toggle model
+  $$('[data-tmodel]').forEach(b => b.onclick = () => {
+    const name = b.dataset.tmodel;
+    const exists = S.launch.models.find(m=>m.name===name);
+    if(exists) S.launch.models = S.launch.models.filter(m=>m.name!==name);
+    else S.launch.models.push({name, temp:0.7, tokens:2048, role:'analyst'});
+    render();
+  });
+
+  // Model config sliders
+  $$('[data-mcfg]').forEach(s => s.oninput = () => {
+    const [name, field] = s.dataset.mcfg.split('|');
+    const m = S.launch.models.find(x=>x.name===name);
+    if(m) { m[field] = parseFloat(s.value); render(); }
+  });
+  $$('[data-mrole]').forEach(s => s.onchange = () => {
+    const m = S.launch.models.find(x=>x.name===s.dataset.mrole);
+    if(m) m.role = s.value;
+  });
+
+  // Launcher checkboxes
+  $$('[data-lchk]').forEach(cb => cb.onchange = () => { S.launch[cb.dataset.lchk]=cb.checked; });
+  $('[data-lrounds]') && ($('[data-lrounds]').onchange = e => { S.launch.rounds=parseInt(e.target.value); });
+
+  // Launch debate
+  $('[data-launch]') && ($('[data-launch]').onclick = () => {
+    toast('🚀 Debate lanzado','ok');
+    S.launch={step:1,type:'sequential',topic:'',context:'',lang:'es',models:[],rounds:3,conv:true,cache:true,reductio:true,trib:true,expJson:true,expMd:true};
+    setTab('command');
+  });
+
+  // Chat
+  $('[data-csend]') && ($('[data-csend]').onclick = sendChat);
+  $('[data-cinput]') && ($('[data-cinput]').onkeydown = e => { if(e.key==='Enter') sendChat(); });
+  $('[data-cengine]') && ($('[data-cengine]').onchange = e => { S.chatEngine=e.target.value; });
+  $('[data-cmodel]') && ($('[data-cmodel]').oninput = e => { S.chatModel=e.target.value; });
+
+  // Polling
+  $('[data-pollon]') && ($('[data-pollon]').onchange = e => { S.pollOn=e.target.checked; });
+  $('[data-pollint]') && ($('[data-pollint]').oninput = e => { S.interval=parseInt(e.target.value)*1000; });
+  $('[data-refresh]') && ($('[data-refresh]').onclick = fetchData);
+
+  // History filter
+  $('[data-hsearch]') && ($('[data-hsearch]').oninput = e => { S.hFilter.search=e.target.value; render(); });
+  $('[data-hstatus]') && ($('[data-hstatus]').onchange = e => { S.hFilter.status=e.target.value; render(); });
+
+  // Tribunal sim
+  $('[data-simbtn]') && ($('[data-simbtn]').onclick = () => { toast('Simulación iniciada','info'); S.launch={...S.launch,type:'tribunal',step:3}; setTab('launcher'); });
+
+  // Cache actions
+  $('[data-inv]') && ($('[data-inv]').onclick = () => { if(!S.demo) fetch(`${BASE}/api/v1/cache/invalidate`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>toast('Cache invalidado','ok')); else toast('Cache invalidado (demo)','ok'); });
+  $('[data-clean]') && ($('[data-clean]').onclick = () => { if(!S.demo) fetch(`${BASE}/api/v1/cache/cleanup`,{method:'POST'}).then(()=>toast('Cache limpiado','ok')); else toast('Cache limpiado (demo)','ok'); });
+
+  // Worker service launch
+  $$('[data-launch-svc]').forEach(b => b.onclick = () => {
+    if(!S.demo) fetch(`${BASE}/api/v1/system/worker/services/launch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service:b.dataset.launchSvc})}).then(()=>toast(`${b.dataset.launchSvc} launching...`,'ok'));
+    else toast(`${b.dataset.launchSvc} launching (demo)`,'ok');
+  });
+
+  // Export from detail
+  $('[data-exp-json]') && ($('[data-exp-json]').onclick = () => window.open(`${BASE}/api/v1/debates/${S.selDebate}/export/json`,'_blank'));
+  $('[data-exp-md]') && ($('[data-exp-md]').onclick = () => window.open(`${BASE}/api/v1/debates/${S.selDebate}/export/markdown`,'_blank'));
+  $('[data-exp-pdf]') && ($('[data-exp-pdf]').onclick = () => window.open(`${BASE}/api/v1/debates/${S.selDebate}/export/pdf`,'_blank'));
+  $('[data-cont-debate]') && ($('[data-cont-debate]').onclick = () => {
+    if(!S.demo) fetch(`${BASE}/api/v1/debates/${S.selDebate}/continue`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>toast('Debate continuado','ok'));
+    else toast('Debate continuado (demo)','ok');
+  });
+
+  // Wake worker
+  $('[data-wake]') && ($('[data-wake]').onclick = () => toast('Wake-on-LAN enviado','info'));
+}
+
+function sendChat() {
+  const inp = $('[data-cinput]');
+  if(!inp || !inp.value.trim()) return;
+  const msg = inp.value.trim();
+  S.chatMsgs.push({role:'user', content:msg});
+  inp.value = '';
+  render();
+
+  if(S.demo) {
+    setTimeout(() => { S.chatMsgs.push({role:'assistant', content:`Respuesta simulada de ${S.chatModel} a: "${msg}"`}); render(); }, 800);
+    return;
   }
-};
 
-const SynapseContext = React.createContext();
-
-// ═══════════════════════════════════════════════════════════
-// CUSTOM HOOKS
-// ═══════════════════════════════════════════════════════════
-
-function usePolling(url, interval, enabled = true, transform = null) {
-  const { state, dispatch } = useContext(SynapseContext);
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (!enabled) return;
-    const baseUrl = state.demoMode ? null : state.backendUrl;
-
-    const fetchData = async () => {
-      try {
-        if (state.demoMode) {
-          setData(transform ? transform(getMockData(url)) : getMockData(url));
-          setError(null);
-          return;
-        }
-        const res = await fetch(`${baseUrl}${url}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        setData(transform ? transform(json) : json);
-        setError(null);
-      } catch (e) {
-        setError(e.message);
-      }
-    };
-
-    fetchData();
-    const id = setInterval(fetchData, interval);
-    return () => clearInterval(id);
-  }, [url, interval, enabled, state.demoMode, state.backendUrl]);
-
-  return { data, error, loading: !data && !error };
+  fetch(`${BASE}/api/v1/system/chat/direct`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,model:S.chatModel,engine:S.chatEngine,temperature:0.7,max_tokens:2048})}).then(r=>r.json()).then(d=>{S.chatMsgs.push({role:'assistant',content:d.response});render();}).catch(()=>{S.chatMsgs.push({role:'assistant',content:'Error de conexión'});render();});
 }
 
-function getMockData(url) {
-  if (url === '/health' || url === '/health/dependencies') return MOCK_HEALTH;
-  if (url === '/api/v1/debates/list') return { count: MOCK_DEBATES.filter(d => d.status === 'running').length, sessions: MOCK_DEBATES.filter(d => d.status === 'running') };
-  if (url === '/api/v1/debates/history/list') return { count: MOCK_DEBATES.length, sessions: MOCK_DEBATES };
-  if (url === '/api/v1/debates/reputation') return { status: "ok", count: Object.keys(MOCK_REPUTATIONS).length, reputations: MOCK_REPUTATIONS };
-  if (url === '/api/v1/cache/stats') return MOCK_CACHE_STATS;
-  if (url === '/api/v1/system/tribunal/config') return MOCK_TRIBUNAL_CONFIG;
-  if (url === '/api/v1/system/metrics') return { activeDebates: 2, totalTokens: 1200000, avgLatency: 2400, cpuUsage: 34, memoryUsage: 62 };
-  if (url === '/api/v1/system/worker/services') return { worker_ip: "192.168.1.44", services: MOCK_WORKER_SERVICES };
-  if (url === '/api/v1/system/analytics') return {
-    dailySummary: { date: "2026-05-16", totalDebatesCompleted: 142, totalDebatesFailed: 3, totalTurnsExecuted: 568, totalTokensGenerated: 1200000, totalCostUsd: 0, avgDebateDurationSeconds: 180, uniqueTopicsCount: 89, activeModelsCount: 6 },
-    topTopics: [],
-    modelLeaderboard: Object.entries(MOCK_REPUTATIONS).map(([model, rep]) => ({ model, provider: model.includes('gemini') ? 'google' : model.includes('groq') ? 'groq' : 'ollama', engine: model.includes('gemini') ? 'gemini' : model.includes('groq') ? 'groq' : 'ollama', agentRole: 'analyst', totalTurns: rep.debates * 4, avgTokensOut: 450, avgLatencyMs: 2400, successRate: rep.global / 10 }))
-  };
-  return null;
-}
-
-// ═══════════════════════════════════════════════════════════
-// NOTIFICATION SYSTEM
-// ═══════════════════════════════════════════════════════════
-
-function NotificationSystem() {
-  const { state, dispatch } = useContext(SynapseContext);
-
-  useEffect(() => {
-    state.notifications.forEach(n => {
-      setTimeout(() => dispatch({ type: 'REMOVE_NOTIFICATION', payload: n.id }), 5000);
-    });
-  }, [state.notifications]);
-
-  return (
-    <div className="toast-container">
-      {state.notifications.map(n => (
-        <div key={n.id} className={`toast ${n.type}`}>
-          <span>{n.message}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// TOP BAR
-// ═══════════════════════════════════════════════════════════
-
-const TABS = [
-  { id: "command", icon: "⚡", label: "CMD" },
-  { id: "launcher", icon: "🔥", label: "DBT" },
-  { id: "metrics", icon: "📊", label: "MTR" },
-  { id: "tribunal", icon: "🏛️", label: "TRB" },
-  { id: "models", icon: "🧬", label: "MOD" },
-  { id: "history", icon: "🗄️", label: "HST" },
-];
-
-function TopBar() {
-  const { state, dispatch } = useContext(SynapseContext);
-
-  return (
-    <div className="topbar">
-      <div className="topbar-brand">
-        <span className="topbar-logo">SYNAPSE</span>
-        <span className="topbar-version">v2.7</span>
-      </div>
-
-      <div className="topbar-tabs">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            className={`topbar-tab ${state.activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => dispatch({ type: 'SET_ACTIVE_TAB', payload: tab.id })}
-          >
-            <span className="tab-icon">{tab.icon}</span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="topbar-status">
-        <div className="live-badge">
-          <span className="live-dot"></span>
-          LIVE
-        </div>
-        <span className={`ws-badge ${state.wsConnected ? '' : 'error'}`}>
-          {state.wsConnected ? 'WS:OK' : 'WS:ERR'}
-        </span>
-        <span className="demo-badge" onClick={() => dispatch({ type: 'TOGGLE_DEMO' })}>
-          {state.demoMode ? '🎮 DEMO' : '📡 LIVE'}
-        </span>
-        <button className="settings-btn" onClick={() => dispatch({ type: 'SET_SETTINGS_OPEN', payload: true })}>⚙️</button>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// SETTINGS DRAWER
-// ═══════════════════════════════════════════════════════════
-
-function SettingsDrawer() {
-  const { state, dispatch } = useContext(SynapseContext);
-  if (!state.settingsOpen) return null;
-
-  return (
-    <>
-      <div className="drawer-overlay" onClick={() => dispatch({ type: 'SET_SETTINGS_OPEN', payload: false })} />
-      <div className="drawer">
-        <button className="drawer-close" onClick={() => dispatch({ type: 'SET_SETTINGS_OPEN', payload: false })}>✕</button>
-        <div className="drawer-title">CONFIGURACIÓN GLOBAL</div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label className="label">Backend URL</label>
-          <input className="input-field" value={state.backendUrl} onChange={e => dispatch({ type: 'SET_BACKEND_URL', payload: e.target.value })} />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label className="label">Polling Interval: {state.pollingInterval / 1000}s</label>
-          <div className="slider-container">
-            <input type="range" className="slider" min="2" max="30" value={state.pollingInterval / 1000} onChange={e => dispatch({ type: 'SET_POLLING_INTERVAL', payload: parseInt(e.target.value) * 1000 })} />
-            <span className="slider-value">{state.pollingInterval / 1000}s</span>
-          </div>
-        </div>
-
-        <div className="checkbox-group">
-          <input type="checkbox" id="ws-auto" checked={state.wsConnected} readOnly />
-          <label htmlFor="ws-auto">Conectar WebSocket automáticamente</label>
-        </div>
-
-        <div style={{ marginBottom: 16, marginTop: 16 }}>
-          <label className="label">Theme Accent</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {['green', 'violet', 'cyan'].map(c => (
-              <button key={c} className={`btn btn-sm ${state.themeAccent === c ? 'btn-primary' : 'btn-secondary'}`} onClick={() => dispatch({ type: 'SET_THEME_ACCENT', payload: c })}>
-                {c === 'green' ? '🟢' : c === 'violet' ? '🟣' : '🔵'} {c}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="checkbox-group" style={{ marginTop: 16 }}>
-          <input type="checkbox" id="stream-tokens" defaultChecked />
-          <label htmlFor="stream-tokens">Mostrar tokens en tiempo real</label>
-        </div>
-
-        <div className="checkbox-group">
-          <input type="checkbox" id="debug-mode" />
-          <label htmlFor="debug-mode">Activar logs detallados</label>
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// STREAM BAR
-// ═══════════════════════════════════════════════════════════
-
-function StreamBar() {
-  const { state } = useContext(SynapseContext);
-  if (!state.activeStreamDebate) return null;
-
-  const lastMsg = state.streamMessages[state.streamMessages.length - 1];
-
-  return (
-    <div className="stream-bar">
-      <div className="stream-indicator">
-        <span className="live-dot" style={{ width: 6, height: 6 }}></span>
-        STREAM: {state.activeStreamDebate.slice(0, 8)}...
-      </div>
-      <div className="stream-text">
-        {lastMsg ? `[${lastMsg.agent}] ${lastMsg.content?.substring(0, 120)}...` : 'Esperando tokens...'}
-      </div>
-      <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{state.streamMessages.length} msgs</span>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// TAB 1: COMMAND CENTER
-// ═══════════════════════════════════════════════════════════
-
-function CommandCenter() {
-  const { state, dispatch } = useContext(SynapseContext);
-  const [healthData, setHealthData] = useState(null);
-  const [debatesData, setDebatesData] = useState([]);
-  const [repsData, setRepsData] = useState({});
-  const [cacheData, setCacheData] = useState(null);
-  const [metricsData, setMetricsData] = useState(null);
-
-  useEffect(() => {
-    if (state.demoMode) {
-      setHealthData(MOCK_HEALTH);
-      setDebatesData(MOCK_DEBATES);
-      setRepsData(MOCK_REPUTATIONS);
-      setCacheData(MOCK_CACHE_STATS);
-      setMetricsData({ activeDebates: 2, totalTokens: 1200000, avgLatency: 2400, cpuUsage: 34, memoryUsage: 62 });
-      return;
-    }
-
-    const fetchData = async () => {
-      try {
-        const [health, debates, reps, cache, metrics] = await Promise.allSettled([
-          fetch(`${state.backendUrl}/health`).then(r => r.json()),
-          fetch(`${state.backendUrl}/api/v1/debates/list`).then(r => r.json()),
-          fetch(`${state.backendUrl}/api/v1/debates/reputation`).then(r => r.json()),
-          fetch(`${state.backendUrl}/api/v1/cache/stats`).then(r => r.json()),
-          fetch(`${state.backendUrl}/api/v1/system/metrics`).then(r => r.json()),
-        ]);
-        if (health.status === 'fulfilled') setHealthData(health.value);
-        if (debates.status === 'fulfilled') setDebatesData(debates.value?.sessions || []);
-        if (reps.status === 'fulfilled') setRepsData(reps.value?.reputations || {});
-        if (cache.status === 'fulfilled') setCacheData(cache.value);
-        if (metrics.status === 'fulfilled') setMetricsData(metrics.value);
-      } catch (e) { console.error('CommandCenter fetch error:', e); }
-    };
-
-    fetchData();
-    const id = setInterval(fetchData, state.pollingInterval);
-    return () => clearInterval(id);
-  }, [state.demoMode, state.backendUrl, state.pollingInterval]);
-
-  const statusColor = (s) => {
-    if (['healthy', 'online', 'available'].includes(s)) return 'healthy';
-    if (['degraded', 'skipped'].includes(s)) return s === 'skipped' ? 'skipped' : 'degraded';
-    return 'unavailable';
-  };
-
-  const topModels = Object.entries(repsData)
-    .sort((a, b) => (b[1]?.global || 0) - (a[1]?.global || 0))
-    .slice(0, 3);
-
-  return (
-    <div className="grid-3col">
-      {/* LEFT: System Status */}
-      <div>
-        <div className="panel">
-          <div className="panel-title">🖥️ System Health</div>
-          {healthData?.services ? Object.entries(healthData.services).map(([name, svc]) => (
-            <div key={name} className="service-node">
-              <span className="service-name">{name}</span>
-              <span className="service-status">
-                <span className={`status-dot ${statusColor(svc.status)}`}></span>
-                {svc.status}
-              </span>
-            </div>
-          )) : <div className="skeleton" style={{ height: 200 }} />}
-        </div>
-
-        <div className="panel">
-          <div className="panel-title">📡 Worker Status</div>
-          <div className="service-node">
-            <span className="service-name">IP: 192.168.1.44</span>
-            <span className="service-status">
-              <span className="status-dot healthy"></span>
-              CONNECTED
-            </span>
-          </div>
-          <button className="btn btn-sm btn-secondary" style={{ marginTop: 8, width: '100%' }}>
-            🔌 Wake-on-LAN
-          </button>
-        </div>
-
-        <div className="panel">
-          <div className="panel-title">🏆 Top Models</div>
-          {topModels.map(([model, rep]) => (
-            <div key={model} className="service-node" style={{ cursor: 'pointer' }} onClick={() => { dispatch({ type: 'SELECT_MODEL', payload: model }); }}>
-              <span className="service-name" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{model}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--accent-green)' }}>{rep.global?.toFixed(1)}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* CENTER: Active Debates */}
-      <div>
-        <div className="panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div className="panel-title" style={{ marginBottom: 0 }}>🔥 Active Debates</div>
-            <button className="btn btn-sm btn-primary" onClick={() => dispatch({ type: 'SET_ACTIVE_TAB', payload: 'launcher' })}>+ NUEVO DEBATE</button>
-          </div>
-
-          <div style={{ flex: 1, overflowY: 'auto' }}>
-            {debatesData.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state-icon">🧠</div>
-                <div className="empty-state-text">No hay debates activos</div>
-                <div className="empty-state-sub">Lanza un nuevo debate desde el Launcher</div>
-              </div>
-            ) : debatesData.map(debate => (
-              <div key={debate.session_id} className={`debate-card ${debate.status === 'running' ? 'running' : ''}`}>
-                <div className="debate-header">
-                  <span className="debate-title">{debate.topic}</span>
-                  <span className={`debate-status ${debate.status}`}>{debate.status}</span>
-                </div>
-                <div className="debate-progress">
-                  <div className="debate-progress-bar" style={{ width: `${(debate.turns_completed / debate.total_turns) * 100}%` }} />
-                </div>
-                <div className="debate-models">
-                  {(debate.models || []).map(m => <span key={m} className="model-chip">{m}</span>)}
-                </div>
-                <div className="debate-actions">
-                  <button className="debate-btn" onClick={() => dispatch({ type: 'SELECT_DEBATE', payload: debate.session_id })}>👁 Ver</button>
-                  {debate.status === 'running' && <button className="debate-btn">⏸ Pausar</button>}
-                  {debate.status === 'completed' && <button className="debate-btn">📥 Export</button>}
-                  {debate.status === 'completed' && <button className="debate-btn primary">🔄 Continuar</button>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT: Live Metrics */}
-      <div>
-        <div className="grid-2col" style={{ marginBottom: 12 }}>
-          <div className="card metric-gauge">
-            <div className="metric-value">{metricsData?.activeDebates || 0}</div>
-            <div className="metric-label">Debates Hoy</div>
-          </div>
-          <div className="card metric-gauge">
-            <div className="metric-value">{cacheData ? `${cacheData.hit_rate}%` : '--'}</div>
-            <div className="metric-label">Hit Rate</div>
-          </div>
-          <div className="card metric-gauge">
-            <div className="metric-value">{metricsData ? `${(metricsData.avgLatency / 1000).toFixed(1)}s` : '--'}</div>
-            <div className="metric-label">Latencia Media</div>
-          </div>
-          <div className="card metric-gauge">
-            <div className="metric-value">{metricsData ? `${(metricsData.totalTokens / 1000000).toFixed(1)}M` : '--'}</div>
-            <div className="metric-label">Tokens</div>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="panel-title">📈 Actividad 24h</div>
-          <ResponsiveContainer width="100%" height={120}>
-            <AreaChart data={MOCK_METRICS_TIMELINE}>
-              <defs>
-                <linearGradient id="gradGreen" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#00FF88" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#00FF88" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(139,92,246,0.1)" />
-              <XAxis dataKey="hour" tick={{ fontSize: 9, fill: '#6B7280' }} />
-              <YAxis tick={{ fontSize: 9, fill: '#6B7280' }} />
-              <Tooltip contentStyle={{ background: '#12141F', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 6, fontSize: 11 }} />
-              <Area type="monotone" dataKey="debates" stroke="#00FF88" fill="url(#gradGreen)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="panel">
-          <div className="panel-title">💾 Cache Stats</div>
-          {cacheData ? (
-            <>
-              <div className="service-node">
-                <span className="service-name">Entries</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{cacheData.total_entries}</span>
-              </div>
-              <div className="service-node">
-                <span className="service-name">Hits</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--accent-green)' }}>{cacheData.total_hits}</span>
-              </div>
-              <div className="service-node">
-                <span className="service-name">TTL</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{cacheData.ttl_hours}h</span>
-              </div>
-            </>
-          ) : <div className="skeleton" style={{ height: 80 }} />}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// TAB 2: DEBATE LAUNCHER
-// ═══════════════════════════════════════════════════════════
-
-function DebateLauncher() {
-  const { state, dispatch } = useContext(SynapseContext);
-  const [healthData, setHealthData] = useState(null);
-  const [launching, setLaunching] = useState(false);
-  const [chatResponse, setChatResponse] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
-
-  const launcher = state.debateLauncher;
-
-  useEffect(() => {
-    if (state.demoMode) { setHealthData(MOCK_HEALTH); return; }
-    fetch(`${state.backendUrl}/health`).then(r => r.json()).then(setHealthData).catch(() => {});
-  }, [state.demoMode, state.backendUrl]);
-
-  const allModels = useMemo(() => {
-    if (!healthData?.services) return [];
-    const models = [];
-    if (healthData.services.ollama?.models) healthData.services.ollama.models.forEach(m => models.push({ name: m, provider: 'ollama', engine: 'ollama', node: 'LOCAL' }));
-    if (healthData.services.lm_studio?.models) healthData.services.lm_studio.models.forEach(m => models.push({ name: m, provider: 'lm_studio', engine: 'lm_studio', node: 'LOCAL' }));
-    if (healthData.services.groq?.models) healthData.services.groq.models.forEach(m => models.push({ name: m, provider: 'groq', engine: 'groq', node: 'CLOUD' }));
-    if (healthData.services.gemini?.models) healthData.services.gemini.models.forEach(m => models.push({ name: m, provider: 'gemini', engine: 'gemini', node: 'CLOUD' }));
-    if (healthData.services.openrouter?.models) healthData.services.openrouter.models.forEach(m => models.push({ name: m, provider: 'openrouter', engine: 'openrouter', node: 'CLOUD' }));
-    return models;
-  }, [healthData]);
-
-  const toggleModel = (model) => {
-    const selected = launcher.selectedModels;
-    const exists = selected.find(m => m.name === model.name);
-    if (exists) {
-      dispatch({ type: 'SET_LAUNCHER', payload: { selectedModels: selected.filter(m => m.name !== model.name) } });
-    } else {
-      dispatch({ type: 'SET_LAUNCHER', payload: { selectedModels: [...selected, { ...model, temperature: 0.7, max_tokens: 2048, top_p: 0.9, timeout: 30, role: 'analyst' }] } });
-    }
-  };
-
-  const updateModelConfig = (modelName, field, value) => {
-    const updated = launcher.selectedModels.map(m => m.name === modelName ? { ...m, [field]: value } : m);
-    dispatch({ type: 'SET_LAUNCHER', payload: { selectedModels: updated } });
-  };
-
-  const launchDebate = async () => {
-    setLaunching(true);
-    try {
-      if (state.demoMode) {
-        setTimeout(() => {
-          dispatch({ type: 'ADD_NOTIFICATION', payload: { type: 'success', message: '🚀 Debate lanzado (demo mode)' } });
-          dispatch({ type: 'RESET_LAUNCHER' });
-          dispatch({ type: 'SET_ACTIVE_TAB', payload: 'command' });
-          setLaunching(false);
-        }, 1500);
-        return;
-      }
-
-      const endpoint = launcher.type === 'iterative' ? '/api/v1/debates/create/iterative' : '/api/v1/debates/create';
-      const body = {
-        topic: launcher.topic,
-        mode: launcher.type === 'tribunal' ? 'standard' : launcher.type === 'iterative' ? 'iterative' : 'standard',
-        max_turns: launcher.rounds,
-        include_cloud: true,
-        agents: launcher.selectedModels.map(m => ({
-          name: m.name, model: m.name, engine: m.engine, provider: m.provider,
-          role: m.role || 'analyst', temperature: m.temperature, max_tokens: m.max_tokens,
-          system_prompt: '', node: m.node
-        }))
-      };
-
-      const res = await fetch(`${state.backendUrl}${endpoint}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      dispatch({ type: 'ADD_NOTIFICATION', payload: { type: 'success', message: `🚀 Debate ${data.session_id?.slice(0, 8)} lanzado` } });
-      dispatch({ type: 'SET_ACTIVE_STREAM', payload: data.session_id });
-      dispatch({ type: 'RESET_LAUNCHER' });
-      dispatch({ type: 'SET_ACTIVE_TAB', payload: 'command' });
-    } catch (e) {
-      dispatch({ type: 'ADD_NOTIFICATION', payload: { type: 'error', message: `Error: ${e.message}` } });
-    }
-    setLaunching(false);
-  };
-
-  const sendChat = async () => {
-    const input = document.getElementById('chat-input');
-    if (!input?.value.trim()) return;
-    const msg = input.value.trim();
-    input.value = '';
-    dispatch({ type: 'ADD_CHAT_MESSAGE', payload: { role: 'user', content: msg } });
-    setChatLoading(true);
-
-    try {
-      if (state.demoMode) {
-        setTimeout(() => {
-          dispatch({ type: 'ADD_CHAT_MESSAGE', payload: { role: 'assistant', content: `Respuesta simulada de ${state.chatModel} a: "${msg}"` } });
-          setChatLoading(false);
-        }, 1000);
-        return;
-      }
-
-      const res = await fetch(`${state.backendUrl}/api/v1/system/chat/direct`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, model: state.chatModel, engine: state.chatEngine, temperature: 0.7, max_tokens: 2048 })
-      });
-      const data = await res.json();
-      dispatch({ type: 'ADD_CHAT_MESSAGE', payload: { role: 'assistant', content: data.response } });
-    } catch (e) {
-      dispatch({ type: 'ADD_CHAT_MESSAGE', payload: { role: 'assistant', content: `Error: ${e.message}` } });
-    }
-    setChatLoading(false);
-  };
-
-  const isValid = launcher.topic.trim() && launcher.selectedModels.length > 0;
-
-  return (
-    <div>
-      {/* Debate Type Selector */}
-      <div className="debate-type-selector">
-        {[
-          { id: 'sequential', label: 'SECUENCIAL' },
-          { id: 'iterative', label: 'ITERATIVO' },
-          { id: 'tribunal', label: 'TRIBUNAL SOLO' },
-          { id: 'chat', label: 'CHAT DIRECTO' },
-        ].map(t => (
-          <button key={t.id} className={`debate-type-btn ${launcher.type === t.id ? 'active' : ''}`} onClick={() => dispatch({ type: 'SET_LAUNCHER', payload: { type: t.id } })}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {launcher.type === 'chat' ? (
-        /* CHAT DIRECTO */
-        <div className="panel" style={{ height: 'calc(100vh - 140px)', display: 'flex', flexDirection: 'column' }}>
-          <div className="panel-title">💬 Chat Directo</div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <select className="input-field" style={{ maxWidth: 200 }} value={state.chatEngine} onChange={e => dispatch({ type: 'SET_CHAT_ENGINE', payload: e.target.value })}>
-              <option value="groq">Groq</option>
-              <option value="gemini">Gemini</option>
-              <option value="openrouter">OpenRouter</option>
-              <option value="deepseek">DeepSeek</option>
-            </select>
-            <input className="input-field" value={state.chatModel} onChange={e => dispatch({ type: 'SET_CHAT_MODEL', payload: e.target.value })} placeholder="Modelo" />
-          </div>
-          <div className="chat-messages" style={{ flex: 1 }}>
-            {state.chatMessages.map((m, i) => (
-              <div key={i} className={`chat-message ${m.role}`}>
-                <div className="msg-role">{m.role === 'user' ? 'TÚ' : state.chatModel}</div>
-                <div>{m.content}</div>
-              </div>
-            ))}
-            {chatLoading && <div className="chat-message assistant"><div className="spinner" /></div>}
-          </div>
-          <div className="chat-input-bar">
-            <input id="chat-input" className="input-field" placeholder="Escribe un mensaje..." onKeyDown={e => e.key === 'Enter' && sendChat()} />
-            <button className="btn btn-primary btn-sm" onClick={sendChat} disabled={chatLoading}>Enviar</button>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Wizard Steps */}
-          <div className="wizard-steps">
-            {[
-              { num: 1, label: 'Tema' },
-              { num: 2, label: 'Modelos' },
-              { num: 3, label: 'Config' },
-            ].map(s => (
-              <div key={s.num} className={`wizard-step ${launcher.step === s.num ? 'active' : launcher.step > s.num ? 'completed' : ''}`}>
-                <span className="step-number">{launcher.step > s.num ? '✓' : s.num}</span>
-                {s.label}
-              </div>
-            ))}
-          </div>
-
-          {/* Step 1: Topic */}
-          {launcher.step === 1 && (
-            <div className="panel">
-              <div className="panel-title">📝 Pregunta Central del Debate</div>
-              <textarea className="input-field" rows={4} placeholder="Escribe aquí la pregunta o tema del debate..." value={launcher.topic} onChange={e => dispatch({ type: 'SET_LAUNCHER', payload: { topic: e.target.value } })} />
-              <div style={{ marginTop: 12 }}>
-                <label className="label">Contexto adicional (opcional)</label>
-                <input className="input-field" placeholder="Información de contexto..." value={launcher.context} onChange={e => dispatch({ type: 'SET_LAUNCHER', payload: { context: e.target.value } })} />
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <label className="label">Idioma</label>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  {[
-                    { id: 'es', label: 'Español' },
-                    { id: 'en', label: 'English' },
-                    { id: 'auto', label: 'Auto' },
-                  ].map(l => (
-                    <label key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
-                      <input type="radio" name="lang" checked={launcher.language === l.id} onChange={() => dispatch({ type: 'SET_LAUNCHER', payload: { language: l.id } })} />
-                      {l.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => dispatch({ type: 'SET_LAUNCHER_STEP', payload: 2 })}>Siguiente →</button>
-            </div>
-          )}
-
-          {/* Step 2: Models */}
-          {launcher.step === 2 && (
-            <div>
-              <div className="panel">
-                <div className="panel-title">🧬 Seleccionar Modelos ({launcher.selectedModels.length} seleccionados)</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
-                  {allModels.map(m => {
-                    const isSelected = launcher.selectedModels.find(sm => sm.name === m.name);
-                    return (
-                      <div key={m.name} className={`model-card ${isSelected ? 'selected' : ''}`} onClick={() => toggleModel(m)}>
-                        <div className="model-name">{m.name}</div>
-                        <div className="model-provider">{m.provider.toUpperCase()} · {m.node}</div>
-                        {isSelected && <div style={{ fontSize: 10, color: 'var(--accent-green)' }}>✓ Seleccionado</div>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Model Config */}
-              {launcher.selectedModels.length > 0 && (
-                <div className="panel">
-                  <div className="panel-title">⚙️ Configuración de Modelos</div>
-                  {launcher.selectedModels.map(m => (
-                    <div key={m.name} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, marginBottom: 8 }}>{m.name}</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <div>
-                          <label className="label">Temperatura: {m.temperature}</label>
-                          <input type="range" className="slider" min="0" max="1" step="0.1" value={m.temperature} onChange={e => updateModelConfig(m.name, 'temperature', parseFloat(e.target.value))} />
-                        </div>
-                        <div>
-                          <label className="label">Max Tokens: {m.max_tokens}</label>
-                          <input type="range" className="slider" min="256" max="4096" step="256" value={m.max_tokens} onChange={e => updateModelConfig(m.name, 'max_tokens', parseInt(e.target.value))} />
-                        </div>
-                        <div>
-                          <label className="label">Top-p: {m.top_p}</label>
-                          <input type="range" className="slider" min="0" max="1" step="0.1" value={m.top_p} onChange={e => updateModelConfig(m.name, 'top_p', parseFloat(e.target.value))} />
-                        </div>
-                        <div>
-                          <label className="label">Timeout: {m.timeout}s</label>
-                          <input type="range" className="slider" min="10" max="120" step="5" value={m.timeout} onChange={e => updateModelConfig(m.name, 'timeout', parseInt(e.target.value))} />
-                        </div>
-                      </div>
-                      <div style={{ marginTop: 8 }}>
-                        <label className="label">Rol</label>
-                        <select className="input-field" style={{ maxWidth: 200 }} value={m.role} onChange={e => updateModelConfig(m.name, 'role', e.target.value)}>
-                          <option value="analyst">Analista</option>
-                          <option value="critic">Crítico</option>
-                          <option value="synthesizer">Sintetizador</option>
-                          <option value="validator">Validador</option>
-                          <option value="moderator">Moderador</option>
-                        </select>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-secondary" onClick={() => dispatch({ type: 'SET_LAUNCHER_STEP', payload: 1 })}>← Atrás</button>
-                <button className="btn btn-primary" onClick={() => dispatch({ type: 'SET_LAUNCHER_STEP', payload: 3 })}>Siguiente →</button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Config */}
-          {launcher.step === 3 && (
-            <div>
-              <div className="grid-2col">
-                <div className="panel">
-                  <div className="panel-title">⚙️ Configuración del Debate</div>
-                  <div style={{ marginBottom: 12 }}>
-                    <label className="label">Número de rondas</label>
-                    <select className="input-field" value={launcher.rounds} onChange={e => dispatch({ type: 'SET_LAUNCHER', payload: { rounds: parseInt(e.target.value) } })}>
-                      {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                  </div>
-                  <div className="checkbox-group">
-                    <input type="checkbox" id="conv" checked={launcher.convergence} onChange={e => dispatch({ type: 'SET_LAUNCHER', payload: { convergence: e.target.checked } })} />
-                    <label htmlFor="conv">Convergencia anticipada (umbral: {launcher.convergenceThreshold})</label>
-                  </div>
-                  <div className="checkbox-group">
-                    <input type="checkbox" id="cache" checked={launcher.cache} onChange={e => dispatch({ type: 'SET_LAUNCHER', payload: { cache: e.target.checked } })} />
-                    <label htmlFor="cache">Caché semántica</label>
-                  </div>
-                  <div className="checkbox-group">
-                    <input type="checkbox" id="reductio" checked={launcher.reductio} onChange={e => dispatch({ type: 'SET_LAUNCHER', payload: { reductio: e.target.checked } })} />
-                    <label htmlFor="reductio">Reducción al absurdo</label>
-                  </div>
-                  <div className="checkbox-group">
-                    <input type="checkbox" id="tribunal" checked={launcher.tribunal} onChange={e => dispatch({ type: 'SET_LAUNCHER', payload: { tribunal: e.target.checked } })} />
-                    <label htmlFor="tribunal">Tribunal activo</label>
-                  </div>
-                </div>
-
-                <div className="panel">
-                  <div className="panel-title">📊 Preview</div>
-                  <div className="service-node">
-                    <span className="service-name">Modelos</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{launcher.selectedModels.length}</span>
-                  </div>
-                  <div className="service-node">
-                    <span className="service-name">Rondas</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{launcher.rounds}</span>
-                  </div>
-                  <div className="service-node">
-                    <span className="service-name">Turnos estimados</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{launcher.selectedModels.length * launcher.rounds}</span>
-                  </div>
-                  <div className="service-node">
-                    <span className="service-name">Tiempo estimado</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>~{Math.ceil(launcher.selectedModels.length * launcher.rounds * 0.05)} min</span>
-                  </div>
-
-                  <div style={{ marginTop: 12 }}>
-                    <label className="label">Exportar</label>
-                    <div className="checkbox-group">
-                      <input type="checkbox" id="exp-json" checked={launcher.exportJson} onChange={e => dispatch({ type: 'SET_LAUNCHER', payload: { exportJson: e.target.checked } })} />
-                      <label htmlFor="exp-json">JSON</label>
-                    </div>
-                    <div className="checkbox-group">
-                      <input type="checkbox" id="exp-md" checked={launcher.exportMd} onChange={e => dispatch({ type: 'SET_LAUNCHER', payload: { exportMd: e.target.checked } })} />
-                      <label htmlFor="exp-md">Markdown</label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                <button className="btn btn-secondary" onClick={() => dispatch({ type: 'SET_LAUNCHER_STEP', payload: 2 })}>← Atrás</button>
-                <button className="btn btn-primary" onClick={launchDebate} disabled={!isValid || launching}>
-                  {launching ? <><div className="spinner" /> Lanzando...</> : '▶ INICIAR DEBATE'}
-                </button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// TAB 3: METRICS & ANALYTICS
-// ═══════════════════════════════════════════════════════════
-
-function MetricsAnalytics() {
-  const { state, dispatch } = useContext(SynapseContext);
-  const [analytics, setAnalytics] = useState(null);
-  const [cacheStats, setCacheStats] = useState(null);
-  const [reps, setReps] = useState({});
-
-  useEffect(() => {
-    if (state.demoMode) {
-      setAnalytics({
-        dailySummary: { totalDebatesCompleted: 142, totalDebatesFailed: 3, totalTurnsExecuted: 568, totalTokensGenerated: 1200000, totalCostUsd: 0, avgDebateDurationSeconds: 180, uniqueTopicsCount: 89, activeModelsCount: 6 },
-        modelLeaderboard: Object.entries(MOCK_REPUTATIONS).map(([model, rep]) => ({ model, provider: model.includes('gemini') ? 'google' : 'ollama', totalTurns: rep.debates * 4, avgTokensOut: 450, avgLatencyMs: 2400, successRate: rep.global / 10 }))
-      });
-      setCacheStats(MOCK_CACHE_STATS);
-      setReps(MOCK_REPUTATIONS);
-      return;
-    }
-
-    const fetchData = async () => {
-      const [a, c, r] = await Promise.allSettled([
-        fetch(`${state.backendUrl}/api/v1/system/analytics`).then(r => r.json()),
-        fetch(`${state.backendUrl}/api/v1/cache/stats`).then(r => r.json()),
-        fetch(`${state.backendUrl}/api/v1/debates/reputation`).then(r => r.json()),
-      ]);
-      if (a.status === 'fulfilled') setAnalytics(a.value);
-      if (c.status === 'fulfilled') setCacheStats(c.value);
-      if (r.status === 'fulfilled') setReps(r.value?.reputations || {});
-    };
-
-    fetchData();
-    const id = setInterval(fetchData, state.pollingInterval);
-    return () => clearInterval(id);
-  }, [state.demoMode, state.backendUrl, state.pollingInterval]);
-
-  const ds = analytics?.dailySummary || {};
-
-  return (
-    <div>
-      {/* Polling Control */}
-      <div className="polling-control">
-        <div className="polling-toggle">
-          <input type="checkbox" id="polling" checked={state.pollingEnabled} onChange={e => dispatch({ type: 'SET_POLLING_ENABLED', payload: e.target.checked })} />
-          <label htmlFor="polling">Auto-refresh</label>
-        </div>
-        <span style={{ color: 'var(--text-muted)' }}>Intervalo: {state.pollingInterval / 1000}s</span>
-        <button className="btn btn-sm btn-secondary" onClick={() => {
-          if (state.demoMode) { setAnalytics({ dailySummary: { totalDebatesCompleted: 142 }, modelLeaderboard: [] }); setCacheStats(MOCK_CACHE_STATS); setReps(MOCK_REPUTATIONS); return; }
-          fetch(`${state.backendUrl}/api/v1/system/analytics`).then(r => r.json()).then(setAnalytics);
-          fetch(`${state.backendUrl}/api/v1/cache/stats`).then(r => r.json()).then(setCacheStats);
-          fetch(`${state.backendUrl}/api/v1/debates/reputation`).then(r => r.json()).then(r => setReps(r?.reputations || {}));
-        }}>↻ Actualizar ahora</button>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid-4col" style={{ marginBottom: 16 }}>
-        <div className="card metric-gauge">
-          <div className="metric-value">{ds.totalDebatesCompleted || 0}</div>
-          <div className="metric-label">Debates Completados</div>
-          <div className="metric-trend trend-up">+12 hoy ↑</div>
-        </div>
-        <div className="card metric-gauge">
-          <div className="metric-value">{cacheStats ? `${cacheStats.hit_rate}%` : '--'}</div>
-          <div className="metric-label">Hit Rate Caché</div>
-          <div className="metric-trend trend-up">↑ desde 60%</div>
-        </div>
-        <div className="card metric-gauge">
-          <div className="metric-value">{ds.avgDebateDurationSeconds ? `${(ds.avgDebateDurationSeconds / 60).toFixed(1)}m` : '--'}</div>
-          <div className="metric-label">Duración Media</div>
-          <div className="metric-trend trend-down">↓ mejor</div>
-        </div>
-        <div className="card metric-gauge">
-          <div className="metric-value">{ds.totalTokensGenerated ? `${(ds.totalTokensGenerated / 1000000).toFixed(1)}M` : '--'}</div>
-          <div className="metric-label">Tokens Procesados</div>
-          <div className="metric-trend trend-up">+45k hoy</div>
-        </div>
-      </div>
-
-      {/* Charts */}
-      <div className="grid-2col" style={{ marginBottom: 16 }}>
-        <div className="panel">
-          <div className="panel-title">📈 Debates por Hora</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={MOCK_METRICS_TIMELINE}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(139,92,246,0.1)" />
-              <XAxis dataKey="hour" tick={{ fontSize: 10, fill: '#6B7280' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} />
-              <Tooltip contentStyle={{ background: '#12141F', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 6, fontSize: 11 }} />
-              <Line type="monotone" dataKey="debates" stroke="#00FF88" strokeWidth={2} dot={{ fill: '#00FF88', r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="panel">
-          <div className="panel-title">🍩 Uso por Modelo</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={MOCK_MODEL_USAGE} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value">
-                {MOCK_MODEL_USAGE.map((entry, index) => <Cell key={index} fill={entry.color} />)}
-              </Pie>
-              <Tooltip contentStyle={{ background: '#12141F', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 6, fontSize: 11 }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Reputation Leaderboard */}
-      <div className="panel">
-        <div className="panel-title">🏆 Reputation Leaderboard</div>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Modelo</th>
-              <th>TSA</th>
-              <th>IID</th>
-              <th>PVT</th>
-              <th>Score</th>
-              <th>Debates</th>
-              <th>Wins</th>
-              <th>Win Rate</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(reps).sort((a, b) => (b[1]?.global || 0) - (a[1]?.global || 0)).map(([model, rep]) => (
-              <tr key={model} style={{ cursor: 'pointer' }} onClick={() => { dispatch({ type: 'SELECT_MODEL', payload: model }); }}>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{model}</td>
-                <td>{rep.tsa?.toFixed(1)}</td>
-                <td>{rep.iid?.toFixed(1)}</td>
-                <td>{rep.pvt?.toFixed(1)}</td>
-                <td style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{rep.global?.toFixed(1)}</td>
-                <td>{rep.debates}</td>
-                <td>{rep.wins}</td>
-                <td>{rep.debates ? `${((rep.wins / rep.debates) * 100).toFixed(0)}%` : '--'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Cache Analytics */}
-      {cacheStats && (
-        <div className="panel">
-          <div className="panel-title">💾 Cache Analytics</div>
-          <div className="grid-4col">
-            <div className="service-node"><span className="service-name">Total Entries</span><span style={{ fontFamily: 'var(--font-mono)' }}>{cacheStats.total_entries}</span></div>
-            <div className="service-node"><span className="service-name">Hits</span><span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-green)' }}>{cacheStats.total_hits}</span></div>
-            <div className="service-node"><span className="service-name">Hit Rate</span><span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-green)' }}>{cacheStats.hit_rate}%</span></div>
-            <div className="service-node"><span className="service-name">TTL</span><span style={{ fontFamily: 'var(--font-mono)' }}>{cacheStats.ttl_hours}h</span></div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button className="btn btn-sm btn-secondary" onClick={() => fetch(`${state.backendUrl}/api/v1/cache/invalidate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(() => dispatch({ type: 'ADD_NOTIFICATION', payload: { type: 'success', message: 'Cache invalidado' } }))}>Invalidar Cache</button>
-            <button className="btn btn-sm btn-secondary" onClick={() => fetch(`${state.backendUrl}/api/v1/cache/cleanup`, { method: 'POST' }).then(() => dispatch({ type: 'ADD_NOTIFICATION', payload: { type: 'success', message: 'Cache limpiado' } }))}>Limpiar Expirados</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// TAB 4: TRIBUNAL
-// ═══════════════════════════════════════════════════════════
-
-function TribunalPanel() {
-  const { state, dispatch } = useContext(SynapseContext);
-  const [config, setConfig] = useState(null);
-  const [verdicts, setVerdicts] = useState([]);
-
-  useEffect(() => {
-    if (state.demoMode) { setConfig(MOCK_TRIBUNAL_CONFIG); setVerdicts(MOCK_DEBATES.filter(d => d.status === 'completed').slice(0, 5)); return; }
-    fetch(`${state.backendUrl}/api/v1/system/tribunal/config`).then(r => r.json()).then(setConfig);
-    fetch(`${state.backendUrl}/api/v1/debates/history/list`).then(r => r.json()).then(d => setVerdicts(d?.sessions?.filter(s => s.status === 'completed').slice(0, 10) || []));
-  }, [state.demoMode, state.backendUrl]);
-
-  if (!config) return <div className="panel"><div className="skeleton" style={{ height: 400 }} /></div>;
-
-  return (
-    <div>
-      {/* Tribunal Diagram */}
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <div className="panel-title">🏛️ Tribunal de Magistrados</div>
-        <div className="tribunal-diagram">
-          {/* Defensor */}
-          <div className="tribunal-node defensor active">
-            <div className="tribunal-role">Defensor</div>
-            <div className="tribunal-crown">🛡️</div>
-            <div className="tribunal-model">{config.roles?.defensor?.primary?.model || 'N/A'}</div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{config.roles?.defensor?.primary?.engine}</div>
-          </div>
-
-          {/* Fiscal */}
-          <div className="tribunal-node fiscal active">
-            <div className="tribunal-role">Fiscal</div>
-            <div className="tribunal-crown">⚔️</div>
-            <div className="tribunal-model">{config.roles?.fiscal?.primary?.model || 'N/A'}</div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{config.roles?.fiscal?.primary?.engine}</div>
-          </div>
-
-          {/* Árbitro */}
-          <div className="tribunal-node arbitro active">
-            <div className="tribunal-role">Árbitro</div>
-            <div className="tribunal-crown">👑</div>
-            <div className="tribunal-model">{config.roles?.arbitro?.primary?.model || 'N/A'}</div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{config.roles?.arbitro?.primary?.engine}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid-2col">
-        {/* Config */}
-        <div className="panel">
-          <div className="panel-title">⚙️ Configuración</div>
-          {Object.entries(config.roles || {}).map(([role, data]) => (
-            <div key={role} style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'capitalize', color: 'var(--accent-violet)', marginBottom: 8 }}>{role}</div>
-              <div className="service-node">
-                <span className="service-name">Principal</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{data.primary?.model}</span>
-              </div>
-              {data.fallbacks?.map((fb, i) => (
-                <div key={i} className="service-node" style={{ marginLeft: 16 }}>
-                  <span className="service-name" style={{ fontSize: 10 }}>Fallback {i + 1}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>{fb.model}</span>
-                </div>
-              ))}
-            </div>
-          ))}
-          <div className="service-node">
-            <span className="service-name">Max Iteraciones</span>
-            <span style={{ fontFamily: 'var(--font-mono)' }}>{config.maxIterations}</span>
-          </div>
-          <div className="service-node">
-            <span className="service-name">Cloud Fallback</span>
-            <span style={{ color: config.cloudFallbackEnabled ? 'var(--accent-green)' : 'var(--accent-red)' }}>{config.cloudFallbackEnabled ? '✓ Sí' : '✗ No'}</span>
-          </div>
-        </div>
-
-        {/* Verdict History */}
-        <div className="panel">
-          <div className="panel-title">📜 Historial de Veredictos</div>
-          {verdicts.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-text">Sin veredictos recientes</div>
-            </div>
-          ) : verdicts.map(v => (
-            <div key={v.session_id} className="service-node" style={{ cursor: 'pointer' }} onClick={() => dispatch({ type: 'SELECT_DEBATE', payload: v.session_id })}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 500 }}>{v.topic?.substring(0, 50)}...</div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{new Date(v.created_at).toLocaleDateString()}</div>
-              </div>
-              <span className={`debate-status ${v.status}`}>{v.status}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Simulation Preview */}
-      <div className="panel" style={{ marginTop: 16 }}>
-        <div className="panel-title">🧪 Simular Tribunal</div>
-        <textarea className="input-field" rows={3} placeholder="Introduce una posición controvertida para simular el tribunal..." />
-        <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => {
-          dispatch({ type: 'ADD_NOTIFICATION', payload: { type: 'info', message: 'Simulación de tribunal iniciada' } });
-          dispatch({ type: 'SET_LAUNCHER', payload: { type: 'tribunal', step: 3 } });
-          dispatch({ type: 'SET_ACTIVE_TAB', payload: 'launcher' });
-        }}>Simular Tribunal</button>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// TAB 5: MODELS & ADAPTERS
-// ═══════════════════════════════════════════════════════════
-
-function ModelsAdapters() {
-  const { state, dispatch } = useContext(SynapseContext);
-  const [healthData, setHealthData] = useState(null);
-  const [reps, setReps] = useState({});
-  const [workerServices, setWorkerServices] = useState(null);
-
-  useEffect(() => {
-    if (state.demoMode) { setHealthData(MOCK_HEALTH); setReps(MOCK_REPUTATIONS); setWorkerServices({ worker_ip: "192.168.1.44", services: MOCK_WORKER_SERVICES }); return; }
-    const fetchData = async () => {
-      const [h, r, w] = await Promise.allSettled([
-        fetch(`${state.backendUrl}/health`).then(r => r.json()),
-        fetch(`${state.backendUrl}/api/v1/debates/reputation`).then(r => r.json()),
-        fetch(`${state.backendUrl}/api/v1/system/worker/services`).then(r => r.json()),
-      ]);
-      if (h.status === 'fulfilled') setHealthData(h.value);
-      if (r.status === 'fulfilled') setReps(r.value?.reputations || {});
-      if (w.status === 'fulfilled') setWorkerServices(w.value);
-    };
-    fetchData();
-  }, [state.demoMode, state.backendUrl]);
-
-  const providers = useMemo(() => {
-    if (!healthData?.services) return [];
-    const groups = [];
-    const addGroup = (name, status, models, engine, node) => {
-      if (models?.length) groups.push({ name, status, models: models.map(m => ({ name: m, engine, node, rep: reps[m]?.global || 0 })), engine, node });
-    };
-    const svc = healthData.services;
-    addGroup('OLLAMA', svc.ollama?.status, svc.ollama?.models, 'ollama', 'LOCAL');
-    addGroup('LM STUDIO', svc.lm_studio?.status, svc.lm_studio?.models, 'lm_studio', 'LOCAL');
-    addGroup('GROQ', svc.groq?.status, svc.groq?.models, 'groq', 'CLOUD');
-    addGroup('GEMINI', svc.gemini?.status, svc.gemini?.models, 'gemini', 'CLOUD');
-    addGroup('OPENROUTER', svc.openrouter?.status, svc.openrouter?.models, 'openrouter', 'CLOUD');
-    return groups;
-  }, [healthData, reps]);
-
-  return (
-    <div className="grid-2col">
-      {/* Model Catalog */}
-      <div>
-        {providers.map(p => (
-          <div key={p.name} className="panel">
-            <div className="panel-title">
-              ▼ {p.name} ({p.node.toLowerCase()})
-              <span className={`status-dot ${p.status === 'healthy' || p.status === 'online' ? 'healthy' : 'unavailable'}`} style={{ marginLeft: 8 }}></span>
-              <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 4 }}>{p.status?.toUpperCase()}</span>
-            </div>
-            {p.models.map(m => (
-              <div key={m.name} className={`service-node ${state.selectedModel === m.name ? 'selected' : ''}`} style={{ cursor: 'pointer', borderColor: state.selectedModel === m.name ? 'var(--accent-green)' : '' }} onClick={() => dispatch({ type: 'SELECT_MODEL', payload: m.name })}>
-                <span className="service-name" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{m.name}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: m.rep > 0 ? 'var(--accent-green)' : 'var(--text-muted)' }}>
-                  Rep: {m.rep > 0 ? m.rep.toFixed(1) : 'N/A'}
-                </span>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-
-      {/* Detail Panel */}
-      <div>
-        {state.selectedModel ? (
-          <div className="panel">
-            <div className="panel-title">
-              {state.selectedModel}
-              <span className="debate-status running">ACTIVO</span>
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>REPUTACIÓN EMA</div>
-              {['tsa', 'iid', 'pvt'].map(metric => {
-                const val = reps[state.selectedModel]?.[metric] || 0;
-                const labels = { tsa: 'TSA (Coherencia)', iid: 'IID (Info Density)', pvt: 'PVT (Veracidad)' };
-                return (
-                  <div key={metric} style={{ marginBottom: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
-                      <span>{labels[metric]}</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-green)' }}>{val.toFixed(1)}</span>
-                    </div>
-                    <div className="rep-bar"><div className="rep-fill" style={{ width: `${val * 10}%` }} /></div>
-                  </div>
-                );
-              })}
-              <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                <span>Score Global</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-green)', fontWeight: 600 }}>{(reps[state.selectedModel]?.global || 0).toFixed(1)}</span>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>ESTADÍSTICAS</div>
-              <div className="service-node"><span className="service-name">Debates</span><span style={{ fontFamily: 'var(--font-mono)' }}>{reps[state.selectedModel]?.debates || 0}</span></div>
-              <div className="service-node"><span className="service-name">Victorias</span><span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-green)' }}>{reps[state.selectedModel]?.wins || 0}</span></div>
-            </div>
-          </div>
-        ) : (
-          <div className="panel">
-            <div className="empty-state">
-              <div className="empty-state-icon">🧬</div>
-              <div className="empty-state-text">Selecciona un modelo para ver detalles</div>
-            </div>
-          </div>
-        )}
-
-        {/* Worker Services */}
-        <div className="panel" style={{ marginTop: 12 }}>
-          <div className="panel-title">🔧 Worker Services</div>
-          {workerServices ? (
-            <>
-              <div className="service-node">
-                <span className="service-name">Worker IP</span>
-                <span style={{ fontFamily: 'var(--font-mono)' }}>{workerServices.worker_ip}</span>
-              </div>
-              {Object.entries(workerServices.services || {}).map(([svc, data]) => (
-                <div key={svc} className="service-node">
-                  <span className="service-name">{svc}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className={`status-dot ${data.status === 'running' ? 'healthy' : 'unavailable'}`}></span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>{data.status}</span>
-                    <button className="debate-btn btn-sm" onClick={() => fetch(`${state.backendUrl}/api/v1/system/worker/services/launch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ service: svc }) }).then(() => dispatch({ type: 'ADD_NOTIFICATION', payload: { type: 'success', message: `${svc} launching...` } }))}>
-                      Launch
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </>
-          ) : <div className="skeleton" style={{ height: 100 }} />}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// TAB 6: HISTORY & EXPORT
-// ═══════════════════════════════════════════════════════════
-
-function HistoryExport() {
-  const { state, dispatch } = useContext(SynapseContext);
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (state.demoMode) { setHistory(MOCK_DEBATES); setLoading(false); return; }
-    setLoading(true);
-    fetch(`${state.backendUrl}/api/v1/debates/history/list?limit=50`).then(r => r.json()).then(d => { setHistory(d?.sessions || []); setLoading(false); }).catch(() => setLoading(false));
-  }, [state.demoMode, state.backendUrl]);
-
-  const filtered = useMemo(() => {
-    const f = state.historyFilter;
-    return history.filter(h => {
-      if (f.status !== 'all' && h.status !== f.status) return false;
-      if (f.search && !h.topic?.toLowerCase().includes(f.search.toLowerCase())) return false;
-      return true;
-    });
-  }, [history, state.historyFilter]);
-
-  const formatDate = (d) => {
-    if (!d) return '--';
-    const date = new Date(d);
-    const now = new Date();
-    const diff = now - date;
-    if (diff < 3600000) return `Hace ${Math.floor(diff / 60000)}m`;
-    if (diff < 86400000) return `Hace ${Math.floor(diff / 3600000)}h`;
-    return date.toLocaleDateString();
-  };
-
-  return (
-    <div>
-      {/* Filter Bar */}
-      <div className="filter-bar">
-        <input className="input-field" placeholder="🔍 Buscar en historial..." value={state.historyFilter.search} onChange={e => dispatch({ type: 'SET_HISTORY_FILTER', payload: { search: e.target.value } })} />
-        <select className="input-field" style={{ maxWidth: 140 }} value={state.historyFilter.status} onChange={e => dispatch({ type: 'SET_HISTORY_FILTER', payload: { status: e.target.value } })}>
-          <option value="all">Todos</option>
-          <option value="completed">Completados</option>
-          <option value="running">En curso</option>
-          <option value="paused">Pausados</option>
-          <option value="failed">Fallidos</option>
-        </select>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{filtered.length} debates</span>
-      </div>
-
-      {/* Table */}
-      <div className="panel">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Pregunta</th>
-              <th>Estado</th>
-              <th>Turnos</th>
-              <th>Fecha</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="6"><div className="skeleton" style={{ height: 40 }} /></td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan="6"><div className="empty-state"><div className="empty-state-text">Sin debates</div></div></td></tr>
-            ) : filtered.map(h => (
-              <tr key={h.session_id}>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>{h.session_id?.slice(0, 8)}</td>
-                <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.topic}</td>
-                <td><span className={`debate-status ${h.status}`}>{h.status}</span></td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{h.turns_completed}/{h.total_turns}</td>
-                <td style={{ fontSize: 11 }}>{formatDate(h.created_at)}</td>
-                <td>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button className="debate-btn btn-sm" onClick={() => dispatch({ type: 'SELECT_DEBATE', payload: h.session_id })}>👁</button>
-                    <button className="debate-btn btn-sm" onClick={() => window.open(`${state.backendUrl}/api/v1/debates/${h.session_id}/export/json`, '_blank')}>📥</button>
-                    {h.status === 'completed' && <button className="debate-btn btn-sm" onClick={() => fetch(`${state.backendUrl}/api/v1/debates/${h.session_id}/continue`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(() => dispatch({ type: 'ADD_NOTIFICATION', payload: { type: 'success', message: 'Debate continuado' } }))}>🔄</button>}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Detail Panel */}
-      {state.selectedDebate && <DebateDetailPanel />}
-    </div>
-  );
-}
-
-function DebateDetailPanel() {
-  const { state, dispatch } = useContext(SynapseContext);
-  const [debate, setDebate] = useState(null);
-  const [transcript, setTranscript] = useState(null);
-
-  useEffect(() => {
-    if (!state.selectedDebate) return;
-    const baseUrl = state.demoMode ? null : state.backendUrl;
-
-    if (state.demoMode) {
-      const mock = MOCK_DEBATES.find(d => d.session_id === state.selectedDebate);
-      setDebate(mock);
-      setTranscript({ transcript: `# ${mock?.topic}\n\nDebate simulado en modo demo.\n\n## Turno 1: Analista\n\nLorem ipsum dolor sit amet...`, source: 'demo' });
-      return;
-    }
-
-    fetch(`${baseUrl}/api/v1/debates/${state.selectedDebate}`).then(r => r.json()).then(setDebate).catch(() => {});
-    fetch(`${baseUrl}/api/v1/debates/${state.selectedDebate}/transcript`).then(r => r.json()).then(setTranscript).catch(() => {});
-  }, [state.selectedDebate, state.demoMode, state.backendUrl]);
-
-  if (!debate) return null;
-
-  return (
-    <div className="detail-panel">
-      <button className="detail-close" onClick={() => dispatch({ type: 'SELECT_DEBATE', payload: null })}>✕</button>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{debate.topic}</div>
-        <span className={`debate-status ${debate.status}`}>{debate.status}</span>
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>EXPORTAR</div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button className="btn btn-sm btn-secondary" onClick={() => window.open(`${state.backendUrl}/api/v1/debates/${state.selectedDebate}/export/json`, '_blank')}>📥 JSON</button>
-          <button className="btn btn-sm btn-secondary" onClick={() => window.open(`${state.backendUrl}/api/v1/debates/${state.selectedDebate}/export/markdown`, '_blank')}>📄 Markdown</button>
-          <button className="btn btn-sm btn-secondary" onClick={() => window.open(`${state.backendUrl}/api/v1/debates/${state.selectedDebate}/export/pdf`, '_blank')}>🖨️ PDF</button>
-        </div>
-      </div>
-
-      {debate.status === 'completed' && (
-        <button className="btn btn-sm btn-primary" style={{ marginBottom: 16, width: '100%' }} onClick={() => fetch(`${state.backendUrl}/api/v1/debates/${state.selectedDebate}/continue`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(() => dispatch({ type: 'ADD_NOTIFICATION', payload: { type: 'success', message: 'Debate continuado' } }))}>
-          🔄 Continuar Debate
-        </button>
-      )}
-
-      {transcript && (
-        <div style={{ background: 'var(--bg-surface)', borderRadius: 8, padding: 12, fontFamily: 'var(--font-mono)', fontSize: 11, whiteSpace: 'pre-wrap', maxHeight: 400, overflowY: 'auto', lineHeight: 1.6 }}>
-          {transcript.transcript}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// APP
-// ═══════════════════════════════════════════════════════════
-
-function App() {
-  const [state, dispatch] = useReducer(synapseReducer, initialState);
-
-  // WebSocket connection
-  useEffect(() => {
-    if (state.demoMode) return;
-    let ws = null;
-    try {
-      ws = new WebSocket(`ws://${state.backendUrl.replace('http://', '')}/ws/debate/stream`);
-      ws.onopen = () => dispatch({ type: 'SET_WS_CONNECTED', payload: true });
-      ws.onclose = () => dispatch({ type: 'SET_WS_CONNECTED', payload: false });
-      ws.onmessage = (e) => {
-        dispatch({ type: 'ADD_STREAM_MSG', payload: JSON.parse(e.data) });
-        dispatch({ type: 'INC_WS_COUNT' });
-      };
-    } catch (e) {
-      dispatch({ type: 'SET_WS_CONNECTED', payload: false });
-    }
-    return () => { if (ws) ws.close(); };
-  }, [state.demoMode, state.backendUrl]);
-
-  return (
-    <SynapseContext.Provider value={{ state, dispatch }}>
-      <div className="app-container">
-        <TopBar />
-        <div className="main-content">
-          {state.activeTab === 'command' && <CommandCenter />}
-          {state.activeTab === 'launcher' && <DebateLauncher />}
-          {state.activeTab === 'metrics' && <MetricsAnalytics />}
-          {state.activeTab === 'tribunal' && <TribunalPanel />}
-          {state.activeTab === 'models' && <ModelsAdapters />}
-          {state.activeTab === 'history' && <HistoryExport />}
-        </div>
-        <StreamBar />
-        <NotificationSystem />
-        <SettingsDrawer />
-      </div>
-    </SynapseContext.Provider>
-  );
-}
-
-// Mount
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+// ─── INIT ───
+fetchData();
+setInterval(() => { if(S.pollOn) fetchData(); }, S.interval);
+
+// WebSocket
+try {
+  const ws = new WebSocket(`ws://${BASE.replace('http://','')}/ws/debate/stream`);
+  ws.onopen = () => { S.wsOk=true; render(); };
+  ws.onclose = () => { S.wsOk=false; render(); };
+  ws.onmessage = e => { try { S.streamMsgs.push(JSON.parse(e.data)); S.streamId=S.streamId||'active'; render(); } catch(ex){} };
+} catch(e) { S.wsOk=false; }
+
+render();
 </script>
 </body>
 </html>
