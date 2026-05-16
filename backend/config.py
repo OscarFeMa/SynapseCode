@@ -117,6 +117,24 @@ class Settings(BaseSettings):
     DEFAULT_COST_LIMIT_USD: float = 1.00
     AUTO_ELEVATION_ENABLED: bool = True
     TRIBUNAL_MAX_ITERATIONS: int = 3
+    TRIBUNAL_ENABLE_CLOUD_FALLBACK: bool = True
+    TRIBUNAL_CLOUD_FALLBACK_ENGINE: str = "openrouter"
+    TRIBUNAL_CLOUD_FALLBACK_MODEL: str = "openai/gpt-4o-mini"
+    TRIBUNAL_EVIDENCE_NODE: str = "LOCAL"
+    TRIBUNAL_EVIDENCE_ENGINE: str = "ollama"
+    TRIBUNAL_EVIDENCE_MODEL: str = "llama3.1:8b"
+    TRIBUNAL_EVIDENCE_TEMPERATURE: float = 0.2
+    TRIBUNAL_EVIDENCE_MAX_TOKENS: int = 1500
+    TRIBUNAL_RISK_NODE: str = "LOCAL"
+    TRIBUNAL_RISK_ENGINE: str = "ollama"
+    TRIBUNAL_RISK_MODEL: str = "mistral:7b"
+    TRIBUNAL_RISK_TEMPERATURE: float = 0.3
+    TRIBUNAL_RISK_MAX_TOKENS: int = 1500
+    TRIBUNAL_ALIGNMENT_NODE: str = "LOCAL"
+    TRIBUNAL_ALIGNMENT_ENGINE: str = "ollama"
+    TRIBUNAL_ALIGNMENT_MODEL: str = "llama3.2:latest"
+    TRIBUNAL_ALIGNMENT_TEMPERATURE: float = 0.4
+    TRIBUNAL_ALIGNMENT_MAX_TOKENS: int = 2000
     
     # ─── Feature Flags (Mejoras v2.1) ─────────────────────────
     INTERVENTION_TAXONOMY_ENABLED: bool = True

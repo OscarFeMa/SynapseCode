@@ -21,6 +21,7 @@ from backend.database.models import (
     TopicTrending,
 )
 from backend.engine.agent_orchestrator import AgentOrchestrator, AgentConfig
+from backend.engine.tribunal_config import build_tribunal_config
 from backend.services.rdp_manager import RDPManager, RDPSecurityError, RDPRateLimitError
 from backend.memory.hybrid_memory_v2 import get_hybrid_memory_v2
 
@@ -409,6 +410,35 @@ async def get_sync_health_endpoint():
             },
         },
         "recommendation": recommendation,
+    }
+
+
+@router.get("/tribunal/config", dependencies=[Depends(require_admin_access)])
+async def get_tribunal_config_endpoint():
+    """Configuración efectiva del Tribunal y sus fallbacks."""
+    role_configs = build_tribunal_config(settings)
+
+    def serialize_agent(config):
+        return {
+            "slot": config.slot,
+            "node": config.node,
+            "engine": config.engine,
+            "model": config.model,
+            "roleLabel": config.role_label,
+            "temperature": config.temperature,
+            "maxTokens": config.max_tokens,
+        }
+
+    return {
+        "maxIterations": settings.TRIBUNAL_MAX_ITERATIONS,
+        "cloudFallbackEnabled": settings.TRIBUNAL_ENABLE_CLOUD_FALLBACK,
+        "roles": {
+            role: {
+                "primary": serialize_agent(role_config.primary),
+                "fallbacks": [serialize_agent(config) for config in role_config.fallbacks],
+            }
+            for role, role_config in role_configs.items()
+        },
     }
 
 
