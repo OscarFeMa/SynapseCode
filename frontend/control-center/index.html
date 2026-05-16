@@ -254,7 +254,7 @@ const M_ANALYTICS = {dailySummary:{totalDebatesCompleted:142,totalDebatesFailed:
 // ─── STATE ───
 let S = {
   tab:"command", health:null, debates:[], reps:{}, cache:null, trib:null, analytics:null, worker:null,
-  selModel:null, selDebate:null, streamMsgs:[], streamId:null, wsOk:false, wsCount:0,
+  sysHealth:null, selModel:null, selDebate:null, streamMsgs:[], streamId:null, wsOk:false, wsCount:0,
   interval:10000, pollOn:true, demo:true, settingsOpen:false, toasts:[],
   chatMsgs:[], chatModel:"llama-3.1-8b", chatEngine:"groq",
   launch:{step:1,type:"sequential",topic:"",context:"",lang:"es",models:[],rounds:3,conv:true,cache:true,reductio:true,trib:true,expJson:true,expMd:true},
@@ -282,10 +282,11 @@ function toggleDemo() { S.demo=!S.demo; toast(S.demo?'Demo mode ON':'Live mode',
 async function fetchData() {
   if(S.demo) {
     S.health=M_HEALTH; S.debates=M_DEBATES; S.reps=M_REPS; S.cache=M_CACHE; S.trib=M_TRIB; S.analytics=M_ANALYTICS; S.worker=M_WORKER;
+    S.sysHealth={status:"healthy",worker_connected:true,worker_ip:"192.168.1.44",last_heartbeat:new Date().toISOString(),transfer_speed:125.4};
     render(); return;
   }
   try {
-    const [h,d,r,c,t,a,w] = await Promise.allSettled([
+    const [h,d,r,c,t,a,w,sh] = await Promise.allSettled([
       fetch(`${BASE}/health`).then(r=>r.json()),
       fetch(`${BASE}/api/v1/debates/list`).then(r=>r.json()),
       fetch(`${BASE}/api/v1/debates/reputation`).then(r=>r.json()),
@@ -293,6 +294,7 @@ async function fetchData() {
       fetch(`${BASE}/api/v1/system/tribunal/config`).then(r=>r.json()),
       fetch(`${BASE}/api/v1/system/analytics`).then(r=>r.json()),
       fetch(`${BASE}/api/v1/system/worker/services`).then(r=>r.json()),
+      fetch(`${BASE}/api/v1/system/health`).then(r=>r.json()),
     ]);
     if(h.status==='fulfilled') S.health=h.value;
     if(d.status==='fulfilled') S.debates=d.value?.sessions||[];
@@ -301,6 +303,7 @@ async function fetchData() {
     if(t.status==='fulfilled') S.trib=t.value;
     if(a.status==='fulfilled') S.analytics=a.value;
     if(w.status==='fulfilled') S.worker=w.value;
+    if(sh.status==='fulfilled') S.sysHealth=sh.value;
     render();
   } catch(e) { S.error=e.message; render(); }
 }
@@ -351,16 +354,58 @@ function tabCommand() {
   const svcs = h?.services||{};
   const topReps = Object.entries(S.reps).sort((a,b)=>(b[1]?.global||0)-(a[1]?.global||0)).slice(0,3);
   const ds = S.analytics?.dailySummary||{};
+  const sh = S.sysHealth;
+  const wSvc = S.worker;
+
+  // Connection status panel
+  const connStatus = sh ? `
+    <div class="panel" style="border-color:${sh.worker_connected?'rgba(0,255,136,0.3)':'rgba(239,68,68,0.3)'}">
+      <div class="panel-title">🔗 Conexión Master ↔ Worker</div>
+      <div class="sn" style="background:${sh.worker_connected?'rgba(0,255,136,0.05)':'rgba(239,68,68,0.05)'}">
+        <span style="font-weight:600">Estado</span>
+        <span style="display:flex;align-items:center;gap:6px">
+          <span class="sdot ${sh.worker_connected?'ok':'err'}"></span>
+          <span style="font-family:var(--mono);font-size:11px;color:${sh.worker_connected?'var(--green)':'var(--red)'}">
+            ${sh.worker_connected?'CONECTADO':'DESCONECTADO'}
+          </span>
+        </span>
+      </div>
+      <div class="sn"><span>Worker IP</span><span style="font-family:var(--mono);font-size:11px">${sh.worker_ip||'--'}</span></div>
+      <div class="sn"><span>Último Heartbeat</span><span style="font-family:var(--mono);font-size:11px">${sh.last_heartbeat?fmtDate(sh.last_heartbeat):'--'}</span></div>
+      <div class="sn"><span>Transfer Speed</span><span style="font-family:var(--mono);font-size:11px">${sh.transfer_speed?sh.transfer_speed.toFixed(1)+' Mbps':'--'}</span></div>
+      <div class="sn"><span>Master Role</span><span style="font-family:var(--mono);font-size:11px;color:var(--cyan)">${h?.node_role||'MASTER'}</span></div>
+    </div>
+  ` : '<div class="panel"><div class="sk" style="height:160px"></div></div>';
+
+  // Worker services panel
+  const workerServices = wSvc ? `
+    <div class="panel">
+      <div class="panel-title">🖥️ Servicios Worker <span style="font-size:10px;color:var(--muted);margin-left:auto;font-family:var(--mono)">${wSvc.worker_ip||'192.168.1.44'}</span></div>
+      ${Object.entries(wSvc.services||{}).map(([svc,data])=>{
+        const icons = {ollama:'🦙',lm_studio:'🎬',jan:'📦'};
+        const labels = {ollama:'Ollama',lm_studio:'LM Studio',jan:'Jan'};
+        return `<div class="sn" style="border-left:3px solid ${data.status==='running'?'var(--green)':'var(--red)'}">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:16px">${icons[svc]||'🔧'}</span>
+            <div>
+              <div style="font-weight:600;font-size:12px">${labels[svc]||svc}</div>
+              <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">:${data.port||'--'}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="sdot ${data.status==='running'?'ok':'err'}"></span>
+            <span style="font-family:var(--mono);font-size:10px;text-transform:uppercase">${data.status}</span>
+            <button class="dbtn btn-sm" data-launch-svc="${svc}">▶</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  ` : '<div class="panel"><div class="sk" style="height:120px"></div></div>';
 
   return `<div class="g3">
     <div>
-      <div class="panel"><div class="panel-title">🖥️ System Health</div>
-        ${Object.entries(svcs).map(([n,s])=>`<div class="sn"><span>${n}</span><span style="display:flex;align-items:center;gap:6px;font-size:10px"><span class="sdot ${statusDot(s.status)}"></span>${s.status}</span></div>`).join('')||'<div class="sk" style="height:200px"></div>'}
-      </div>
-      <div class="panel"><div class="panel-title">📡 Worker</div>
-        <div class="sn"><span>IP: 192.168.1.44</span><span style="display:flex;align-items:center;gap:6px;font-size:10px"><span class="sdot ok"></span>CONNECTED</span></div>
-        <button class="btn btn-sm btn-sec" style="margin-top:8px;width:100%" data-wake>🔌 Wake-on-LAN</button>
-      </div>
+      ${connStatus}
+      ${workerServices}
       <div class="panel"><div class="panel-title">🏆 Top Models</div>
         ${topReps.map(([m,r])=>`<div class="sn" style="cursor:pointer" data-model="${m}"><span style="font-family:var(--mono);font-size:11px">${m}</span><span style="font-family:var(--mono);font-size:12px;color:var(--green)">${r.global?.toFixed(1)}</span></div>`).join('')}
       </div>
@@ -385,6 +430,9 @@ function tabCommand() {
       </div>
     </div>
     <div>
+      <div class="panel"><div class="panel-title">🖥️ System Health</div>
+        ${Object.entries(svcs).map(([n,s])=>`<div class="sn"><span>${n}</span><span style="display:flex;align-items:center;gap:6px;font-size:10px"><span class="sdot ${statusDot(s.status)}"></span>${s.status}</span></div>`).join('')||'<div class="sk" style="height:200px"></div>'}
+      </div>
       <div class="g4" style="margin-bottom:12px">
         <div class="card mg"><div class="mv">${ds.totalDebatesCompleted||0}</div><div class="ml">Debates Hoy</div></div>
         <div class="card mg"><div class="mv">${S.cache?S.cache.hit_rate+'%':'--'}</div><div class="ml">Hit Rate</div></div>
