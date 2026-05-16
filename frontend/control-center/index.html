@@ -31,7 +31,6 @@ body { background: var(--bg-deep); color: var(--text); font-family: var(--sans);
 @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,255,136,0.4)} 50%{opacity:0.6;box-shadow:0 0 0 6px rgba(0,255,136,0)} }
 .badge { font-family:var(--mono); font-size:10px; padding:3px 8px; border-radius:4px; background:rgba(0,255,136,0.1); color:var(--green); border:1px solid rgba(0,255,136,0.2); }
 .badge.err { background:rgba(239,68,68,0.1); color:var(--red); border-color:rgba(239,68,68,0.2); }
-.demo-btn { font-family:var(--mono); font-size:10px; padding:3px 8px; border-radius:4px; background:rgba(245,158,11,0.1); color:var(--amber); border:1px solid rgba(245,158,11,0.2); cursor:pointer; }
 .settings-btn { background:none; border:none; color:var(--muted); cursor:pointer; padding:6px; border-radius:6px; font-size:16px; }
 .settings-btn:hover { color:var(--text); background:var(--bg-surface); }
 
@@ -234,28 +233,11 @@ tr:hover td { background:var(--bg-surface); }
 
 const BASE = "http://localhost:8000";
 
-// ─── MOCK DATA ───
-const M_HEALTH = { status:"healthy", services:{ database:{status:"healthy"}, ollama:{status:"healthy",models:["llama3:8b","mistral:7b","qwen2.5:14b","deepseek-r1:7b"]}, lm_studio:{status:"healthy",models:["gemma-4-e4b","deepseek-coder"]}, jan:{status:"unavailable"}, openrouter:{status:"healthy",models:["meta-llama/llama-3.1-70b"]}, web_agent:{status:"skipped"}, huggingface:{status:"skipped"}, groq:{status:"healthy",models:["llama-3.1-8b","llama-3.3-70b"]}, gemini:{status:"healthy",models:["gemini-2.5-flash"]} }};
-const M_DEBATES = [
-  {session_id:"deb-001",topic:"¿Puede la IA desarrollar consciencia genuina?",status:"running",turns_completed:3,total_turns:5,created_at:new Date(Date.now()-3600000).toISOString(),models:["llama3:8b","gemini-2.5-flash","qwen2.5:14b","deepseek-r1:7b"]},
-  {session_id:"deb-002",topic:"El futuro del trabajo en la era de la automatización",status:"completed",turns_completed:5,total_turns:5,created_at:new Date(Date.now()-7200000).toISOString(),models:["llama3:8b","mistral:7b","groq-llama"]},
-  {session_id:"deb-003",topic:"¿Debería regularse el desarrollo de AGI?",status:"completed",turns_completed:4,total_turns:4,created_at:new Date(Date.now()-86400000).toISOString(),models:["llama3:8b","gemini-2.5-flash"]},
-  {session_id:"deb-004",topic:"Machine learning cuántico: ¿revolución o hype?",status:"paused",turns_completed:2,total_turns:5,created_at:new Date(Date.now()-172800000).toISOString(),models:["deepseek-r1:7b","qwen2.5:14b","mistral:7b"]},
-  {session_id:"deb-005",topic:"Ética en la toma de decisiones algorítmicas",status:"completed",turns_completed:6,total_turns:6,created_at:new Date(Date.now()-259200000).toISOString(),models:["llama3:8b","gemini-2.5-flash","groq-llama","qwen2.5:14b"]},
-];
-const M_REPS = {"llama3:8b":{tsa:8.7,iid:8.2,pvt:8.5,global:8.5,debates:34,wins:18},"mistral:7b":{tsa:8.2,iid:7.9,pvt:8.0,global:8.0,debates:28,wins:12},"qwen2.5:14b":{tsa:9.1,iid:8.8,pvt:9.0,global:9.0,debates:22,wins:15},"deepseek-r1:7b":{tsa:8.9,iid:8.5,pvt:8.7,global:8.7,debates:19,wins:11},"gemini-2.5-flash":{tsa:9.0,iid:8.9,pvt:9.1,global:9.0,debates:25,wins:16},"groq-llama-3.3-70b":{tsa:9.3,iid:9.1,pvt:9.2,global:9.2,debates:15,wins:12}};
-const M_CACHE = {total_entries:1247,total_hits:834,hit_rate:66.9,enabled:true,similarity_threshold:0.85,ttl_hours:24};
-const M_TRIB = {maxIterations:3,cloudFallbackEnabled:true,roles:{defensor:{primary:{model:"llama3:8b",engine:"ollama"},fallbacks:[{model:"mistral:7b",engine:"ollama"}]},fiscal:{primary:{model:"gemini-2.5-flash",engine:"gemini"},fallbacks:[{model:"llama-3.3-70b",engine:"groq"}]},arbitro:{primary:{model:"deepseek-r1:7b",engine:"ollama"},fallbacks:[{model:"meta-llama/llama-3.1-70b",engine:"openrouter"}]}}};
-const M_METRICS = [{hour:"00",v:2},{hour:"02",v:1},{hour:"04",v:0},{hour:"06",v:3},{hour:"08",v:8},{hour:"10",v:12},{hour:"12",v:15},{hour:"14",v:18},{hour:"16",v:14},{hour:"18",v:10},{hour:"20",v:6},{hour:"22",v:3}];
-const M_USAGE = [{name:"llama3:8b",v:34,c:"#00FF88"},{name:"gemini-2.5-flash",v:25,c:"#8B5CF6"},{name:"qwen2.5:14b",v:22,c:"#22D3EE"},{name:"mistral:7b",v:28,c:"#F59E0B"},{name:"deepseek-r1:7b",v:19,c:"#EF4444"},{name:"groq-70b",v:15,c:"#EC4899"}];
-const M_WORKER = {worker_ip:"192.168.1.33",services:{ollama:{status:"running",port:11434},lm_studio:{status:"running",port:1234},jan:{status:"stopped",port:1337}}};
-const M_ANALYTICS = {dailySummary:{totalDebatesCompleted:142,totalDebatesFailed:3,totalTurnsExecuted:568,totalTokensGenerated:1200000,avgDebateDurationSeconds:180}};
-
 // ─── STATE ───
 let S = {
   tab:"command", health:null, debates:[], reps:{}, cache:null, trib:null, analytics:null, worker:null,
   sysHealth:null, selModel:null, selDebate:null, streamMsgs:[], streamId:null, wsOk:false, wsCount:0,
-  interval:10000, pollOn:true, demo:true, settingsOpen:false, toasts:[],
+  interval:10000, pollOn:true, settingsOpen:false, toasts:[],
   chatMsgs:[], chatModel:"llama-3.1-8b", chatEngine:"groq",
   launch:{step:1,type:"sequential",topic:"",context:"",lang:"es",models:[],rounds:3,conv:true,cache:true,reductio:true,trib:true,expJson:true,expMd:true},
   hFilter:{search:"",status:"all"}, loading:false, error:null,
@@ -276,15 +258,9 @@ function toast(msg, type='info') {
 }
 
 function setTab(t) { S.tab=t; S.selModel=null; S.selDebate=null; render(); }
-function toggleDemo() { S.demo=!S.demo; toast(S.demo?'Demo mode ON':'Live mode', S.demo?'warn':'ok'); fetchData(); }
 
 // ─── FETCH ───
 async function fetchData() {
-  if(S.demo) {
-    S.health=M_HEALTH; S.debates=M_DEBATES; S.reps=M_REPS; S.cache=M_CACHE; S.trib=M_TRIB; S.analytics=M_ANALYTICS; S.worker=M_WORKER;
-    S.sysHealth={status:"healthy",worker_connected:true,worker_ip:null,last_heartbeat:new Date().toISOString(),transfer_speed:125.4};
-    render(); return;
-  }
   try {
     const [h,d,r,c,t,a,w,sh] = await Promise.allSettled([
       fetch(`${BASE}/health`).then(r=>r.json()),
@@ -329,8 +305,7 @@ function topbar() {
     <div class="tabs">${tabs.map(t=>`<button class="tab ${S.tab===t.id?'active':''}" data-tab="${t.id}">${t.icon} ${t.l}</button>`).join('')}</div>
     <div class="status">
       <div class="live"><span class="dot"></span>LIVE</div>
-      ${!S.demo?`<span class="badge ${S.wsOk?'':'err'}">${S.wsOk?'WS:OK':'WS:ERR'}</span>`:''}
-      <span class="demo-btn" data-demo>${S.demo?'🎮 DEMO':'📡 LIVE'}</span>
+      <span class="badge ${S.wsOk?'':'err'}">${S.wsOk?'WS:OK':'WS:ERR'}</span>
       <button class="settings-btn" data-settings>⚙</button>
     </div>
   </div>`;
@@ -439,7 +414,7 @@ function tabCommand() {
         <div class="card mg"><div class="mv">${ds.avgDebateDurationSeconds?(ds.avgDebateDurationSeconds/60).toFixed(1)+'m':'--'}</div><div class="ml">Duración Media</div></div>
         <div class="card mg"><div class="mv">${ds.totalTokensGenerated?(ds.totalTokensGenerated/1e6).toFixed(1)+'M':'--'}</div><div class="ml">Tokens</div></div>
       </div>
-      <div class="panel"><div class="panel-title">📈 Actividad 24h</div>${barChart(M_METRICS)}</div>
+      <div class="panel"><div class="panel-title">📈 Actividad</div><div class="empty"><div style="font-size:12px">Datos en tiempo real del backend</div></div></div>
       <div class="panel"><div class="panel-title">💾 Cache</div>
         ${S.cache?`<div class="sn"><span>Entries</span><span style="font-family:var(--mono)">${S.cache.total_entries}</span></div><div class="sn"><span>Hits</span><span style="font-family:var(--mono);color:var(--green)">${S.cache.total_hits}</span></div><div class="sn"><span>TTL</span><span style="font-family:var(--mono)">${S.cache.ttl_hours}h</span></div>`:'<div class="sk" style="height:80px"></div>'}
       </div>
@@ -555,8 +530,8 @@ function tabMetrics() {
       <div class="card mg"><div class="mv">${ds.totalTokensGenerated?(ds.totalTokensGenerated/1e6).toFixed(1)+'M':'--'}</div><div class="ml">Tokens</div><div style="font-size:11px;color:var(--green)">+45k hoy</div></div>
     </div>
     <div class="g2" style="margin-bottom:16">
-      <div class="panel"><div class="panel-title">📈 Debates por Hora</div>${barChart(M_METRICS)}</div>
-      <div class="panel"><div class="panel-title">🍩 Uso por Modelo</div>${donutChart(M_USAGE)}</div>
+      <div class="panel"><div class="panel-title">📈 Debates por Hora</div><div class="empty"><div style="font-size:12px">Datos en tiempo real del backend</div></div></div>
+      <div class="panel"><div class="panel-title">🍩 Uso por Modelo</div><div class="empty"><div style="font-size:12px">Datos en tiempo real del backend</div></div></div>
     </div>
     <div class="panel"><div class="panel-title">🏆 Leaderboard</div>
       <table><thead><tr><th>Modelo</th><th>TSA</th><th>IID</th><th>PVT</th><th>Score</th><th>Debates</th><th>Wins</th><th>WR</th></tr></thead><tbody>
@@ -725,7 +700,7 @@ function bindEvents() {
   $('[data-tab2]') && ($('[data-tab2]').onclick = () => setTab('launcher'));
 
   // Demo toggle
-  $('[data-demo]') && ($('[data-demo]').onclick = toggleDemo);
+  // Demo toggle removed - live mode only
 
   // Settings
   $('[data-settings]') && ($('[data-settings]').onclick = () => { S.settingsOpen=true; render(); });
@@ -745,8 +720,7 @@ function bindEvents() {
 
   // Continue debate
   $$('[data-cont]').forEach(b => b.onclick = () => {
-    if(!S.demo) fetch(`${BASE}/api/v1/debates/${b.dataset.cont}/continue`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>toast('Debate continuado','ok'));
-    else toast('Debate continuado (demo)','ok');
+    fetch(`${BASE}/api/v1/debates/${b.dataset.cont}/continue`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>toast('Debate continuado','ok'));
   });
 
   // Debate type
@@ -811,13 +785,12 @@ function bindEvents() {
   $('[data-simbtn]') && ($('[data-simbtn]').onclick = () => { toast('Simulación iniciada','info'); S.launch={...S.launch,type:'tribunal',step:3}; setTab('launcher'); });
 
   // Cache actions
-  $('[data-inv]') && ($('[data-inv]').onclick = () => { if(!S.demo) fetch(`${BASE}/api/v1/cache/invalidate`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>toast('Cache invalidado','ok')); else toast('Cache invalidado (demo)','ok'); });
-  $('[data-clean]') && ($('[data-clean]').onclick = () => { if(!S.demo) fetch(`${BASE}/api/v1/cache/cleanup`,{method:'POST'}).then(()=>toast('Cache limpiado','ok')); else toast('Cache limpiado (demo)','ok'); });
+  $('[data-inv]') && ($('[data-inv]').onclick = () => { fetch(`${BASE}/api/v1/cache/invalidate`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>toast('Cache invalidado','ok')); });
+  $('[data-clean]') && ($('[data-clean]').onclick = () => { fetch(`${BASE}/api/v1/cache/cleanup`,{method:'POST'}).then(()=>toast('Cache limpiado','ok')); });
 
   // Worker service launch
   $$('[data-launch-svc]').forEach(b => b.onclick = () => {
-    if(!S.demo) fetch(`${BASE}/api/v1/system/worker/services/launch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service:b.dataset.launchSvc})}).then(()=>toast(`${b.dataset.launchSvc} launching...`,'ok'));
-    else toast(`${b.dataset.launchSvc} launching (demo)`,'ok');
+    fetch(`${BASE}/api/v1/system/worker/services/launch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service:b.dataset.launchSvc})}).then(()=>toast(`${b.dataset.launchSvc} launching...`,'ok'));
   });
 
   // Export from detail
@@ -825,8 +798,7 @@ function bindEvents() {
   $('[data-exp-md]') && ($('[data-exp-md]').onclick = () => window.open(`${BASE}/api/v1/debates/${S.selDebate}/export/markdown`,'_blank'));
   $('[data-exp-pdf]') && ($('[data-exp-pdf]').onclick = () => window.open(`${BASE}/api/v1/debates/${S.selDebate}/export/pdf`,'_blank'));
   $('[data-cont-debate]') && ($('[data-cont-debate]').onclick = () => {
-    if(!S.demo) fetch(`${BASE}/api/v1/debates/${S.selDebate}/continue`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>toast('Debate continuado','ok'));
-    else toast('Debate continuado (demo)','ok');
+    fetch(`${BASE}/api/v1/debates/${S.selDebate}/continue`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>toast('Debate continuado','ok'));
   });
 
   // Wake worker
@@ -841,11 +813,6 @@ function sendChat() {
   inp.value = '';
   render();
 
-  if(S.demo) {
-    setTimeout(() => { S.chatMsgs.push({role:'assistant', content:`Respuesta simulada de ${S.chatModel} a: "${msg}"`}); render(); }, 800);
-    return;
-  }
-
   fetch(`${BASE}/api/v1/system/chat/direct`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,model:S.chatModel,engine:S.chatEngine,temperature:0.7,max_tokens:2048})}).then(r=>r.json()).then(d=>{S.chatMsgs.push({role:'assistant',content:d.response});render();}).catch(()=>{S.chatMsgs.push({role:'assistant',content:'Error de conexión'});render();});
 }
 
@@ -853,10 +820,10 @@ function sendChat() {
 fetchData();
 setInterval(() => { if(S.pollOn) fetchData(); }, S.interval);
 
-// WebSocket (solo si no es demo y backend disponible)
+// WebSocket
 let ws = null;
 function tryConnectWS() {
-  if(S.demo || ws) return;
+  if(ws) return;
   try {
     ws = new WebSocket(`ws://${BASE.replace('http://','')}/ws/debate/stream`);
     ws.onopen = () => { S.wsOk=true; render(); };
@@ -865,7 +832,6 @@ function tryConnectWS() {
     ws.onmessage = e => { try { S.streamMsgs.push(JSON.parse(e.data)); S.streamId=S.streamId||'active'; render(); } catch(ex){} };
   } catch(e) { S.wsOk=false; }
 }
-// Intentar WS solo después de confirmar que el backend responde
 setTimeout(tryConnectWS, 2000);
 
 render();
