@@ -94,13 +94,9 @@ class OllamaClient:
         """
         Precarga un modelo en memoria sin generar contenido útil.
         """
-        keep_alive_value = (
-            settings.OLLAMA_PRELOAD_KEEP_ALIVE if keep_alive is None else keep_alive
-        )
+        keep_alive_value = settings.OLLAMA_PRELOAD_KEEP_ALIVE if keep_alive is None else keep_alive
         try:
-            logger.info(
-                "ollama.warm_model.start", model=model, keep_alive=keep_alive_value
-            )
+            logger.info("ollama.warm_model.start", model=model, keep_alive=keep_alive_value)
             client = self.client
             response = await client.post(
                 f"{self.base_url}/api/generate",
@@ -133,9 +129,7 @@ class OllamaClient:
         evitando errores de falta de RAM en el worker.
         """
         try:
-            logger.info(
-                "ollama.unload_model.start", model=model, base_url=self.base_url
-            )
+            logger.info("ollama.unload_model.start", model=model, base_url=self.base_url)
             client = self.client
             response = await client.post(
                 f"{self.base_url}/api/generate",
@@ -209,9 +203,7 @@ class OllamaClient:
                 json=payload,
                 headers={"Content-Type": "application/json"},
             ) as response:
-                logger.info(
-                    "ollama.generate.response_started", status_code=response.status_code
-                )
+                logger.info("ollama.generate.response_started", status_code=response.status_code)
                 if stream:
                     token_count = 0
                     async for line in response.aiter_lines():
@@ -257,9 +249,7 @@ class OllamaClient:
             )
             raise e
 
-    async def chat(
-        self, model: str, messages: list, stream: bool = True
-    ) -> AsyncGenerator[str, None]:
+    async def chat(self, model: str, messages: list, stream: bool = True) -> AsyncGenerator[str, None]:
         """
         Chat completion con Ollama (formato chat)
         """

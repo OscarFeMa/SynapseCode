@@ -74,13 +74,9 @@ class TribunalCouncil:
     def __init__(self):
         self.orchestrator = AgentOrchestrator()
         self.prompt_builder = PromptBuilder()
-        self.reductio_engine = (
-            get_reductio_absurdum_engine()
-        )  # Motor de Reducción al Absurdo
+        self.reductio_engine = get_reductio_absurdum_engine()  # Motor de Reducción al Absurdo
         self.role_configs = build_tribunal_config(settings)
-        self.MAGISTRATES = {
-            role: role_config.primary for role, role_config in self.role_configs.items()
-        }
+        self.MAGISTRATES = {role: role_config.primary for role, role_config in self.role_configs.items()}
 
     def get_role_config(self, role: str) -> TribunalRoleConfig:
         return self.role_configs[role]
@@ -123,11 +119,7 @@ class TribunalCouncil:
                 system_prompt="",
                 user_prompt=prompt,
                 db_session=db_session,
-                on_token=lambda t: (
-                    on_event("tribunal_token", {"role": role, "token": t})
-                    if on_event
-                    else None
-                ),
+                on_token=lambda t: on_event("tribunal_token", {"role": role, "token": t}) if on_event else None,
             )
             last_result = result
 
@@ -206,16 +198,8 @@ class TribunalCouncil:
             # PASO 1: Alineación propone borrador
             # ═════════════════════════════════════════════════════
 
-            evidence_input = (
-                opinions_history["evidence"][-1].response
-                if opinions_history["evidence"]
-                else None
-            )
-            risk_input = (
-                opinions_history["risk"][-1].response
-                if opinions_history["risk"]
-                else None
-            )
+            evidence_input = opinions_history["evidence"][-1].response if opinions_history["evidence"] else None
+            risk_input = opinions_history["risk"][-1].response if opinions_history["risk"] else None
 
             alignment_prompt = self.prompt_builder.build_magistrate_prompt(
                 role="alignment",
@@ -304,9 +288,7 @@ class TribunalCouncil:
             # Helper para procesar resultado
             def parse_magistrate_result(result, role_name):
                 if isinstance(result, Exception):
-                    logger.error(
-                        "tribunal.magistrate_failed", role=role_name, error=str(result)
-                    )
+                    logger.error("tribunal.magistrate_failed", role=role_name, error=str(result))
                     return AgentResult(
                         call_id="",
                         slot=role_name,
@@ -332,12 +314,8 @@ class TribunalCouncil:
                 return result
 
             # Procesar resultado de Evidencias
-            evidence_result_parsed = parse_magistrate_result(
-                evidence_result, "evidence"
-            )
-            evidence_blocking = self._has_blocking_objection(
-                evidence_result_parsed.response or ""
-            )
+            evidence_result_parsed = parse_magistrate_result(evidence_result, "evidence")
+            evidence_blocking = self._has_blocking_objection(evidence_result_parsed.response or "")
             evidence_opinion = MagistrateOpinion(
                 role="evidence",
                 call_id=evidence_result_parsed.call_id,
@@ -360,9 +338,7 @@ class TribunalCouncil:
 
             # Procesar resultado de Riesgos
             risk_result_parsed = parse_magistrate_result(risk_result, "risk")
-            risk_blocking = self._has_blocking_objection(
-                risk_result_parsed.response or ""
-            )
+            risk_blocking = self._has_blocking_objection(risk_result_parsed.response or "")
             risk_opinion = MagistrateOpinion(
                 role="risk",
                 call_id=risk_result_parsed.call_id,
@@ -479,9 +455,7 @@ Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} itera
 **Resolución aplicada:** Veredicto del Magistrado de Alineación con notas de disentimiento.
 """
 
-        dissent_areas = self._extract_dissent_areas(
-            final_evidence.response, final_risk.response
-        )
+        dissent_areas = self._extract_dissent_areas(final_evidence.response, final_risk.response)
 
         return TribunalVerdict(
             verdict_text=verdict_text,
@@ -531,11 +505,9 @@ Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} itera
                 current_opinion = opinions_history[role][-1]
 
                 # Generar prompt de auto-cuestionamiento
-                self_challenge_prompt = (
-                    self.reductio_engine.generate_tribunal_self_challenge_prompt(
-                        magistrate_verdict=current_opinion.response,
-                        magistrate_role=role,
-                    )
+                self_challenge_prompt = self.reductio_engine.generate_tribunal_self_challenge_prompt(
+                    magistrate_verdict=current_opinion.response,
+                    magistrate_role=role,
                 )
 
                 logger.info(
@@ -564,8 +536,7 @@ Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} itera
                             {
                                 "role": role,
                                 "status": challenge_result.status,
-                                "found_weakness": "debilidad"
-                                in challenge_result.response.lower()
+                                "found_weakness": "debilidad" in challenge_result.response.lower()
                                 or "falla" in challenge_result.response.lower(),
                             },
                         )
@@ -671,8 +642,4 @@ Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} itera
             except IndexError:
                 pass
 
-        return (
-            "\n".join(dissent_parts)
-            if dissent_parts
-            else "Disenso no detallado explícitamente"
-        )
+        return "\n".join(dissent_parts) if dissent_parts else "Disenso no detallado explícitamente"

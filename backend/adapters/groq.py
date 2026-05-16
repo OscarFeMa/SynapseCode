@@ -75,9 +75,7 @@ class GroqClient:
                 max_tokens=max_tokens,
             )
             if cached:
-                logger.info(
-                    "groq.cache_hit", model=model, similarity=cached.get("similarity")
-                )
+                logger.info("groq.cache_hit", model=model, similarity=cached.get("similarity"))
                 yield cached["response_text"]
                 return
 
@@ -99,14 +97,10 @@ class GroqClient:
 
         try:
             if not stream:
-                response = await self.client.post(
-                    self.base_url, json=payload, headers=headers
-                )
+                response = await self.client.post(self.base_url, json=payload, headers=headers)
                 if response.status_code == 429:
                     logger.warning("groq.rate_limit_retry")
-                    raise httpx.HTTPStatusError(
-                        "Rate Limit", request=response.request, response=response
-                    )
+                    raise httpx.HTTPStatusError("Rate Limit", request=response.request, response=response)
 
                 response.raise_for_status()
                 data = response.json()
@@ -131,14 +125,10 @@ class GroqClient:
                 yield response_text
                 return
             else:
-                async with self.client.stream(
-                    "POST", self.base_url, json=payload, headers=headers
-                ) as response:
+                async with self.client.stream("POST", self.base_url, json=payload, headers=headers) as response:
                     if response.status_code == 429:
                         logger.warning("groq.rate_limit_retry_stream")
-                        raise httpx.HTTPStatusError(
-                            "Rate Limit", request=response.request, response=response
-                        )
+                        raise httpx.HTTPStatusError("Rate Limit", request=response.request, response=response)
 
                     response.raise_for_status()
                     async for line in response.aiter_lines():
@@ -167,9 +157,7 @@ class GroqClient:
         try:
             headers = {"Authorization": f"Bearer {self.api_key}"}
             async with httpx.AsyncClient(timeout=10.0) as client:
-                r = await client.get(
-                    "https://api.groq.com/openai/v1/models", headers=headers
-                )
+                r = await client.get("https://api.groq.com/openai/v1/models", headers=headers)
                 if r.status_code == 200:
                     data = r.json()
                     return {

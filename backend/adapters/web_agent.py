@@ -228,21 +228,15 @@ class WebAgentClient:
                 timeout=self.timeout * 1000,
                 wait_until="domcontentloaded",
             )
-            await page.wait_for_timeout(
-                2000
-            )  # Esperar 2s para que carguen scripts anti-bot
-            await page.wait_for_selector(
-                config["input_selector"], timeout=config["wait_for"]
-            )
+            await page.wait_for_timeout(2000)  # Esperar 2s para que carguen scripts anti-bot
+            await page.wait_for_selector(config["input_selector"], timeout=config["wait_for"])
             await page.fill(config["input_selector"], prompt)
             await page.wait_for_timeout(500)
 
             if config.get("submit_selector"):
                 await page.click(config["submit_selector"])
 
-            await page.wait_for_selector(
-                config["response_selector"], timeout=self.timeout * 1000
-            )
+            await page.wait_for_selector(config["response_selector"], timeout=self.timeout * 1000)
             response = await page.inner_text(config["response_selector"])
             return response
         finally:

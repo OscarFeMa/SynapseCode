@@ -51,9 +51,7 @@ class AgentPosition:
     confidence: float = 0.0  # 0-1 confianza en posición
     supporting_points: List[str] = field(default_factory=list)
     objections_raised: List[str] = field(default_factory=list)
-    responses_to_objections: Dict[int, str] = field(
-        default_factory=dict
-    )  # turn -> response
+    responses_to_objections: Dict[int, str] = field(default_factory=dict)  # turn -> response
     logical_fallacies_detected: List[Dict[str, Any]] = field(default_factory=list)
     consensus_score: float = 0.0  # Qué tan alineado con consenso final
 
@@ -76,9 +74,7 @@ class ConsensusRoundData:
 
     round_number: int
     round_type: ConsensusStatus
-    positions: Dict[str, AgentPosition] = field(
-        default_factory=dict
-    )  # agent_id -> position
+    positions: Dict[str, AgentPosition] = field(default_factory=dict)  # agent_id -> position
     validations: List[CrossValidation] = field(default_factory=list)
     global_consensus_score: float = 0.0  # Métrica de consenso grupal
     dissent_topics: List[str] = field(default_factory=list)
@@ -227,9 +223,7 @@ class ConsensusDebateController:
                     current_score=current_consensus,
                 )
 
-                convergence_round = await self._run_convergence_round(
-                    session, session.rounds[-1], current_round
-                )
+                convergence_round = await self._run_convergence_round(session, session.rounds[-1], current_round)
                 session.rounds.append(convergence_round)
                 current_consensus = convergence_round.global_consensus_score
 
@@ -237,11 +231,7 @@ class ConsensusDebateController:
                     on_round_complete(convergence_round)
 
                 if on_consensus_update:
-                    status = (
-                        "converging"
-                        if current_consensus < self.CONSENSUS_THRESHOLD
-                        else "reached"
-                    )
+                    status = "converging" if current_consensus < self.CONSENSUS_THRESHOLD else "reached"
                     on_consensus_update(current_consensus, status)
 
                 if convergence_round.converged:
@@ -286,15 +276,11 @@ class ConsensusDebateController:
 
         return session
 
-    async def _run_proposal_round(
-        self, session: ConsensusSession, agents: List[DebateAgent]
-    ) -> ConsensusRoundData:
+    async def _run_proposal_round(self, session: ConsensusSession, agents: List[DebateAgent]) -> ConsensusRoundData:
         """
         Ronda 1: Cada agente presenta su posición inicial sobre el tema.
         """
-        round_data = ConsensusRoundData(
-            round_number=1, round_type=ConsensusStatus.PROPOSAL
-        )
+        round_data = ConsensusRoundData(round_number=1, round_type=ConsensusStatus.PROPOSAL)
 
         # Ejecutar todos los agentes en paralelo para propuestas (con reintentos y fallback)
         tasks = []
@@ -321,9 +307,7 @@ class ConsensusDebateController:
             round_data.positions[agent.id] = position
 
         # Calcular consenso inicial
-        round_data.global_consensus_score = self._calculate_consensus_score(
-            round_data.positions
-        )
+        round_data.global_consensus_score = self._calculate_consensus_score(round_data.positions)
 
         return round_data
 
@@ -411,9 +395,7 @@ class ConsensusDebateController:
                     node="LOCAL",
                 )
 
-                position = await self._generate_agent_proposal_once(
-                    session, fallback_agent
-                )
+                position = await self._generate_agent_proposal_once(session, fallback_agent)
 
                 if position.position and not position.position.startswith("["):
                     # Actualizar el agente referenciado en la posición
@@ -449,9 +431,7 @@ class ConsensusDebateController:
             consensus_score=0.0,
         )
 
-    async def _generate_agent_proposal_once(
-        self, session: ConsensusSession, agent: DebateAgent
-    ) -> AgentPosition:
+    async def _generate_agent_proposal_once(self, session: ConsensusSession, agent: DebateAgent) -> AgentPosition:
         """Genera la posición inicial de un agente (una sola vez)"""
 
         prompt = f"""# DEBATE DE CONSENSO
@@ -504,9 +484,7 @@ Máximo 400 palabras. Sé riguroso y preciso.
 
             # Verificar que la respuesta no está vacía
             if not response or len(response.strip()) < 50:
-                raise ValueError(
-                    f"Respuesta vacía o muy corta ({len(response) if response else 0} chars)"
-                )
+                raise ValueError(f"Respuesta vacía o muy corta ({len(response) if response else 0} chars)")
 
             # Parsear respuesta
             position = self._parse_proposal_response(agent, response)
@@ -526,9 +504,7 @@ Máximo 400 palabras. Sé riguroso y preciso.
             )
             raise  # Re-lanzar para que el reintentador lo maneje
 
-    def _parse_proposal_response(
-        self, agent: DebateAgent, response: str
-    ) -> AgentPosition:
+    def _parse_proposal_response(self, agent: DebateAgent, response: str) -> AgentPosition:
         """Parsea la respuesta de propuesta del agente"""
         position = AgentPosition(agent=agent)
 
@@ -576,9 +552,7 @@ Máximo 400 palabras. Sé riguroso y preciso.
         Ronda 2: Cada agente evalúa y refuta las posiciones de los otros agentes.
         Implementa validación cruzada completa.
         """
-        round_data = ConsensusRoundData(
-            round_number=2, round_type=ConsensusStatus.REFUTATION
-        )
+        round_data = ConsensusRoundData(round_number=2, round_type=ConsensusStatus.REFUTATION)
 
         positions = previous_round.positions
         agent_ids = list(positions.keys())
@@ -596,16 +570,12 @@ Máximo 400 palabras. Sé riguroso y preciso.
                 evaluated_position = positions[evaluated_id]
 
                 # Generar validación cruzada con reintentos
-                validation = await self._generate_cross_validation_with_retry(
-                    session, evaluator, evaluated_position
-                )
+                validation = await self._generate_cross_validation_with_retry(session, evaluator, evaluated_position)
                 validations.append(validation)
 
                 # Almacenar objeciones en la posición evaluada
                 if validation.identified_fallacies:
-                    positions[evaluated_id].objections_raised.extend(
-                        validation.identified_fallacies
-                    )
+                    positions[evaluated_id].objections_raised.extend(validation.identified_fallacies)
 
                 # Almacenar falacias detectadas
                 if validation.identified_fallacies:
@@ -622,9 +592,7 @@ Máximo 400 palabras. Sé riguroso y preciso.
         round_data.positions = positions
 
         # Recalcular consenso tras refutaciones
-        round_data.global_consensus_score = self._calculate_consensus_score(
-            positions, validations
-        )
+        round_data.global_consensus_score = self._calculate_consensus_score(positions, validations)
 
         # Identificar temas de disenso
         round_data.dissent_topics = self._identify_dissent_topics(validations)
@@ -649,9 +617,7 @@ Máximo 400 palabras. Sé riguroso y preciso.
                     attempt=attempt + 1,
                 )
 
-                validation = await self._generate_cross_validation_once(
-                    session, evaluator, evaluated
-                )
+                validation = await self._generate_cross_validation_once(session, evaluator, evaluated)
 
                 # Verificar que no es un error
                 if not validation.constructive_feedback.startswith("["):
@@ -713,9 +679,7 @@ Máximo 400 palabras. Sé riguroso y preciso.
                 evaluator_agent=evaluator.name,
                 evaluated_agent=evaluated.agent.name,
                 validation_score=0.0,
-                identified_fallacies=[
-                    "[Posición vacía o con error - no se puede evaluar]"
-                ],
+                identified_fallacies=["[Posición vacía o con error - no se puede evaluar]"],
                 agreement_level=0.0,
                 constructive_feedback="El agente evaluado no proporcionó una posición válida para evaluar.",
             )
@@ -776,9 +740,7 @@ Máximo 300 palabras. Sé objetivo y riguroso.
 
             # Verificar que la respuesta no está vacía
             if not response or len(response.strip()) < 30:
-                raise ValueError(
-                    f"Respuesta de validación vacía ({len(response) if response else 0} chars)"
-                )
+                raise ValueError(f"Respuesta de validación vacía ({len(response) if response else 0} chars)")
 
             # Parsear validación
             validation = self._parse_validation_response(evaluator, evaluated, response)
@@ -809,9 +771,7 @@ Máximo 300 palabras. Sé objetivo y riguroso.
         # Extraer falacias
         fallacies = []
         if "**FALACIAS IDENTIFICADAS**:" in response:
-            fal_section = response.split("**FALACIAS IDENTIFICADAS**:")[1].split("**")[
-                0
-            ]
+            fal_section = response.split("**FALACIAS IDENTIFICADAS**:")[1].split("**")[0]
             for line in fal_section.split("\n"):
                 line = line.strip()
                 if line.startswith("-") and "ninguna" not in line.lower():
@@ -843,9 +803,7 @@ Máximo 300 palabras. Sé objetivo y riguroso.
         """
         Ronda 3: Síntesis de puntos válidos y generación de posiciones refinadas.
         """
-        round_data = ConsensusRoundData(
-            round_number=3, round_type=ConsensusStatus.SYNTHESIS
-        )
+        round_data = ConsensusRoundData(round_number=3, round_type=ConsensusStatus.SYNTHESIS)
 
         # Agregar agente sintetizador si no existe
         synthesizer = None
@@ -864,21 +822,17 @@ Máximo 300 palabras. Sé objetivo y riguroso.
             for agent_id, pos in previous_round.positions.items():
                 all_positions_text += f"\n\n### {pos.agent.name}\n"
                 all_positions_text += f"Posición: {pos.position}\n"
-                all_positions_text += (
-                    f"Puntos: {', '.join(pos.supporting_points[:2])}\n"
-                )
-                all_positions_text += (
-                    f"Objeciones recibidas: {len(pos.objections_raised)}\n"
-                )
+                all_positions_text += f"Puntos: {', '.join(pos.supporting_points[:2])}\n"
+                all_positions_text += f"Objeciones recibidas: {len(pos.objections_raised)}\n"
 
             # Agregar validaciones cruzadas
             validations_text = "\n\n## Validaciones Cruzadas:\n"
             for val in previous_round.validations[:10]:  # Limitar para no saturar
-                validations_text += f"- {val.evaluator_agent} → {val.evaluated_agent}: {val.agreement_level:.0%} acuerdo"
+                validations_text += (
+                    f"- {val.evaluator_agent} → {val.evaluated_agent}: {val.agreement_level:.0%} acuerdo"
+                )
                 if val.identified_fallacies:
-                    validations_text += (
-                        f" (falacias: {', '.join(val.identified_fallacies[:2])})"
-                    )
+                    validations_text += f" (falacias: {', '.join(val.identified_fallacies[:2])})"
                 validations_text += "\n"
 
             prompt = f"""# SÍNTESIS DE CONSENSO
@@ -926,9 +880,7 @@ Máximo 400 palabras.
                 synthesis_response = "".join(response_parts)
 
                 # Parsear síntesis y actualizar consenso
-                consensus_estimated = self._extract_consensus_estimate(
-                    synthesis_response
-                )
+                consensus_estimated = self._extract_consensus_estimate(synthesis_response)
                 round_data.global_consensus_score = consensus_estimated
 
                 # Generar posiciones refinadas para cada agente
@@ -941,17 +893,13 @@ Máximo 400 palabras.
             except Exception as e:
                 logger.error("consensus.synthesis_error", error=str(e))
                 round_data.positions = previous_round.positions
-                round_data.global_consensus_score = (
-                    previous_round.global_consensus_score
-                )
+                round_data.global_consensus_score = previous_round.global_consensus_score
         else:
             round_data.positions = previous_round.positions
             round_data.global_consensus_score = previous_round.global_consensus_score
 
         round_data.validations = previous_round.validations
-        round_data.dissent_topics = self._identify_dissent_topics(
-            round_data.validations
-        )
+        round_data.dissent_topics = self._identify_dissent_topics(round_data.validations)
 
         return round_data
 
@@ -980,15 +928,11 @@ Máximo 400 palabras.
         """Genera posición refinada tras considerar feedback"""
 
         # Encontrar validaciones relevantes para este agente
-        relevant_validations = [
-            v for v in validations if v.evaluated_agent == original.agent.name
-        ]
+        relevant_validations = [v for v in validations if v.evaluated_agent == original.agent.name]
 
         # Calcular score promedio
         if relevant_validations:
-            avg_validation = sum(
-                v.validation_score for v in relevant_validations
-            ) / len(relevant_validations)
+            avg_validation = sum(v.validation_score for v in relevant_validations) / len(relevant_validations)
             original.consensus_score = avg_validation
 
         return original
@@ -1002,29 +946,22 @@ Máximo 400 palabras.
         """
         Rondas 4+: Negociación iterativa para converger.
         """
-        round_data = ConsensusRoundData(
-            round_number=round_number, round_type=ConsensusStatus.CONVERGENCE
-        )
+        round_data = ConsensusRoundData(round_number=round_number, round_type=ConsensusStatus.CONVERGENCE)
 
         # Cada agente responde a objeciones y ajusta posición
         for agent_id, pos in previous_round.positions.items():
             if pos.objections_raised:
-                refined = await self._generate_convergence_response(
-                    session, pos, round_number
-                )
+                refined = await self._generate_convergence_response(session, pos, round_number)
                 round_data.positions[agent_id] = refined
             else:
                 round_data.positions[agent_id] = pos
 
         # Recalcular consenso
-        round_data.global_consensus_score = self._calculate_consensus_score(
-            round_data.positions
-        )
+        round_data.global_consensus_score = self._calculate_consensus_score(round_data.positions)
 
         # Verificar convergencia
         round_data.converged = (
-            round_data.global_consensus_score >= self.CONSENSUS_THRESHOLD
-            or len(round_data.dissent_topics) == 0
+            round_data.global_consensus_score >= self.CONSENSUS_THRESHOLD or len(round_data.dissent_topics) == 0
         )
 
         return round_data
@@ -1089,9 +1026,7 @@ Máximo 350 palabras.
             return position
 
         except Exception as e:
-            logger.error(
-                "consensus.convergence_error", agent=position.agent.name, error=str(e)
-            )
+            logger.error("consensus.convergence_error", agent=position.agent.name, error=str(e))
             return position
 
     def _calculate_consensus_score(
@@ -1135,11 +1070,7 @@ Máximo 350 palabras.
         for pos in agent_list:
             # Extraer palabras clave simple
             words = pos.position.lower().split()
-            keywords = [
-                w
-                for w in words
-                if len(w) > 4 and w not in ["porque", "después", "cuando", "donde"]
-            ]
+            keywords = [w for w in words if len(w) > 4 and w not in ["porque", "después", "cuando", "donde"]]
             position_keywords.append(set(keywords[:10]))
 
         # Calcular similaridad de Jaccard promedio
@@ -1158,9 +1089,7 @@ Máximo 350 palabras.
                     similarity_sum += jaccard
                     similarity_count += 1
 
-        avg_similarity = (
-            similarity_sum / similarity_count if similarity_count > 0 else 0.5
-        )
+        avg_similarity = similarity_sum / similarity_count if similarity_count > 0 else 0.5
 
         # Score ponderado
         consensus_score = (
@@ -1218,9 +1147,7 @@ Máximo 350 palabras.
         for agent_id, pos in final_positions.items():
             consensus_doc += f"### {pos.agent.name}\n"
             consensus_doc += f"{pos.position[:300]}...\n\n"
-            consensus_doc += (
-                f"- **Puntos de apoyo**: {', '.join(pos.supporting_points[:2])}\\n"
-            )
+            consensus_doc += f"- **Puntos de apoyo**: {', '.join(pos.supporting_points[:2])}\\n"
             consensus_doc += f"- **Falacias detectadas en su trabajo**: {len(pos.logical_fallacies_detected)}\\n"
             consensus_doc += f"- **Score de consenso**: {pos.consensus_score:.0%}\\n\n"
 
@@ -1228,9 +1155,7 @@ Máximo 350 palabras.
         if session.bias_analysis:
             consensus_doc += "\n## Análisis de Sesgos Detectados\n\n"
 
-            for agent_name, biases in session.bias_analysis.get(
-                "detected_biases", {}
-            ).items():
+            for agent_name, biases in session.bias_analysis.get("detected_biases", {}).items():
                 if biases:
                     consensus_doc += f"**{agent_name}**:\n"
                     for bias in biases[:3]:
@@ -1281,10 +1206,7 @@ Máximo 350 palabras.
             fallacy_counts[f["fallacy"]] += 1
 
         bias_analysis["common_fallacies"] = [
-            {"fallacy": k, "count": v}
-            for k, v in sorted(
-                fallacy_counts.items(), key=lambda x: x[1], reverse=True
-            )[:5]
+            {"fallacy": k, "count": v} for k, v in sorted(fallacy_counts.items(), key=lambda x: x[1], reverse=True)[:5]
         ]
 
         return bias_analysis
@@ -1328,9 +1250,7 @@ Máximo 350 palabras.
         try:
             async with AsyncSessionLocal() as db_session:
                 # Obtener debate
-                result = await db_session.execute(
-                    select(ConsensusDebate).where(ConsensusDebate.id == session.id)
-                )
+                result = await db_session.execute(select(ConsensusDebate).where(ConsensusDebate.id == session.id))
                 db_debate = result.scalar_one_or_none()
 
                 if db_debate:
@@ -1396,19 +1316,14 @@ Máximo 350 palabras.
                             "consensus_score": agent_pos.consensus_score,
                             "supporting_points": agent_pos.supporting_points,
                             "objections_raised": agent_pos.objections_raised,
-                            "logical_fallacies": [
-                                f.get("fallacy", "")
-                                for f in agent_pos.logical_fallacies_detected
-                            ],
+                            "logical_fallacies": [f.get("fallacy", "") for f in agent_pos.logical_fallacies_detected],
                         }
                         for round_num, round_data in enumerate(session.rounds, 1)
                         for agent_pos in round_data.positions.values()
                     ],
                 }
 
-                sync_result = await self.supabase_sync.sync_consensus_debate(
-                    debate_data
-                )
+                sync_result = await self.supabase_sync.sync_consensus_debate(debate_data)
 
                 if sync_result.get("synced"):
                     logger.info(
@@ -1430,9 +1345,7 @@ Máximo 350 palabras.
     async def _save_consensus_transcript(self, session: ConsensusSession) -> str:
         """Guarda la transcripción del debate de consenso"""
 
-        filename = (
-            f"consensus_{session.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
-        )
+        filename = f"consensus_{session.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
         filepath = os.path.join(TRANSCRIPTS_DIR, filename)
 
         content = f"""# TRANSCRIPCIÓN DE DEBATE DE CONSENSO
@@ -1454,14 +1367,10 @@ Máximo 350 palabras.
 
         for round_data in session.rounds:
             content += f"### Ronda {round_data.round_number}: {round_data.round_type.value.upper()}\n\n"
-            content += (
-                f"**Score de Consenso**: {round_data.global_consensus_score:.1%}\n"
-            )
+            content += f"**Score de Consenso**: {round_data.global_consensus_score:.1%}\n"
 
             if round_data.dissent_topics:
-                content += (
-                    f"**Temas de Disenso**: {', '.join(round_data.dissent_topics)}\n"
-                )
+                content += f"**Temas de Disenso**: {', '.join(round_data.dissent_topics)}\n"
 
             content += "\n**Posiciones**:\n\n"
             for agent_id, pos in round_data.positions.items():

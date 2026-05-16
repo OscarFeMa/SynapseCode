@@ -46,9 +46,7 @@ def _agent(
     )
 
 
-def _cloud_fallback(
-    settings: Settings, role: str, temperature: float, max_tokens: int
-) -> AgentConfig:
+def _cloud_fallback(settings: Settings, role: str, temperature: float, max_tokens: int) -> AgentConfig:
     return _agent(
         slot=f"magistrate_{role}_cloud_fallback",
         node="CLOUD",
@@ -127,13 +125,9 @@ def build_tribunal_config(
             temperature=spec["temperature"],
             max_tokens=spec["max_tokens"],
         )
-        fallback_candidates = [
-            _local_reserve(role, spec["temperature"], spec["max_tokens"])
-        ]
+        fallback_candidates = [_local_reserve(role, spec["temperature"], spec["max_tokens"])]
         if settings.TRIBUNAL_ENABLE_CLOUD_FALLBACK:
-            fallback_candidates.append(
-                _cloud_fallback(settings, role, spec["temperature"], spec["max_tokens"])
-            )
+            fallback_candidates.append(_cloud_fallback(settings, role, spec["temperature"], spec["max_tokens"]))
 
         chain = _dedupe_chain([primary, *fallback_candidates])
         role_configs[role] = TribunalRoleConfig(

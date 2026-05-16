@@ -20,9 +20,7 @@ class TestTaskManager:
             async def my_task():
                 return "test result"
 
-            info = await task_manager.submit(
-                my_task, context="test", config=TaskConfig(max_retries=0)
-            )
+            info = await task_manager.submit(my_task, context="test", config=TaskConfig(max_retries=0))
             assert info is not None
             assert hasattr(info, "task_id") or isinstance(info, str)
 

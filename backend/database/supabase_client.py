@@ -22,11 +22,7 @@ class SupabaseClient:
     """
 
     def __init__(self):
-        self.enabled = (
-            settings.SUPABASE_ENABLED
-            and settings.SUPABASE_URL
-            and settings.SUPABASE_ANON_KEY
-        )
+        self.enabled = settings.SUPABASE_ENABLED and settings.SUPABASE_URL and settings.SUPABASE_ANON_KEY
         self.url = settings.SUPABASE_URL
         self.key = settings.SUPABASE_ANON_KEY
         self.project = settings.SUPABASE_PROJECT
@@ -73,9 +69,7 @@ class SupabaseClient:
             async with self._semaphore:  # Control de concurrencia
                 async with httpx.AsyncClient(
                     timeout=30.0,
-                    limits=httpx.Limits(
-                        max_connections=20, max_keepalive_connections=10
-                    ),
+                    limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
                 ) as client:
                     response = await client.post(
                         f"{self.url}/rest/v1/veredictos_finales",
@@ -110,9 +104,7 @@ class SupabaseClient:
                         return None
 
         except Exception as e:
-            logger.error(
-                "supabase.elevation_error", session_id=session_id, error=str(e)
-            )
+            logger.error("supabase.elevation_error", session_id=session_id, error=str(e))
             return None
 
     def _extract_tags(self, query: str) -> list:
@@ -133,9 +125,7 @@ class SupabaseClient:
 
         return tags[:5]  # Máximo 5 tags
 
-    def _is_notable(
-        self, tribunal_verdict: Dict[str, Any], consensus_level: str
-    ) -> bool:
+    def _is_notable(self, tribunal_verdict: Dict[str, Any], consensus_level: str) -> bool:
         """Determina si el veredicto es notable para destacar"""
         # Notable si: consenso no alcanzado, o score muy alto/bajo
         if consensus_level == "DIVERGENT":

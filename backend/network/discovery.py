@@ -78,9 +78,7 @@ class NodeDiscoverer:
         }
 
         if is_new:
-            logger.info(
-                "network.peer_discovered", node_id=node_id, role=node_role, ip=sender_ip
-            )
+            logger.info("network.peer_discovered", node_id=node_id, role=node_role, ip=sender_ip)
 
             # Si somos MASTER y encontramos un WORKER, actualizamos la configuración
             if settings.is_master and node_role == "WORKER":
@@ -133,9 +131,7 @@ class NodeDiscoverer:
                 # Limpiar peers inactivos
                 current_time = time.time()
                 dead_peers = [
-                    pid
-                    for pid, peer in self.peers.items()
-                    if current_time - peer["last_seen"] > self.peer_ttl
+                    pid for pid, peer in self.peers.items() if current_time - peer["last_seen"] > self.peer_ttl
                 ]
                 for pid in dead_peers:
                     peer_role = self.peers[pid]["role"]
@@ -144,9 +140,7 @@ class NodeDiscoverer:
 
                     # Si perdimos al único worker, podríamos loguearlo
                     if settings.is_master and peer_role == "WORKER":
-                        active_workers = [
-                            p for p in self.peers.values() if p["role"] == "WORKER"
-                        ]
+                        active_workers = [p for p in self.peers.values() if p["role"] == "WORKER"]
                         if not active_workers:
                             logger.warning("network.all_workers_lost")
 
@@ -166,9 +160,7 @@ class NodeDiscoverer:
                     try:
                         sock.sendto(message, (addr, settings.DISCOVERY_PORT))
                     except Exception as e:
-                        logger.debug(
-                            "network.broadcast_to_failed", address=addr, error=str(e)
-                        )
+                        logger.debug("network.broadcast_to_failed", address=addr, error=str(e))
 
             except Exception as e:
                 logger.error("network.broadcast_error", error=str(e))
@@ -193,9 +185,7 @@ class NodeDiscoverer:
         loop = asyncio.get_running_loop()
 
         # Configurar socket de escucha
-        listen_sock = socket.socket(
-            socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP
-        )
+        listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         # Windows específico: algunas veces necesitamos SO_EXCLUSIVEADDRUSE
@@ -213,9 +203,7 @@ class NodeDiscoverer:
             try:
                 listen_sock.bind((bind_addr, bind_port))
                 bind_success = True
-                logger.info(
-                    "network.bind_success", address=bind_addr or "all", port=bind_port
-                )
+                logger.info("network.bind_success", address=bind_addr or "all", port=bind_port)
                 break
             except OSError as e:
                 bind_errors.append(f"{bind_addr}:{bind_port} - {e}")
@@ -227,9 +215,7 @@ class NodeDiscoverer:
             return
 
         try:
-            self._transport, _ = await loop.create_datagram_endpoint(
-                lambda: DiscoveryProtocol(self), sock=listen_sock
-            )
+            self._transport, _ = await loop.create_datagram_endpoint(lambda: DiscoveryProtocol(self), sock=listen_sock)
             logger.info("network.endpoint_created")
         except Exception as e:
             logger.error("network.endpoint_failed", error=str(e))

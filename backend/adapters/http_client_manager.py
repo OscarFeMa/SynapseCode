@@ -180,9 +180,7 @@ class HTTPClientManager:
                 max_keepalive=5,
                 max_connections=10,
             ),
-            "openrouter": ClientConfig(
-                timeout=60.0, max_keepalive=10, max_connections=20
-            ),
+            "openrouter": ClientConfig(timeout=60.0, max_keepalive=10, max_connections=20),
             "supabase": ClientConfig(timeout=30.0, max_keepalive=5, max_connections=10),
             "gemini": ClientConfig(timeout=60.0, max_keepalive=5, max_connections=10),
             "groq": ClientConfig(timeout=60.0, max_keepalive=5, max_connections=15),

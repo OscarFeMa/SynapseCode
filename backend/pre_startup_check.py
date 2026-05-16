@@ -40,9 +40,7 @@ async def check_rdp():
         # Intento simple de conexión TCP al puerto RDP (3389)
         ip = settings.resolve_worker_ip()
         if not ip:
-            print(
-                f"    ❌ RDP: No se pudo resolver hostname '{settings.RDP_WORKER_HOSTNAME}'"
-            )
+            print(f"    ❌ RDP: No se pudo resolver hostname '{settings.RDP_WORKER_HOSTNAME}'")
             return False
 
         loop = asyncio.get_event_loop()
@@ -54,9 +52,7 @@ async def check_rdp():
             print(f"    [OK] RDP: Conexion exitosa a {ip}:3389")
             return True
         except (asyncio.TimeoutError, ConnectionRefusedError, OSError):
-            print(
-                f"    [ERROR] RDP: Puerto 3389 cerrado en {ip}. ¿Esta el Worker encendido?"
-            )
+            print(f"    [ERROR] RDP: Puerto 3389 cerrado en {ip}. ¿Esta el Worker encendido?")
             return False
 
     except Exception as e:
@@ -72,9 +68,7 @@ async def main():
 
     # 1. Verificar Master Ollama
     print("[1/3] Verificando Master Ollama (Local)...")
-    master_ok, master_models = await check_ollama(
-        settings.OLLAMA_BASE_URL, "Master Ollama"
-    )
+    master_ok, master_models = await check_ollama(settings.OLLAMA_BASE_URL, "Master Ollama")
     print()
 
     # 2. Verificar Worker Ollama
@@ -82,13 +76,9 @@ async def main():
     worker_host = settings.get_worker_host()
     if worker_host:
         worker_url = f"http://{worker_host}:{settings.WORKER_OLLAMA_PORT}"
-        worker_ok, worker_models = await check_ollama(
-            worker_url, f"Worker Ollama ({worker_host})"
-        )
+        worker_ok, worker_models = await check_ollama(worker_url, f"Worker Ollama ({worker_host})")
     else:
-        print(
-            f"    ❌ Worker: No se pudo determinar la IP (Hostname: {settings.RDP_WORKER_HOSTNAME})"
-        )
+        print(f"    ❌ Worker: No se pudo determinar la IP (Hostname: {settings.RDP_WORKER_HOSTNAME})")
         worker_ok, worker_models = False, 0
     print()
 

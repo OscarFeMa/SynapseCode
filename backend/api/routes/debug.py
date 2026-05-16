@@ -31,9 +31,7 @@ async def system_debug() -> Dict[str, Any]:
         for engine_type in EngineType:
             broken_until = lm.circuit_broken_until.get(engine_type, 0)
             is_open = broken_until > current_time
-            seconds_remaining = (
-                max(0, int(broken_until - current_time)) if is_open else 0
-            )
+            seconds_remaining = max(0, int(broken_until - current_time)) if is_open else 0
 
             circuit_breakers[engine_type.value] = {
                 "open": is_open,
@@ -107,9 +105,7 @@ async def debug_config() -> Dict[str, Any]:
                 "worker_host": settings.WORKER_HOST,
                 "ollama_base_url": settings.OLLAMA_BASE_URL,
                 "supabase_enabled": bool(settings.SUPABASE_URL),
-                "reputation_enabled": getattr(
-                    settings, "AGENT_REPUTATION_ENABLED", False
-                ),
+                "reputation_enabled": getattr(settings, "AGENT_REPUTATION_ENABLED", False),
             },
         }
     except Exception as e:

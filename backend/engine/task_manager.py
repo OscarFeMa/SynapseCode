@@ -212,10 +212,7 @@ class BackgroundTaskManager:
 
         # Generar ID
         self._task_counter += 1
-        task_id = (
-            task_id
-            or f"{context}_{self._task_counter}_{datetime.now().strftime('%H%M%S')}"
-        )
+        task_id = task_id or f"{context}_{self._task_counter}_{datetime.now().strftime('%H%M%S')}"
 
         config = config or self.default_config
 
@@ -241,9 +238,7 @@ class BackgroundTaskManager:
 
         return task_id
 
-    async def submit_simple(
-        self, coro: Callable[[], Any], context: str = "unnamed"
-    ) -> str:
+    async def submit_simple(self, coro: Callable[[], Any], context: str = "unnamed") -> str:
         """
         Versión simplificada de submit sin config personalizada.
         Usa la config por defecto del manager.
@@ -264,8 +259,7 @@ class BackgroundTaskManager:
         active = [
             info
             for info in self._task_info.values()
-            if info.status
-            in [TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.RETRYING]
+            if info.status in [TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.RETRYING]
         ]
 
         if context_filter:
@@ -294,9 +288,7 @@ class BackgroundTaskManager:
             try:
                 # Esperar tarea con timeout para poder verificar shutdown
                 try:
-                    task_id, coro, config = await asyncio.wait_for(
-                        self._queue.get(), timeout=1.0
-                    )
+                    task_id, coro, config = await asyncio.wait_for(self._queue.get(), timeout=1.0)
                 except asyncio.TimeoutError:
                     continue
 
@@ -311,9 +303,7 @@ class BackgroundTaskManager:
 
         logger.info("task_manager.worker_stopped")
 
-    async def _execute_task(
-        self, task_id: str, coro: Callable[[], Any], config: TaskConfig
-    ) -> None:
+    async def _execute_task(self, task_id: str, coro: Callable[[], Any], config: TaskConfig) -> None:
         """Ejecuta una tarea individual con manejo de errores y retries"""
         task_info = self._task_info.get(task_id)
         if task_info is None:
@@ -353,9 +343,7 @@ class BackgroundTaskManager:
                 return
 
             except asyncio.TimeoutError:
-                last_error = asyncio.TimeoutError(
-                    f"Task timed out after {config.timeout_seconds}s"
-                )
+                last_error = asyncio.TimeoutError(f"Task timed out after {config.timeout_seconds}s")
                 task_info.error = str(last_error)
 
                 if attempt <= config.max_retries:
@@ -395,9 +383,7 @@ class BackgroundTaskManager:
                         delay=config.retry_delay_seconds,
                     )
 
-                    await asyncio.sleep(
-                        config.retry_delay_seconds * attempt
-                    )  # Backoff exponencial
+                    await asyncio.sleep(config.retry_delay_seconds * attempt)  # Backoff exponencial
 
                 else:
                     # Agotados reintentos

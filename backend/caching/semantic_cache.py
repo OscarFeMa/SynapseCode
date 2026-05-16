@@ -34,20 +34,14 @@ class SemanticCacheService:
         self._embedding_model = None
         self._embedding_dimension = 384  # sentence-transformers/all-MiniLM-L6-v2
         self._cache_ttl_hours = (
-            settings.SEMANTIC_CACHE_TTL_HOURS
-            if hasattr(settings, "SEMANTIC_CACHE_TTL_HOURS")
-            else 24
+            settings.SEMANTIC_CACHE_TTL_HOURS if hasattr(settings, "SEMANTIC_CACHE_TTL_HOURS") else 24
         )
         self._similarity_threshold = (
             settings.SEMANTIC_CACHE_SIMILARITY_THRESHOLD
             if hasattr(settings, "SEMANTIC_CACHE_SIMILARITY_THRESHOLD")
             else 0.85
         )
-        self._enabled = (
-            settings.SEMANTIC_CACHE_ENABLED
-            if hasattr(settings, "SEMANTIC_CACHE_ENABLED")
-            else True
-        )
+        self._enabled = settings.SEMANTIC_CACHE_ENABLED if hasattr(settings, "SEMANTIC_CACHE_ENABLED") else True
 
     def _get_embedding_model(self):
         """Lazy loading del modelo de embeddings (sentence-transformers)"""
@@ -56,9 +50,7 @@ class SemanticCacheService:
                 from sentence_transformers import SentenceTransformer
 
                 self._embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-                logger.info(
-                    "semantic_cache.embedding_model_loaded", model="all-MiniLM-L6-v2"
-                )
+                logger.info("semantic_cache.embedding_model_loaded", model="all-MiniLM-L6-v2")
             except ImportError:
                 logger.warning(
                     "semantic_cache.sentence_transformers_not_installed",
@@ -83,9 +75,7 @@ class SemanticCacheService:
             logger.error("semantic_cache.embedding_failed", error=str(e))
             return None
 
-    def _cosine_similarity(
-        self, embedding1: List[float], embedding2: List[float]
-    ) -> float:
+    def _cosine_similarity(self, embedding1: List[float], embedding2: List[float]) -> float:
         """Calcula similitud coseno entre dos embeddings"""
         try:
             vec1 = np.array(embedding1)
@@ -98,9 +88,7 @@ class SemanticCacheService:
             logger.error("semantic_cache.similarity_failed", error=str(e))
             return 0.0
 
-    def _generate_cache_key(
-        self, prompt: str, model: str, temperature: float, max_tokens: Optional[int]
-    ) -> str:
+    def _generate_cache_key(self, prompt: str, model: str, temperature: float, max_tokens: Optional[int]) -> str:
         """Genera clave única para caché basada en configuración"""
         key_parts = [
             prompt,
@@ -163,14 +151,9 @@ class SemanticCacheService:
                     if entry.prompt_embedding:
                         try:
                             entry_embedding = json.loads(entry.prompt_embedding)
-                            similarity = self._cosine_similarity(
-                                prompt_embedding, entry_embedding
-                            )
+                            similarity = self._cosine_similarity(prompt_embedding, entry_embedding)
 
-                            if (
-                                similarity > best_similarity
-                                and similarity >= self._similarity_threshold
-                            ):
+                            if similarity > best_similarity and similarity >= self._similarity_threshold:
                                 best_similarity = similarity
                                 best_match = entry
                         except Exception as e:
@@ -250,9 +233,7 @@ class SemanticCacheService:
             async with AsyncSessionLocal() as db:
                 # Verificar si ya existe
                 existing = await db.execute(
-                    select(PromptResponseCache).where(
-                        PromptResponseCache.cache_key == cache_key
-                    )
+                    select(PromptResponseCache).where(PromptResponseCache.cache_key == cache_key)
                 )
                 existing_entry = existing.scalar_one_or_none()
 
@@ -276,9 +257,7 @@ class SemanticCacheService:
                         temperature=temperature,
                         max_tokens=max_tokens,
                         prompt_hash=hashlib.sha256(prompt.encode()).hexdigest(),
-                        prompt_embedding=json.dumps(prompt_embedding)
-                        if prompt_embedding
-                        else None,
+                        prompt_embedding=json.dumps(prompt_embedding) if prompt_embedding else None,
                         response_text=response_text,
                         tokens_in=tokens_in,
                         tokens_out=tokens_out,
@@ -301,9 +280,7 @@ class SemanticCacheService:
             logger.error("semantic_cache.set_failed", error=str(e))
             return False
 
-    async def invalidate(
-        self, model: Optional[str] = None, engine: Optional[str] = None
-    ) -> int:
+    async def invalidate(self, model: Optional[str] = None, engine: Optional[str] = None) -> int:
         """
         Invalida entradas de caché por modelo/engine.
         Devuelve número de entradas eliminadas.
@@ -349,9 +326,7 @@ class SemanticCacheService:
         try:
             async with AsyncSessionLocal() as db:
                 now = datetime.now(UTC)
-                query = select(PromptResponseCache).where(
-                    PromptResponseCache.expires_at < now
-                )
+                query = select(PromptResponseCache).where(PromptResponseCache.expires_at < now)
                 result = await db.execute(query)
                 entries = result.scalars().all()
 
@@ -374,22 +349,16 @@ class SemanticCacheService:
         try:
             async with AsyncSessionLocal() as db:
                 # Total entries
-                total_result = await db.execute(
-                    select(func.count(PromptResponseCache.id))
-                )
+                total_result = await db.execute(select(func.count(PromptResponseCache.id)))
                 total = total_result.scalar()
 
                 # Total hits
-                hits_result = await db.execute(
-                    select(func.sum(PromptResponseCache.hit_count))
-                )
+                hits_result = await db.execute(select(func.sum(PromptResponseCache.hit_count)))
                 total_hits = hits_result.scalar() or 0
 
                 # Entries with embeddings
                 with_embeddings_result = await db.execute(
-                    select(func.count(PromptResponseCache.id)).where(
-                        PromptResponseCache.prompt_embedding.isnot(None)
-                    )
+                    select(func.count(PromptResponseCache.id)).where(PromptResponseCache.prompt_embedding.isnot(None))
                 )
                 with_embeddings = with_embeddings_result.scalar()
 

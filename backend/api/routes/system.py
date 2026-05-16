@@ -48,11 +48,7 @@ async def require_admin_access(request: Request) -> None:
     if configured_token:
         header_token = request.headers.get("X-Admin-Token")
         auth_header = request.headers.get("Authorization", "")
-        bearer_token = (
-            auth_header.removeprefix("Bearer ").strip()
-            if auth_header.startswith("Bearer ")
-            else None
-        )
+        bearer_token = auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else None
 
         if header_token != configured_token and bearer_token != configured_token:
             raise HTTPException(status_code=401, detail="Invalid admin token")
@@ -105,12 +101,8 @@ class WakeWorkerRequest(BaseModel):
         default=None,
         description="Hostname del Worker (usa config si no se proporciona)",
     )
-    username: Optional[str] = Field(
-        default=None, description="Usuario RDP (usa config si no se proporciona)"
-    )
-    password: Optional[str] = Field(
-        default=None, description="Contraseña RDP (usa config si no se proporciona)"
-    )
+    username: Optional[str] = Field(default=None, description="Usuario RDP (usa config si no se proporciona)")
+    password: Optional[str] = Field(default=None, description="Contraseña RDP (usa config si no se proporciona)")
 
 
 @router.get("/settings", dependencies=[Depends(require_admin_access)])
@@ -171,9 +163,7 @@ async def direct_chat_endpoint(req: DirectChatRequest):
 
         if engine == "groq":
             if not settings.GROQ_API_KEY:
-                raise HTTPException(
-                    status_code=503, detail="Groq API key not configured"
-                )
+                raise HTTPException(status_code=503, detail="Groq API key not configured")
             from backend.adapters.groq import GroqClient
 
             client = GroqClient()
@@ -188,9 +178,7 @@ async def direct_chat_endpoint(req: DirectChatRequest):
 
         elif engine == "gemini":
             if not settings.GEMINI_API_KEY:
-                raise HTTPException(
-                    status_code=503, detail="Gemini API key not configured"
-                )
+                raise HTTPException(status_code=503, detail="Gemini API key not configured")
             from backend.adapters.gemini import GeminiClient
 
             client = GeminiClient()
@@ -205,9 +193,7 @@ async def direct_chat_endpoint(req: DirectChatRequest):
 
         elif engine == "openrouter":
             if not settings.OPENROUTER_API_KEY:
-                raise HTTPException(
-                    status_code=503, detail="OpenRouter API key not configured"
-                )
+                raise HTTPException(status_code=503, detail="OpenRouter API key not configured")
             from backend.adapters.openrouter import OpenRouterClient
 
             client = OpenRouterClient()
@@ -222,9 +208,7 @@ async def direct_chat_endpoint(req: DirectChatRequest):
 
         elif engine == "deepseek":
             if not settings.DEEPSEEK_API_KEY:
-                raise HTTPException(
-                    status_code=503, detail="DeepSeek API key not configured"
-                )
+                raise HTTPException(status_code=503, detail="DeepSeek API key not configured")
             from backend.adapters.deepseek import DeepSeekClient
 
             client = DeepSeekClient()
@@ -307,17 +291,11 @@ async def get_analytics_endpoint(limit: int = 5):
     safe_limit = max(1, min(limit, 25))
 
     async with AsyncSessionLocal() as db:
-        daily_result = await db.execute(
-            select(DailyMetricsSnapshot)
-            .order_by(desc(DailyMetricsSnapshot.date))
-            .limit(1)
-        )
+        daily_result = await db.execute(select(DailyMetricsSnapshot).order_by(desc(DailyMetricsSnapshot.date)).limit(1))
         daily = daily_result.scalar_one_or_none()
 
         topics_result = await db.execute(
-            select(TopicTrending)
-            .order_by(desc(TopicTrending.debate_count), desc(TopicTrending.date))
-            .limit(safe_limit)
+            select(TopicTrending).order_by(desc(TopicTrending.debate_count), desc(TopicTrending.date)).limit(safe_limit)
         )
         topics = topics_result.scalars().all()
 
@@ -385,9 +363,7 @@ async def get_sync_health_endpoint():
     async with AsyncSessionLocal() as db:
         pending_count = (
             await db.scalar(
-                select(func.count(SupabaseSyncQueueItem.id)).where(
-                    SupabaseSyncQueueItem.status == "pending"
-                )
+                select(func.count(SupabaseSyncQueueItem.id)).where(SupabaseSyncQueueItem.status == "pending")
             )
             or 0
         )
@@ -477,9 +453,7 @@ async def get_tribunal_config_endpoint():
         "roles": {
             role: {
                 "primary": serialize_agent(role_config.primary),
-                "fallbacks": [
-                    serialize_agent(config) for config in role_config.fallbacks
-                ],
+                "fallbacks": [serialize_agent(config) for config in role_config.fallbacks],
             }
             for role, role_config in role_configs.items()
         },
@@ -492,35 +466,20 @@ async def get_reductio_analytics_endpoint(limit: int = 10):
     safe_limit = max(1, min(limit, 50))
 
     async with AsyncSessionLocal() as db:
-        total_proofs = (
-            await db.scalar(select(func.count(ReductioAbsurdumProof.id))) or 0
-        )
+        total_proofs = await db.scalar(select(func.count(ReductioAbsurdumProof.id))) or 0
 
-        avg_confidence = await db.scalar(
-            select(func.avg(ReductioAbsurdumProof.confidence_score))
-        )
+        avg_confidence = await db.scalar(select(func.avg(ReductioAbsurdumProof.confidence_score)))
         avg_confidence = round(float(avg_confidence), 3) if avg_confidence else 0.0
 
-        avg_complacency_risk = await db.scalar(
-            select(func.avg(ReductioAbsurdumProof.overall_complacency_risk))
-        )
-        avg_complacency_risk = (
-            round(float(avg_complacency_risk), 3) if avg_complacency_risk else 0.0
-        )
+        avg_complacency_risk = await db.scalar(select(func.avg(ReductioAbsurdumProof.overall_complacency_risk)))
+        avg_complacency_risk = round(float(avg_complacency_risk), 3) if avg_complacency_risk else 0.0
 
         invalid_count = (
-            await db.scalar(
-                select(func.count(ReductioAbsurdumProof.id)).where(
-                    not ReductioAbsurdumProof.is_valid
-                )
-            )
-            or 0
+            await db.scalar(select(func.count(ReductioAbsurdumProof.id)).where(not ReductioAbsurdumProof.is_valid)) or 0
         )
 
         recent_proofs_result = await db.execute(
-            select(ReductioAbsurdumProof)
-            .order_by(desc(ReductioAbsurdumProof.created_at))
-            .limit(safe_limit)
+            select(ReductioAbsurdumProof).order_by(desc(ReductioAbsurdumProof.created_at)).limit(safe_limit)
         )
         recent_proofs = recent_proofs_result.scalars().all()
 
@@ -528,9 +487,7 @@ async def get_reductio_analytics_endpoint(limit: int = 10):
             select(
                 ReductioAbsurdumProof.challenged_agent,
                 func.count(ReductioAbsurdumProof.id).label("challenge_count"),
-                func.avg(ReductioAbsurdumProof.confidence_score).label(
-                    "avg_confidence"
-                ),
+                func.avg(ReductioAbsurdumProof.confidence_score).label("avg_confidence"),
             )
             .group_by(ReductioAbsurdumProof.challenged_agent)
             .order_by(desc("challenge_count"))
@@ -542,9 +499,7 @@ async def get_reductio_analytics_endpoint(limit: int = 10):
             select(
                 ReductioAbsurdumProof.questioning_agent,
                 func.count(ReductioAbsurdumProof.id).label("proof_count"),
-                func.avg(ReductioAbsurdumProof.confidence_score).label(
-                    "avg_confidence"
-                ),
+                func.avg(ReductioAbsurdumProof.confidence_score).label("avg_confidence"),
             )
             .group_by(ReductioAbsurdumProof.questioning_agent)
             .order_by(desc("proof_count"))
@@ -561,12 +516,7 @@ async def get_reductio_analytics_endpoint(limit: int = 10):
             or 0
         )
 
-        debates_with_proofs = (
-            await db.scalar(
-                select(func.count(func.distinct(ReductioAbsurdumProof.debate_id)))
-            )
-            or 0
-        )
+        debates_with_proofs = await db.scalar(select(func.count(func.distinct(ReductioAbsurdumProof.debate_id)))) or 0
 
     recent_list = []
     for proof in recent_proofs:
@@ -599,17 +549,13 @@ async def get_reductio_analytics_endpoint(limit: int = 10):
             "avgComplacencyRisk": avg_complacency_risk,
             "invalidProofs": invalid_count,
             "highRiskProofs": high_risk_proofs,
-            "invalidationRate": round(invalid_count / total_proofs, 3)
-            if total_proofs > 0
-            else 0.0,
+            "invalidationRate": round(invalid_count / total_proofs, 3) if total_proofs > 0 else 0.0,
         },
         "topChallengedAgents": [
             {
                 "agent": row.challenged_agent,
                 "challengeCount": row.challenge_count,
-                "avgConfidence": round(float(row.avg_confidence), 3)
-                if row.avg_confidence
-                else 0.0,
+                "avgConfidence": round(float(row.avg_confidence), 3) if row.avg_confidence else 0.0,
             }
             for row in top_challenged
         ],
@@ -617,9 +563,7 @@ async def get_reductio_analytics_endpoint(limit: int = 10):
             {
                 "agent": row.questioning_agent,
                 "proofCount": row.proof_count,
-                "avgConfidence": round(float(row.avg_confidence), 3)
-                if row.avg_confidence
-                else 0.0,
+                "avgConfidence": round(float(row.avg_confidence), 3) if row.avg_confidence else 0.0,
             }
             for row in top_questioners
         ],
@@ -652,14 +596,10 @@ async def health_check_endpoint():
             # Limpiar cache para obtener datos frescos
             worker_service_manager._check_cache = {}
             services = await worker_service_manager.check_all_services()
-            running_count = sum(
-                1 for s in services.values() if s.get("status") == "running"
-            )
+            running_count = sum(1 for s in services.values() if s.get("status") == "running")
             if running_count > 0:
                 worker_connected = True
-                resolved_ip = (
-                    worker_service_manager._worker_ip or settings.get_worker_host()
-                )
+                resolved_ip = worker_service_manager._worker_ip or settings.get_worker_host()
                 if resolved_ip:
                     worker_ip = resolved_ip
         except Exception as e:
@@ -739,9 +679,7 @@ async def wake_worker_auto_endpoint(request: Request):
     - Ideal para llamadas automáticas desde SequentialDebateController
     """
     if not settings.RDP_ENABLED:
-        raise HTTPException(
-            status_code=503, detail="RDP deshabilitado en configuración"
-        )
+        raise HTTPException(status_code=503, detail="RDP deshabilitado en configuración")
 
     try:
         # Usar método async directamente (no asyncio.run())
@@ -780,9 +718,7 @@ async def rdp_status_endpoint():
         "username": settings.RDP_WORKER_USERNAME.split("\\")[-1]
         if "\\" in settings.RDP_WORKER_USERNAME
         else settings.RDP_WORKER_USERNAME,
-        "domain": settings.RDP_WORKER_USERNAME.split("\\")[0]
-        if "\\" in settings.RDP_WORKER_USERNAME
-        else None,
+        "domain": settings.RDP_WORKER_USERNAME.split("\\")[0] if "\\" in settings.RDP_WORKER_USERNAME else None,
         "rate_limit_seconds": settings.RDP_RATE_LIMIT_SECONDS,
         "password_configured": bool(settings.RDP_WORKER_PASSWORD),
         "platform": "windows_only",
@@ -920,9 +856,7 @@ async def list_backups_endpoint(limit: int = 20):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete(
-    "/backup/delete/{filename}", dependencies=[Depends(require_admin_access)]
-)
+@router.delete("/backup/delete/{filename}", dependencies=[Depends(require_admin_access)])
 async def delete_backup_endpoint(filename: str):
     """Elimina un backup especifico de Supabase Storage"""
     try:
@@ -934,9 +868,7 @@ async def delete_backup_endpoint(filename: str):
         if result.get("success"):
             return {"success": True, "message": f"Backup {filename} deleted"}
         else:
-            raise HTTPException(
-                status_code=400, detail=result.get("error", "Delete failed")
-            )
+            raise HTTPException(status_code=400, detail=result.get("error", "Delete failed"))
 
     except HTTPException:
         raise
@@ -962,9 +894,7 @@ async def restore_backup_endpoint(filename: str):
                 "message": result.get("message"),
             }
         else:
-            raise HTTPException(
-                status_code=400, detail=result.get("error", "Restore failed")
-            )
+            raise HTTPException(status_code=400, detail=result.get("error", "Restore failed"))
 
     except HTTPException:
         raise
@@ -988,9 +918,7 @@ async def backup_status_endpoint():
 
         return {
             "enabled": backup_service.enabled,
-            "supabase_configured": bool(
-                settings.SUPABASE_URL and settings.SUPABASE_ANON_KEY
-            ),
+            "supabase_configured": bool(settings.SUPABASE_URL and settings.SUPABASE_ANON_KEY),
             "database_path": db_path,
             "database_exists": db_exists,
             "database_size_bytes": db_size,

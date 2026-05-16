@@ -45,10 +45,7 @@ class TestSequentialDebateController:
                 system_prompt="",
             ),
         ]
-        assert (
-            controller._find_next_preload_model(agents, current_index=0)
-            == "mistral:latest"
-        )
+        assert controller._find_next_preload_model(agents, current_index=0) == "mistral:latest"
         assert controller._find_next_preload_model(agents, current_index=1) is None
 
     def test_controller_has_reductio_engine(self):
@@ -97,11 +94,7 @@ class TestSequentialDebateController:
             assert call_counter["count"] == 1
 
             async with AsyncSessionLocal() as db_session:
-                await db_session.execute(
-                    delete(PromptResponseCache).where(
-                        PromptResponseCache.model == agent.model
-                    )
-                )
+                await db_session.execute(delete(PromptResponseCache).where(PromptResponseCache.model == agent.model))
                 await db_session.commit()
 
         asyncio.run(scenario())
@@ -160,9 +153,7 @@ class TestSequentialDebateController:
 
             async with AsyncSessionLocal() as db_session:
                 result = await db_session.execute(
-                    select(ReductioAbsurdumProof).where(
-                        ReductioAbsurdumProof.debate_id == debate_id
-                    )
+                    select(ReductioAbsurdumProof).where(ReductioAbsurdumProof.debate_id == debate_id)
                 )
                 record = result.scalar_one()
 
@@ -171,21 +162,15 @@ class TestSequentialDebateController:
             assert record.questioning_agent == "Critic"
             assert record.challenged_agent == "Analyst"
             assert record.overall_complacency_risk == 0.82
-            assert record.weak_assumptions == [
-                "La automatizacion siempre mejora la calidad"
-            ]
+            assert record.weak_assumptions == ["La automatizacion siempre mejora la calidad"]
             assert record.recommendations == ["Desafiar absolutos en automatizacion"]
             assert record.is_valid is False
 
             async with AsyncSessionLocal() as db_session:
                 await db_session.execute(
-                    delete(ReductioAbsurdumProof).where(
-                        ReductioAbsurdumProof.debate_id == debate_id
-                    )
+                    delete(ReductioAbsurdumProof).where(ReductioAbsurdumProof.debate_id == debate_id)
                 )
-                await db_session.execute(
-                    delete(SequentialDebate).where(SequentialDebate.id == debate_id)
-                )
+                await db_session.execute(delete(SequentialDebate).where(SequentialDebate.id == debate_id))
                 await db_session.commit()
 
         asyncio.run(scenario())

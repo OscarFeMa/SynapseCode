@@ -130,9 +130,7 @@ def setup_logging(
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer()
-            if file_output
-            else structlog.dev.ConsoleRenderer(),
+            structlog.processors.JSONRenderer() if file_output else structlog.dev.ConsoleRenderer(),
         ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),

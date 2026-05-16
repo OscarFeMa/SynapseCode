@@ -95,9 +95,7 @@ class TurnBasedCalculator(BaseMetricsCalculator):
         tsa = 1.0 if intervention_type not in ["refutacion", "refutation"] else 0.3
 
         # IID: Alta si hizo argumentos, críticas o refutaciones
-        iid = (
-            1.0 if intervention_type in ["argumento", "refutacion", "critica"] else 0.5
-        )
+        iid = 1.0 if intervention_type in ["argumento", "refutacion", "critica"] else 0.5
 
         # PVT: Basada en éxito del turno
         pvt = 1.0 if success else 0.0
@@ -247,9 +245,7 @@ class SessionBasedCalculator(BaseMetricsCalculator):
 
         return min(0.5 + (technical_signals / len(calls)) * 0.5, 1.0)
 
-    async def calculate_for_session(
-        self, session_id: str, db_session: AsyncSession
-    ) -> Dict[str, ReputationMetrics]:
+    async def calculate_for_session(self, session_id: str, db_session: AsyncSession) -> Dict[str, ReputationMetrics]:
         """
         Calcula métricas para todos los modelos de una sesión.
 
@@ -259,9 +255,7 @@ class SessionBasedCalculator(BaseMetricsCalculator):
         logger.info("reputation.session_calculating", session_id=session_id)
 
         # Obtener sesión y veredicto
-        result = await db_session.execute(
-            select(Session).where(Session.id == session_id)
-        )
+        result = await db_session.execute(select(Session).where(Session.id == session_id))
         session = result.scalar_one_or_none()
 
         if not session or not session.tribunal_verdict:
@@ -276,9 +270,7 @@ class SessionBasedCalculator(BaseMetricsCalculator):
 
         # Obtener llamadas de agentes
         calls_result = await db_session.execute(
-            select(AgentCall).where(
-                AgentCall.session_id == session_id, AgentCall.status == "COMPLETED"
-            )
+            select(AgentCall).where(AgentCall.session_id == session_id, AgentCall.status == "COMPLETED")
         )
         calls = calls_result.scalars().all()
 
@@ -306,9 +298,7 @@ class SessionBasedCalculator(BaseMetricsCalculator):
                 }
 
             model_data[key]["responses"].append(call.response or "")
-            model_data[key]["arguments"].extend(
-                self._extract_arguments(call.response or "")
-            )
+            model_data[key]["arguments"].extend(self._extract_arguments(call.response or ""))
             model_data[key]["call_count"] += 1
             model_data[key]["tokens_out"] += call.tokens_out or 0
 
@@ -318,11 +308,7 @@ class SessionBasedCalculator(BaseMetricsCalculator):
             tsa = self._calculate_tsa(data["arguments"], verdict_args)
             iid = self._calculate_iid(data["role"], data["responses"])
             pvt = self._calculate_pvt(
-                [
-                    c
-                    for c in calls
-                    if c.model_name == data["model"] and c.role_label == data["role"]
-                ]
+                [c for c in calls if c.model_name == data["model"] and c.role_label == data["role"]]
             )
 
             # Efficiency: promedio basado en tokens
@@ -341,10 +327,7 @@ class SessionBasedCalculator(BaseMetricsCalculator):
                 arguments_in_verdict=[
                     arg
                     for arg in data["arguments"]
-                    if any(
-                        self._argument_similarity(arg, v_arg) > 0.5
-                        for v_arg in verdict_args
-                    )
+                    if any(self._argument_similarity(arg, v_arg) > 0.5 for v_arg in verdict_args)
                 ],
                 total_arguments=len(data["arguments"]),
             )
@@ -417,9 +400,7 @@ class ReputationService:
             async with AsyncSessionLocal() as db:
                 # Buscar reputación existente
                 result = await db.execute(
-                    select(ModelReputation).where(
-                        ModelReputation.model == model, ModelReputation.role == role
-                    )
+                    select(ModelReputation).where(ModelReputation.model == model, ModelReputation.role == role)
                 )
                 rep = result.scalar_one_or_none()
 
@@ -444,17 +425,12 @@ class ReputationService:
                     rep.tsa_score = a * metrics["tsa"] + (1 - a) * rep.tsa_score
                     rep.iid_score = a * metrics["iid"] + (1 - a) * rep.iid_score
                     rep.pvt_score = a * metrics["pvt"] + (1 - a) * rep.pvt_score
-                    rep.efficiency_score = (
-                        a * metrics["efficiency"] + (1 - a) * rep.efficiency_score
-                    )
+                    rep.efficiency_score = a * metrics["efficiency"] + (1 - a) * rep.efficiency_score
                     rep.total_turns += 1
 
                 # Recalcular score compuesto
                 rep.reputation_score = (
-                    rep.tsa_score * 0.3
-                    + rep.iid_score * 0.2
-                    + rep.pvt_score * 0.3
-                    + rep.efficiency_score * 0.2
+                    rep.tsa_score * 0.3 + rep.iid_score * 0.2 + rep.pvt_score * 0.3 + rep.efficiency_score * 0.2
                 )
                 rep.updated_at = datetime.utcnow()
 
@@ -469,17 +445,13 @@ class ReputationService:
                 )
 
         except Exception as e:
-            logger.error(
-                "reputation.turn_update_failed", model=model, role=role, error=str(e)
-            )
+            logger.error("reputation.turn_update_failed", model=model, role=role, error=str(e))
 
     # -------------------------------------------------------------------------
     # MÉTODO 2: Actualización Post-Sesión (para session_manager)
     # -------------------------------------------------------------------------
 
-    async def update_after_session(
-        self, session_id: str, db_session: AsyncSession
-    ) -> None:
+    async def update_after_session(self, session_id: str, db_session: AsyncSession) -> None:
         """
         Actualiza reputación de todos los modelos tras completar sesión.
         Basado en análisis de argumentos y veredicto del tribunal.
@@ -490,9 +462,7 @@ class ReputationService:
 
         try:
             # Calcular métricas post-sesión
-            metrics = await self.session_calculator.calculate_for_session(
-                session_id, db_session
-            )
+            metrics = await self.session_calculator.calculate_for_session(session_id, db_session)
 
             if not metrics:
                 return
@@ -515,13 +485,9 @@ class ReputationService:
             )
 
         except Exception as e:
-            logger.error(
-                "reputation.session_update_failed", session_id=session_id, error=str(e)
-            )
+            logger.error("reputation.session_update_failed", session_id=session_id, error=str(e))
 
-    async def _update_model_reputation(
-        self, metric: ReputationMetrics, db_session: AsyncSession
-    ) -> None:
+    async def _update_model_reputation(self, metric: ReputationMetrics, db_session: AsyncSession) -> None:
         """Actualiza registro EMA de un modelo"""
         # Buscar reputación existente
         result = await db_session.execute(
@@ -578,9 +544,7 @@ class ReputationService:
         try:
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
-                    select(ModelReputation).where(
-                        ModelReputation.model == model, ModelReputation.role == role
-                    )
+                    select(ModelReputation).where(ModelReputation.model == model, ModelReputation.role == role)
                 )
                 rep = result.scalar_one_or_none()
 
@@ -596,9 +560,7 @@ class ReputationService:
                         "reputation_score": round(rep.reputation_score, 3),
                         "total_turns": rep.total_turns,
                         "total_debates": rep.total_debates,
-                        "updated_at": rep.updated_at.isoformat()
-                        if rep.updated_at
-                        else None,
+                        "updated_at": rep.updated_at.isoformat() if rep.updated_at else None,
                     }
                 return None
 
@@ -606,9 +568,7 @@ class ReputationService:
             logger.error("reputation.get_failed", model=model, role=role, error=str(e))
             return None
 
-    async def get_best_for_role(
-        self, role: str, candidates: List[str], min_debates: int = 3
-    ) -> Optional[str]:
+    async def get_best_for_role(self, role: str, candidates: List[str], min_debates: int = 3) -> Optional[str]:
         """
         Obtiene el mejor modelo para un rol basado en reputación.
         """

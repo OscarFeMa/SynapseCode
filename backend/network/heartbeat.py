@@ -50,16 +50,12 @@ class HeartbeatManager:
 
         if self.role == "WORKER":
             # Worker envía heartbeats al Master
-            self.heartbeat_thread = threading.Thread(
-                target=self._send_heartbeats, daemon=True
-            )
+            self.heartbeat_thread = threading.Thread(target=self._send_heartbeats, daemon=True)
             self.heartbeat_thread.start()
             logger.info(f"Heartbeat iniciado (Worker → {peer_ip})")
         else:
             # Master escucha heartbeats del Worker
-            self.heartbeat_thread = threading.Thread(
-                target=self._listen_heartbeats, daemon=True
-            )
+            self.heartbeat_thread = threading.Thread(target=self._listen_heartbeats, daemon=True)
             self.heartbeat_thread.start()
             logger.info("Heartbeat iniciado (Master escuchando)")
 
@@ -81,9 +77,7 @@ class HeartbeatManager:
                     self.tcp_socket.settimeout(5)
                     try:
                         self.tcp_socket.connect((self.peer_ip, 54322))
-                        logger.info(
-                            f"Conexión TCP establecida con Master en {self.peer_ip}"
-                        )
+                        logger.info(f"Conexión TCP establecida con Master en {self.peer_ip}")
                     except Exception as e:
                         logger.error(f"Error conectando al Master: {e}")
                         self.tcp_socket.close()
@@ -138,9 +132,7 @@ class HeartbeatManager:
                     if self.last_heartbeat:
                         elapsed = (datetime.now() - self.last_heartbeat).total_seconds()
                         if elapsed > self.timeout and self.on_connection_lost:
-                            logger.warning(
-                                f"Worker desconectado (sin heartbeat por {elapsed}s)"
-                            )
+                            logger.warning(f"Worker desconectado (sin heartbeat por {elapsed}s)")
                             self.on_connection_lost()
                     continue
 

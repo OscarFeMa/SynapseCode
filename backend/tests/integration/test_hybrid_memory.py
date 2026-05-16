@@ -46,18 +46,14 @@ class TestHybridMemory:
 
             async with AsyncSessionLocal() as db_session:
                 result = await db_session.execute(
-                    select(SupabaseSyncQueueItem).where(
-                        SupabaseSyncQueueItem.debate_id == session.id
-                    )
+                    select(SupabaseSyncQueueItem).where(SupabaseSyncQueueItem.debate_id == session.id)
                 )
                 persisted = result.scalar_one()
                 assert persisted.status == "pending"
                 assert persisted.retry_count == 1
 
                 await db_session.execute(
-                    delete(SupabaseSyncQueueItem).where(
-                        SupabaseSyncQueueItem.debate_id == session.id
-                    )
+                    delete(SupabaseSyncQueueItem).where(SupabaseSyncQueueItem.debate_id == session.id)
                 )
                 await db_session.commit()
 
@@ -84,9 +80,7 @@ class TestHybridMemory:
 
             async with AsyncSessionLocal() as db_session:
                 await db_session.execute(
-                    delete(SupabaseSyncQueueItem).where(
-                        SupabaseSyncQueueItem.debate_id == "rehydrate-1"
-                    )
+                    delete(SupabaseSyncQueueItem).where(SupabaseSyncQueueItem.debate_id == "rehydrate-1")
                 )
                 await db_session.commit()
 

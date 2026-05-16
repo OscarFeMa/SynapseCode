@@ -41,18 +41,8 @@ class TestSqliteMigrations:
             run_sqlite_migrations(conn)
             run_sqlite_migrations(conn)
 
-            columns = {
-                row._mapping["name"]
-                for row in conn.execute(
-                    text("PRAGMA table_info(prompt_response_cache)")
-                )
-            }
-            indexes = {
-                row._mapping["name"]
-                for row in conn.execute(
-                    text("PRAGMA index_list(prompt_response_cache)")
-                )
-            }
+            columns = {row._mapping["name"] for row in conn.execute(text("PRAGMA table_info(prompt_response_cache)"))}
+            indexes = {row._mapping["name"] for row in conn.execute(text("PRAGMA index_list(prompt_response_cache)"))}
 
         assert {"prompt_embedding", "similarity_threshold", "expires_at"} <= columns
         assert "idx_prompt_cache_expires" in indexes

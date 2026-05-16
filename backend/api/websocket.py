@@ -128,9 +128,7 @@ class WebSocketManager:
             try:
                 await target.send_text(message)
             except Exception as e:
-                logger.warning(
-                    "websocket.send_failed", session_id=session_id, error=str(e)
-                )
+                logger.warning("websocket.send_failed", session_id=session_id, error=str(e))
         else:
             # Broadcast a todos en la sesión
             if session_id in self.active_connections:
@@ -150,14 +148,10 @@ class WebSocketManager:
                 for conn in disconnected:
                     self.active_connections[session_id].discard(conn)
 
-    def _should_buffer_token_event(
-        self, event_type: str, payload: Dict[str, Any]
-    ) -> bool:
+    def _should_buffer_token_event(self, event_type: str, payload: Dict[str, Any]) -> bool:
         return event_type.endswith("_token") and isinstance(payload.get("token"), str)
 
-    async def _buffer_token_event(
-        self, session_id: str, event_type: str, payload: Dict[str, Any]
-    ) -> None:
+    async def _buffer_token_event(self, session_id: str, event_type: str, payload: Dict[str, Any]) -> None:
         role = str(payload.get("role", "default"))
         session_buffers = self.token_buffers.setdefault(session_id, {})
         buffer_key = f"{event_type}:{role}"
@@ -240,9 +234,7 @@ class WebSocketManager:
             try:
                 await target.send_text(message)
             except Exception as e:
-                logger.warning(
-                    "websocket.send_failed", session_id=session_id, error=str(e)
-                )
+                logger.warning("websocket.send_failed", session_id=session_id, error=str(e))
             return
 
         if session_id in self.active_connections:
@@ -279,12 +271,8 @@ class WebSocketManager:
         """Obtiene estadísticas globales de WebSockets"""
         return {
             "total_sessions": len(self.active_connections),
-            "total_connections": sum(
-                len(conns) for conns in self.active_connections.values()
-            ),
-            "sessions": {
-                sid: len(conns) for sid, conns in self.active_connections.items()
-            },
+            "total_connections": sum(len(conns) for conns in self.active_connections.values()),
+            "sessions": {sid: len(conns) for sid, conns in self.active_connections.items()},
         }
 
     def create_event_callback(self, session_id: str) -> Callable[[str, Any], None]:
@@ -301,9 +289,7 @@ class WebSocketManager:
                 try:
                     await self.send_event(session_id, event_type, payload)
                 except Exception as e:
-                    logger.debug(
-                        "websocket.send_failed", session_id=session_id, error=str(e)
-                    )
+                    logger.debug("websocket.send_failed", session_id=session_id, error=str(e))
 
             task = asyncio.create_task(send_with_error_handling())
             self.background_tasks.add(task)
@@ -337,9 +323,7 @@ async def handle_websocket(websocket: WebSocket, session_id: str):
                 msg_type = message.get("type", "unknown")
 
                 if msg_type == "ping":
-                    await websocket.send_json(
-                        {"type": "pong", "timestamp": utc_now_iso()}
-                    )
+                    await websocket.send_json({"type": "pong", "timestamp": utc_now_iso()})
 
                 elif msg_type == "get_status":
                     await websocket_manager.flush_session(session_id)

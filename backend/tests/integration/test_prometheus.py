@@ -19,15 +19,11 @@ class TestPrometheusMetrics:
 
     def test_prometheus_metrics_render(self):
         metrics = render_prometheus_metrics()
-        assert (
-            "debate_duration_seconds" in metrics or "debate_tokens_generated" in metrics
-        )
+        assert "debate_duration_seconds" in metrics or "debate_tokens_generated" in metrics
 
     def test_prometheus_debate_completed_recording(self):
         try:
-            record_debate_completed(
-                total_tokens_out=500, total_latency_ms=3000, mode="standard"
-            )
+            record_debate_completed(total_tokens_out=500, total_latency_ms=3000, mode="standard")
         except Exception as e:
             assert False, f"record_debate_completed raised: {e}"
 

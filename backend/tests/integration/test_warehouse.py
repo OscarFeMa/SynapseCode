@@ -52,30 +52,14 @@ class TestDataWarehouse:
             topic_hash = manager._hash_topic(topic)
 
             async with AsyncSessionLocal() as db_session:
+                await db_session.execute(delete(TopicTrending).where(TopicTrending.topic_hash == topic_hash))
+                await db_session.execute(delete(DebateAggregate).where(DebateAggregate.id == debate_id))
+                await db_session.execute(delete(DailyMetricsSnapshot).where(DailyMetricsSnapshot.date == "2099-01-02"))
+                await db_session.execute(delete(ModelPerformance).where(ModelPerformance.model_name == model_name))
                 await db_session.execute(
-                    delete(TopicTrending).where(TopicTrending.topic_hash == topic_hash)
+                    delete(SequentialDebateTurn).where(SequentialDebateTurn.debate_id == debate_id)
                 )
-                await db_session.execute(
-                    delete(DebateAggregate).where(DebateAggregate.id == debate_id)
-                )
-                await db_session.execute(
-                    delete(DailyMetricsSnapshot).where(
-                        DailyMetricsSnapshot.date == "2099-01-02"
-                    )
-                )
-                await db_session.execute(
-                    delete(ModelPerformance).where(
-                        ModelPerformance.model_name == model_name
-                    )
-                )
-                await db_session.execute(
-                    delete(SequentialDebateTurn).where(
-                        SequentialDebateTurn.debate_id == debate_id
-                    )
-                )
-                await db_session.execute(
-                    delete(SequentialDebate).where(SequentialDebate.id == debate_id)
-                )
+                await db_session.execute(delete(SequentialDebate).where(SequentialDebate.id == debate_id))
                 db_session.add(
                     SequentialDebate(
                         id=debate_id,
@@ -136,25 +120,17 @@ class TestDataWarehouse:
             async with AsyncSessionLocal() as db_session:
                 aggregate = await db_session.get(DebateAggregate, debate_id)
                 topic_row = (
-                    await db_session.execute(
-                        select(TopicTrending).where(
-                            TopicTrending.topic_hash == topic_hash
-                        )
-                    )
+                    await db_session.execute(select(TopicTrending).where(TopicTrending.topic_hash == topic_hash))
                 ).scalar_one()
                 daily = (
                     await db_session.execute(
-                        select(DailyMetricsSnapshot).where(
-                            DailyMetricsSnapshot.date == "2099-01-02"
-                        )
+                        select(DailyMetricsSnapshot).where(DailyMetricsSnapshot.date == "2099-01-02")
                     )
                 ).scalar_one()
                 model_rows = (
                     (
                         await db_session.execute(
-                            select(ModelPerformance).where(
-                                ModelPerformance.model_name == model_name
-                            )
+                            select(ModelPerformance).where(ModelPerformance.model_name == model_name)
                         )
                     )
                     .scalars()
@@ -170,41 +146,21 @@ class TestDataWarehouse:
                 assert len(model_rows) == 2
                 assert {row.agent_role for row in model_rows} == {"analyst", "critic"}
 
+                await db_session.execute(delete(TopicTrending).where(TopicTrending.topic_hash == topic_hash))
+                await db_session.execute(delete(DailyMetricsSnapshot).where(DailyMetricsSnapshot.date == "2099-01-02"))
+                await db_session.execute(delete(ModelPerformance).where(ModelPerformance.model_name == model_name))
+                await db_session.execute(delete(DebateAggregate).where(DebateAggregate.id == debate_id))
                 await db_session.execute(
-                    delete(TopicTrending).where(TopicTrending.topic_hash == topic_hash)
+                    delete(SequentialDebateTurn).where(SequentialDebateTurn.debate_id == debate_id)
                 )
-                await db_session.execute(
-                    delete(DailyMetricsSnapshot).where(
-                        DailyMetricsSnapshot.date == "2099-01-02"
-                    )
-                )
-                await db_session.execute(
-                    delete(ModelPerformance).where(
-                        ModelPerformance.model_name == model_name
-                    )
-                )
-                await db_session.execute(
-                    delete(DebateAggregate).where(DebateAggregate.id == debate_id)
-                )
-                await db_session.execute(
-                    delete(SequentialDebateTurn).where(
-                        SequentialDebateTurn.debate_id == debate_id
-                    )
-                )
-                await db_session.execute(
-                    delete(SequentialDebate).where(SequentialDebate.id == debate_id)
-                )
+                await db_session.execute(delete(SequentialDebate).where(SequentialDebate.id == debate_id))
                 await db_session.commit()
 
         asyncio.run(scenario())
 
     def test_backfill_script_exists(self):
         doc_path = os.path.join(
-            os.path.dirname(
-                os.path.dirname(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                )
-            ),
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
             "scripts",
             "backfill_warehouse.py",
         )
@@ -212,11 +168,7 @@ class TestDataWarehouse:
 
     def test_analytics_queries_doc_exists(self):
         doc_path = os.path.join(
-            os.path.dirname(
-                os.path.dirname(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                )
-            ),
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
             "docs",
             "ANALYTICS_QUERIES.md",
         )

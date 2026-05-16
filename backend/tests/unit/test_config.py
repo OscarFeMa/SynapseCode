@@ -10,12 +10,8 @@ class TestConfig:
 
     def test_env_vars(self):
         s = get_settings()
-        assert "CHANGEME" not in (s.SUPABASE_URL or ""), (
-            "SUPABASE_URL contiene CHANGEME"
-        )
-        assert "CHANGEME" not in (s.SUPABASE_ANON_KEY or ""), (
-            "SUPABASE_ANON_KEY contiene CHANGEME"
-        )
+        assert "CHANGEME" not in (s.SUPABASE_URL or ""), "SUPABASE_URL contiene CHANGEME"
+        assert "CHANGEME" not in (s.SUPABASE_ANON_KEY or ""), "SUPABASE_ANON_KEY contiene CHANGEME"
 
     def test_worker_urls(self):
         s = get_settings()

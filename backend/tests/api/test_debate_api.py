@@ -26,17 +26,13 @@ class TestDebateEndpoints:
         r = client.post("/api/v1/debates/create", json={})
         assert r.status_code in (400, 422)
 
-    def test_report_is_generated_from_completed_db_debate_when_missing(
-        self, monkeypatch
-    ):
+    def test_report_is_generated_from_completed_db_debate_when_missing(self, monkeypatch):
         from unittest.mock import AsyncMock
 
         from backend.api.routes import debate as debate_routes
 
         session_id = "completed-db-debate"
-        monkeypatch.setattr(
-            debate_routes.debate_controller, "get_session", lambda _: None
-        )
+        monkeypatch.setattr(debate_routes.debate_controller, "get_session", lambda _: None)
         monkeypatch.setattr(
             debate_routes.debate_controller,
             "get_debate_from_db",
@@ -101,23 +97,15 @@ class TestDebateContinuePauseResume:
     def test_continue_debate_endpoint_exists(self):
         from backend.api.routes.debate import router
 
-        continue_routes = [
-            r for r in router.routes if hasattr(r, "path") and "/continue" in r.path
-        ]
-        assert len(continue_routes) >= 1, (
-            "POST /debates/{session_id}/continue not found"
-        )
-        post_routes = [
-            r for r in continue_routes if hasattr(r, "methods") and "POST" in r.methods
-        ]
+        continue_routes = [r for r in router.routes if hasattr(r, "path") and "/continue" in r.path]
+        assert len(continue_routes) >= 1, "POST /debates/{session_id}/continue not found"
+        post_routes = [r for r in continue_routes if hasattr(r, "methods") and "POST" in r.methods]
         assert len(post_routes) >= 1, "POST method not found for continue endpoint"
 
     def test_continue_debate_request_model(self):
         from backend.api.routes.debate import DebateContinueRequest
 
-        req = DebateContinueRequest(
-            max_additional_turns=2, continuation_prompt="Profundiza en el punto X"
-        )
+        req = DebateContinueRequest(max_additional_turns=2, continuation_prompt="Profundiza en el punto X")
         assert req.max_additional_turns == 2
         assert req.continuation_prompt == "Profundiza en el punto X"
         assert req.agents is None
@@ -128,38 +116,24 @@ class TestDebateContinuePauseResume:
         )
 
         controller = SequentialDebateController()
-        assert hasattr(controller, "continue_debate"), (
-            "continue_debate method not found"
-        )
-        assert hasattr(controller, "_reconstruct_session_from_db"), (
-            "_reconstruct_session_from_db method not found"
-        )
-        assert hasattr(controller, "_extract_agents_from_session"), (
-            "_extract_agents_from_session method not found"
-        )
+        assert hasattr(controller, "continue_debate"), "continue_debate method not found"
+        assert hasattr(controller, "_reconstruct_session_from_db"), "_reconstruct_session_from_db method not found"
+        assert hasattr(controller, "_extract_agents_from_session"), "_extract_agents_from_session method not found"
 
     def test_pause_debate_endpoint_exists(self):
         from backend.api.routes.debate import router
 
-        pause_routes = [
-            r for r in router.routes if hasattr(r, "path") and "/pause" in r.path
-        ]
+        pause_routes = [r for r in router.routes if hasattr(r, "path") and "/pause" in r.path]
         assert len(pause_routes) >= 1, "POST /debates/{session_id}/pause not found"
-        post_routes = [
-            r for r in pause_routes if hasattr(r, "methods") and "POST" in r.methods
-        ]
+        post_routes = [r for r in pause_routes if hasattr(r, "methods") and "POST" in r.methods]
         assert len(post_routes) >= 1, "POST method not found for pause endpoint"
 
     def test_resume_debate_endpoint_exists(self):
         from backend.api.routes.debate import router
 
-        resume_routes = [
-            r for r in router.routes if hasattr(r, "path") and "/resume" in r.path
-        ]
+        resume_routes = [r for r in router.routes if hasattr(r, "path") and "/resume" in r.path]
         assert len(resume_routes) >= 1, "POST /debates/{session_id}/resume not found"
-        post_routes = [
-            r for r in resume_routes if hasattr(r, "methods") and "POST" in r.methods
-        ]
+        post_routes = [r for r in resume_routes if hasattr(r, "methods") and "POST" in r.methods]
         assert len(post_routes) >= 1, "POST method not found for resume endpoint"
 
     def test_pause_debate_request_model(self):
@@ -318,10 +292,6 @@ class TestExportEndpoints:
         assert data["structured_report"]["summary"] == "Resumen estructurado"
         assert data["summary"]["completed_turns"] == 2
         assert data["iterations"][0]["number"] == 1
-        assert data["iterations"][0]["consensus_points"] == [
-            "La IA necesita supervision"
-        ]
-        assert data["iterations"][0]["dissent_areas"] == [
-            "El grado de autonomia aceptable"
-        ]
+        assert data["iterations"][0]["consensus_points"] == ["La IA necesita supervision"]
+        assert data["iterations"][0]["dissent_areas"] == ["El grado de autonomia aceptable"]
         assert data["iterations"][0]["cross_references"][0]["from_agent"] == "Critic"

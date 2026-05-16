@@ -38,9 +38,7 @@ class LocalEngineManager:
     def __init__(self):
         self.engines: Dict[EngineType, Any] = {
             EngineType.OLLAMA: OllamaClient(base_url=settings.worker_ollama_url),
-            EngineType.LM_STUDIO: LMStudioClient(
-                base_url=settings.worker_lm_studio_url
-            ),
+            EngineType.LM_STUDIO: LMStudioClient(base_url=settings.worker_lm_studio_url),
             EngineType.JAN: JanClient(base_url=settings.worker_jan_url),
         }
         self.engine_health: Dict[EngineType, bool] = {
@@ -96,12 +94,8 @@ class LocalEngineManager:
             try:
                 from backend.engine.worker_launcher import worker_service_manager
 
-                logger.info(
-                    "local_engine.attempting_service_launch", engine=engine_type.value
-                )
-                result = await worker_service_manager.ensure_service_running(
-                    engine_type.value
-                )
+                logger.info("local_engine.attempting_service_launch", engine=engine_type.value)
+                result = await worker_service_manager.ensure_service_running(engine_type.value)
                 if result.get("success"):
                     logger.info(
                         "local_engine.service_launched",
@@ -137,13 +131,9 @@ class LocalEngineManager:
                             rate_limit_id="health_auto_wake",
                         )
                     except Exception as wake_err:
-                        logger.warning(
-                            "local_engine.auto_wake_failed", error=str(wake_err)
-                        )
+                        logger.warning("local_engine.auto_wake_failed", error=str(wake_err))
             except Exception as launch_err:
-                logger.warning(
-                    "local_engine.service_launch_failed", error=str(launch_err)
-                )
+                logger.warning("local_engine.service_launch_failed", error=str(launch_err))
 
             self.engine_health[engine_type] = False
             self._record_failure(engine_type)
@@ -155,9 +145,7 @@ class LocalEngineManager:
 
         self.engine_failures[engine_type] += 1
         if self.engine_failures[engine_type] >= 3:
-            logger.warning(
-                "circuit_breaker_opened", engine=engine_type.value, duration=60
-            )
+            logger.warning("circuit_breaker_opened", engine=engine_type.value, duration=60)
             self.circuit_broken_until[engine_type] = time.time() + 60.0
             self.engine_failures[engine_type] = 0  # Reset for next time
 
@@ -166,13 +154,9 @@ class LocalEngineManager:
         current_time = asyncio.get_event_loop().time()
 
         # Usar caché si es reciente
-        if (
-            self._health_cache_time
-            and (current_time - self._health_cache_time) < self._health_cache_duration
-        ):
+        if self._health_cache_time and (current_time - self._health_cache_time) < self._health_cache_duration:
             return {
-                engine: {"status": "online" if healthy else "offline"}
-                for engine, healthy in self.engine_health.items()
+                engine: {"status": "online" if healthy else "offline"} for engine, healthy in self.engine_health.items()
             }
 
         # Verificar todos en paralelo
@@ -210,15 +194,11 @@ class LocalEngineManager:
         Genera texto usando el motor especificado.
         Implementa Protocolo Wake & Sleep (keep_alive: 0 en Ollama).
         """
-        logger.info(
-            "local_engine.generate.start", engine=engine_type.value, model=model
-        )
+        logger.info("local_engine.generate.start", engine=engine_type.value, model=model)
 
         engine = self.engines.get(engine_type)
         if not engine:
-            logger.error(
-                "local_engine.generate.unknown_engine", engine=engine_type.value
-            )
+            logger.error("local_engine.generate.unknown_engine", engine=engine_type.value)
             raise ValueError(f"Unknown engine: {engine_type}")
 
         # Verificar salud usando caché (evita HTTP en cada generación)
@@ -241,9 +221,7 @@ class LocalEngineManager:
                     engine=engine_type.value,
                     error=health.get("error"),
                 )
-                raise RuntimeError(
-                    f"Engine {engine_type.value} is not available: {health.get('error')}"
-                )
+                raise RuntimeError(f"Engine {engine_type.value} is not available: {health.get('error')}")
 
         logger.info(
             "local_engine.generating",
@@ -274,9 +252,7 @@ class LocalEngineManager:
                 ):
                     token_count += 1
                     yield token
-                logger.info(
-                    "local_engine.generate.ollama_completed", tokens_yielded=token_count
-                )
+                logger.info("local_engine.generate.ollama_completed", tokens_yielded=token_count)
 
             elif engine_type in [EngineType.LM_STUDIO, EngineType.JAN]:
                 # LM Studio y Jan usan formato OpenAI chat
@@ -333,9 +309,7 @@ class LocalEngineManager:
 
         try:
             if engine_type == EngineType.OLLAMA:
-                async for token in engine.chat(
-                    model=model, messages=messages, stream=stream
-                ):
+                async for token in engine.chat(model=model, messages=messages, stream=stream):
                     yield token
             else:
                 async for token in engine.chat_completion(
@@ -347,9 +321,7 @@ class LocalEngineManager:
                 ):
                     yield token
         except Exception as e:
-            logger.error(
-                "local_engine.chat_failed", engine=engine_type.value, error=str(e)
-            )
+            logger.error("local_engine.chat_failed", engine=engine_type.value, error=str(e))
             raise
 
     def select_engine_for_slot(self, agent_slot: str) -> EngineType:
@@ -380,9 +352,7 @@ class LocalEngineManager:
         Genera con motor primario, fallback a alternativas si falla
         """
         primary_engine = self.select_engine_for_slot(agent_slot)
-        engines_to_try = [primary_engine] + [
-            e for e in EngineType if e != primary_engine
-        ]
+        engines_to_try = [primary_engine] + [e for e in EngineType if e != primary_engine]
 
         last_error = None
 

@@ -37,9 +37,7 @@ class OpenRouterClient(BaseOpenAICompatibleClient):
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 headers = self._build_headers()
-                response = await client.get(
-                    f"{self.base_url}/v1/auth/key", headers=headers
-                )
+                response = await client.get(f"{self.base_url}/v1/auth/key", headers=headers)
 
                 if response.status_code == 200:
                     return {"status": "online", "key_valid": True}

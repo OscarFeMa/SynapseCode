@@ -150,9 +150,7 @@ class UltraDebateController:
                         turns_in_session=len(session.turns),
                     )
                     context = self._build_stage_context(session)
-                    logger.info(
-                        "ultra_debate.context_built", context_length=len(context)
-                    )
+                    logger.info("ultra_debate.context_built", context_length=len(context))
 
                     # Función helper para llamar a agente con su propia sesión de BD
                     async def call_with_own_session(agent_cfg, s_prompt, u_prompt):
@@ -171,13 +169,11 @@ class UltraDebateController:
                     # Preparar tareas
                     tasks = []
                     for agent_cfg in stage["agents"]:
-                        system_prompt = self._get_dynamic_system_prompt(
-                            agent_cfg, stage["name"], stage_idx
+                        system_prompt = self._get_dynamic_system_prompt(agent_cfg, stage["name"], stage_idx)
+                        user_prompt = (
+                            f"Tema: {topic}\n\nContexto del debate hasta ahora:\n{context}\n\nTu tarea: {stage['name']}"
                         )
-                        user_prompt = f"Tema: {topic}\n\nContexto del debate hasta ahora:\n{context}\n\nTu tarea: {stage['name']}"
-                        tasks.append(
-                            call_with_own_session(agent_cfg, system_prompt, user_prompt)
-                        )
+                        tasks.append(call_with_own_session(agent_cfg, system_prompt, user_prompt))
 
                     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -223,9 +219,7 @@ class UltraDebateController:
                             engine=agent_cfg.engine,
                             model=agent_cfg.model,
                             provider=agent_cfg.engine,  # Simplificado
-                            system_prompt=self._get_dynamic_system_prompt(
-                                agent_cfg, stage["name"], stage_idx
-                            ),
+                            system_prompt=self._get_dynamic_system_prompt(agent_cfg, stage["name"], stage_idx),
                         )
 
                         turn = DebateTurn(
@@ -260,16 +254,12 @@ class UltraDebateController:
                 local_synthesis_parts = []
                 for turn in session.turns:
                     if turn.status == "completed":
-                        local_synthesis_parts.append(
-                            f"### {turn.agent.name}:\n{turn.response_received}"
-                        )
+                        local_synthesis_parts.append(f"### {turn.agent.name}:\n{turn.response_received}")
                 local_synthesis = "\n\n".join(local_synthesis_parts)
 
                 try:
                     # Callback para el WebSocket desde el Tribunal
-                    on_tribunal_event = websocket_manager.create_event_callback(
-                        session_id
-                    )
+                    on_tribunal_event = websocket_manager.create_event_callback(session_id)
 
                     async with AsyncSessionLocal() as db_session:
                         verdict = await self.tribunal.issue_verdict(
@@ -293,14 +283,10 @@ class UltraDebateController:
                             }
                             session.final_verdict = verdict.verdict_text
                             session.consensus_score = (
-                                verdict.evidence_score
-                                + verdict.risk_score
-                                + verdict.alignment_score
+                                verdict.evidence_score + verdict.risk_score + verdict.alignment_score
                             ) / 3
                             session.convergence_level = (
-                                "CONSENSUS_REACHED"
-                                if verdict.consensus_reached
-                                else "PARTIAL_CONSENSUS"
+                                "CONSENSUS_REACHED" if verdict.consensus_reached else "PARTIAL_CONSENSUS"
                             )
                 except Exception as e:
                     logger.error("ultra_debate.tribunal_failed", error=str(e))
@@ -359,17 +345,12 @@ class UltraDebateController:
             lines.append("")
         return "\n".join(lines)
 
-    def _get_dynamic_system_prompt(
-        self, agent: AgentConfig, stage_name: str, stage_idx: int
-    ) -> str:
+    def _get_dynamic_system_prompt(self, agent: AgentConfig, stage_name: str, stage_idx: int) -> str:
         """Genera el prompt de sistema dinámicamente"""
         base = f"Eres {agent.role_label}, un experto en el Synapse Council. "
 
         if "Propuesta" in stage_name:
-            return (
-                base
-                + "Tu objetivo es presentar una visión original y sólida sobre el tema. No te repitas."
-            )
+            return base + "Tu objetivo es presentar una visión original y sólida sobre el tema. No te repitas."
         elif "Refinamiento" in stage_name:
             return (
                 base
@@ -381,10 +362,7 @@ class UltraDebateController:
                 + "Tu objetivo es actuar como abogado del diablo. Busca fallos lógicos, sesgos y debilidades en lo dicho hasta ahora."
             )
         elif "Síntesis" in stage_name:
-            return (
-                base
-                + "Tu objetivo es unificar todas las posturas en una resolución coherente y final."
-            )
+            return base + "Tu objetivo es unificar todas las posturas en una resolución coherente y final."
 
         return base
 
@@ -421,9 +399,7 @@ class UltraDebateController:
                         node=t.agent.node,
                         engine=t.agent.engine,
                         prompt_sent=t.prompt_sent[:10000] if t.prompt_sent else "",
-                        response_received=t.response_received[:20000]
-                        if t.response_received
-                        else "",
+                        response_received=t.response_received[:20000] if t.response_received else "",
                         tokens_in=t.tokens_in,
                         tokens_out=t.tokens_out,
                         latency_ms=t.latency_ms,
