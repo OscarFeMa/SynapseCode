@@ -61,9 +61,7 @@ async def create_session(
             try:
                 async with AsyncSessionLocal() as new_session:
                     try:
-                        ws_callback = websocket_manager.create_event_callback(
-                            session_id
-                        )
+                        ws_callback = websocket_manager.create_event_callback(session_id)
                         await session_manager.run_session(
                             session_id=session_id,
                             db_session=new_session,
@@ -108,9 +106,7 @@ async def create_session(
 
 
 @router.get("/{session_id}", response_model=SessionDetailResponse)
-async def get_session(
-    session_id: str, db_session: AsyncSession = Depends(get_db_session)
-):
+async def get_session(session_id: str, db_session: AsyncSession = Depends(get_db_session)):
     """Obtiene el detalle completo de una sesión"""
     detail = await session_manager.get_session_detail(session_id, db_session)
 
@@ -127,21 +123,15 @@ async def list_sessions(
     db_session: AsyncSession = Depends(get_db_session),
 ):
     """Lista sesiones con filtro opcional por estado"""
-    sessions = await session_manager.list_sessions(
-        db_session=db_session, status=status, limit=limit
-    )
+    sessions = await session_manager.list_sessions(db_session=db_session, status=status, limit=limit)
 
     return {"sessions": sessions, "count": len(sessions)}
 
 
 @router.delete("/{session_id}")
-async def delete_session(
-    session_id: str, db_session: AsyncSession = Depends(get_db_session)
-):
+async def delete_session(session_id: str, db_session: AsyncSession = Depends(get_db_session)):
     """Elimina una sesión (solo si está completada o fallida)"""
-    result = await db_session.execute(
-        select(SessionModel).where(SessionModel.id == session_id)
-    )
+    result = await db_session.execute(select(SessionModel).where(SessionModel.id == session_id))
     session = result.scalar_one_or_none()
 
     if not session:

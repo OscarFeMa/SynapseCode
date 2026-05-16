@@ -153,40 +153,19 @@ async def collect_dependency_health() -> Dict[str, Any]:
 
     # Determinar estado general
     services_status = {
-        "database": database_health.get("status", "unknown")
-        if isinstance(database_health, dict)
-        else "error",
-        "ollama": ollama_health.get("status", "unknown")
-        if isinstance(ollama_health, dict)
-        else "error",
-        "lm_studio": lm_studio_health.get("status", "unknown")
-        if isinstance(lm_studio_health, dict)
-        else "error",
-        "jan": jan_health.get("status", "unknown")
-        if isinstance(jan_health, dict)
-        else "error",
-        "openrouter": openrouter_health.get("status", "unknown")
-        if isinstance(openrouter_health, dict)
-        else "error",
-        "web_agent": web_agent_health.get("status", "unknown")
-        if isinstance(web_agent_health, dict)
-        else "error",
-        "huggingface": huggingface_health.get("status", "unknown")
-        if isinstance(huggingface_health, dict)
-        else "error",
-        "groq": groq_health.get("status", "unknown")
-        if isinstance(groq_health, dict)
-        else "error",
-        "gemini": gemini_health.get("status", "unknown")
-        if isinstance(gemini_health, dict)
-        else "error",
+        "database": database_health.get("status", "unknown") if isinstance(database_health, dict) else "error",
+        "ollama": ollama_health.get("status", "unknown") if isinstance(ollama_health, dict) else "error",
+        "lm_studio": lm_studio_health.get("status", "unknown") if isinstance(lm_studio_health, dict) else "error",
+        "jan": jan_health.get("status", "unknown") if isinstance(jan_health, dict) else "error",
+        "openrouter": openrouter_health.get("status", "unknown") if isinstance(openrouter_health, dict) else "error",
+        "web_agent": web_agent_health.get("status", "unknown") if isinstance(web_agent_health, dict) else "error",
+        "huggingface": huggingface_health.get("status", "unknown") if isinstance(huggingface_health, dict) else "error",
+        "groq": groq_health.get("status", "unknown") if isinstance(groq_health, dict) else "error",
+        "gemini": gemini_health.get("status", "unknown") if isinstance(gemini_health, dict) else "error",
     }
 
     critical_services = ["database"]
-    is_healthy = all(
-        services_status[s] in ["healthy", "online", "available"]
-        for s in critical_services
-    )
+    is_healthy = all(services_status[s] in ["healthy", "online", "available"] for s in critical_services)
 
     elapsed_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
@@ -206,9 +185,7 @@ async def collect_dependency_health() -> Dict[str, Any]:
             "lm_studio": lm_studio_health
             if isinstance(lm_studio_health, dict)
             else {"status": "error", "error": str(lm_studio_health)},
-            "jan": jan_health
-            if isinstance(jan_health, dict)
-            else {"status": "error", "error": str(jan_health)},
+            "jan": jan_health if isinstance(jan_health, dict) else {"status": "error", "error": str(jan_health)},
             "openrouter": openrouter_health
             if isinstance(openrouter_health, dict)
             else {"status": "error", "error": str(openrouter_health)},
@@ -218,9 +195,7 @@ async def collect_dependency_health() -> Dict[str, Any]:
             "huggingface": huggingface_health
             if isinstance(huggingface_health, dict)
             else {"status": "error", "error": str(huggingface_health)},
-            "groq": groq_health
-            if isinstance(groq_health, dict)
-            else {"status": "error", "error": str(groq_health)},
+            "groq": groq_health if isinstance(groq_health, dict) else {"status": "error", "error": str(groq_health)},
             "gemini": gemini_health
             if isinstance(gemini_health, dict)
             else {"status": "error", "error": str(gemini_health)},
@@ -252,9 +227,7 @@ async def ready_check() -> Dict[str, Any]:
     """Readiness check: valida dependencias minimas para aceptar trafico."""
     database_health = await check_database_health()
     if database_health.get("status") not in ["healthy", "online", "available"]:
-        raise HTTPException(
-            status_code=503, detail={"status": "not_ready", "database": database_health}
-        )
+        raise HTTPException(status_code=503, detail={"status": "not_ready", "database": database_health})
 
     return {
         "status": "ready",

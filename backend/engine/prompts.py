@@ -293,9 +293,7 @@ FORMATO DE RESPUESTA:
 
         template = prompts.get(agent_slot, cls.ANALYST_LOCAL_A)
 
-        prompt = template.format(
-            role_label=role_label, query=query, max_tokens=max_tokens
-        )
+        prompt = template.format(role_label=role_label, query=query, max_tokens=max_tokens)
 
         # Agregar contexto de rondas previas si existe
         if context:
@@ -348,19 +346,9 @@ FORMATO DE RESPUESTA:
             template = cls.SYNTHESIS_CLOUD
 
         # Formatear análisis y críticas
-        analyses_text = "\n\n".join(
-            [
-                f"### Análisis de {name}:\n{content}"
-                for name, content in analyses.items()
-            ]
-        )
+        analyses_text = "\n\n".join([f"### Análisis de {name}:\n{content}" for name, content in analyses.items()])
 
-        critiques_text = "\n\n".join(
-            [
-                f"### Crítica de {name}:\n{content}"
-                for name, content in critiques.items()
-            ]
-        )
+        critiques_text = "\n\n".join([f"### Crítica de {name}:\n{content}" for name, content in critiques.items()])
 
         return template.format(
             role_label=role_label,
@@ -568,9 +556,7 @@ FORMATO DE RESPUESTA:
         # Formatear inputs condicionales
         evidence_section = ""
         if evidence_input:
-            evidence_section = (
-                f"\n## Objeciones del Magistrado de Evidencias:\n{evidence_input}\n"
-            )
+            evidence_section = f"\n## Objeciones del Magistrado de Evidencias:\n{evidence_input}\n"
 
         risk_section = ""
         if risk_input:
@@ -641,9 +627,7 @@ Evalúa la proposición original:
 Sé riguroso, específico y cita la contradicción exacta. Máximo 300 palabras."""
 
     @classmethod
-    def build_reductio_prompt(
-        cls, proposition: str, agent_name: str, max_tokens: int = 300
-    ) -> str:
+    def build_reductio_prompt(cls, proposition: str, agent_name: str, max_tokens: int = 300) -> str:
         """Construye prompt para fase de Reducción al Absurdo"""
 
         return cls.REDUCTIO_ABSURDUM_CHALLENGE.format(

@@ -102,17 +102,11 @@ class PrometheusMetricsRegistry:
                         cumulative = values["bucket_counts"][bucket]
                         bucket_labels = dict(labels)
                         bucket_labels["le"] = str(bucket)
-                        lines.append(
-                            f"{name}_bucket{_format_labels(_labels_key(bucket_labels))} {cumulative}"
-                        )
+                        lines.append(f"{name}_bucket{_format_labels(_labels_key(bucket_labels))} {cumulative}")
                     inf_labels = dict(labels)
                     inf_labels["le"] = "+Inf"
-                    lines.append(
-                        f"{name}_bucket{_format_labels(_labels_key(inf_labels))} {values['count']}"
-                    )
-                    lines.append(
-                        f"{name}_count{_format_labels(labels)} {values['count']}"
-                    )
+                    lines.append(f"{name}_bucket{_format_labels(_labels_key(inf_labels))} {values['count']}")
+                    lines.append(f"{name}_count{_format_labels(labels)} {values['count']}")
                     lines.append(f"{name}_sum{_format_labels(labels)} {values['sum']}")
 
         return "\n".join(lines) + "\n"
@@ -121,9 +115,7 @@ class PrometheusMetricsRegistry:
 registry = PrometheusMetricsRegistry()
 
 
-def observe_http_request(
-    method: str, path: str, status_code: int, duration_seconds: float
-) -> None:
+def observe_http_request(method: str, path: str, status_code: int, duration_seconds: float) -> None:
     registry.inc_counter(
         "synapse_http_requests_total",
         method=method,
@@ -154,9 +146,7 @@ def record_prompt_cache_miss(cache_type: str) -> None:
     registry.inc_counter("synapse_prompt_cache_misses_total", cache_type=cache_type)
 
 
-def record_debate_completed(
-    total_tokens_out: int, total_latency_ms: int, mode: Optional[str] = None
-) -> None:
+def record_debate_completed(total_tokens_out: int, total_latency_ms: int, mode: Optional[str] = None) -> None:
     labels = {"mode": mode or "unknown"}
     registry.inc_counter("synapse_debates_completed_total", **labels)
     registry.inc_counter(
@@ -196,39 +186,19 @@ def render_prometheus_metrics() -> str:
 
 
 # Bootstrap de series base para que Prometheus vea métricas estables aunque aún no haya tráfico de negocio.
-registry.inc_counter(
-    "synapse_debate_reports_generated_total", amount=0.0, source="database_backfill"
-)
-registry.inc_counter(
-    "synapse_debate_report_cache_hits_total", amount=0.0, source="memory"
-)
-registry.inc_counter(
-    "synapse_debate_report_cache_hits_total", amount=0.0, source="database"
-)
-registry.inc_counter(
-    "synapse_prompt_cache_hits_total", amount=0.0, cache_type="deterministic"
-)
-registry.inc_counter(
-    "synapse_prompt_cache_misses_total", amount=0.0, cache_type="deterministic"
-)
-registry.inc_counter(
-    "synapse_prompt_cache_hits_total", amount=0.0, cache_type="semantic"
-)
-registry.inc_counter(
-    "synapse_prompt_cache_misses_total", amount=0.0, cache_type="semantic"
-)
+registry.inc_counter("synapse_debate_reports_generated_total", amount=0.0, source="database_backfill")
+registry.inc_counter("synapse_debate_report_cache_hits_total", amount=0.0, source="memory")
+registry.inc_counter("synapse_debate_report_cache_hits_total", amount=0.0, source="database")
+registry.inc_counter("synapse_prompt_cache_hits_total", amount=0.0, cache_type="deterministic")
+registry.inc_counter("synapse_prompt_cache_misses_total", amount=0.0, cache_type="deterministic")
+registry.inc_counter("synapse_prompt_cache_hits_total", amount=0.0, cache_type="semantic")
+registry.inc_counter("synapse_prompt_cache_misses_total", amount=0.0, cache_type="semantic")
 registry.inc_counter("synapse_debates_completed_total", amount=0.0, mode="standard")
-registry.inc_counter(
-    "synapse_debate_tokens_generated_total", amount=0.0, mode="standard"
-)
+registry.inc_counter("synapse_debate_tokens_generated_total", amount=0.0, mode="standard")
 registry.observe_histogram("synapse_debate_duration_seconds", 0.0, mode="standard")
 registry.set_gauge("synapse_supabase_sync_queue_size", 0.0)
-registry.inc_counter(
-    "synapse_supabase_sync_failures_total", amount=0.0, reason="unknown"
-)
-registry.inc_counter(
-    "synapse_supabase_sync_retries_total", amount=0.0, reason="unknown"
-)
+registry.inc_counter("synapse_supabase_sync_failures_total", amount=0.0, reason="unknown")
+registry.inc_counter("synapse_supabase_sync_retries_total", amount=0.0, reason="unknown")
 registry.inc_counter(
     "synapse_warehouse_debates_aggregated_total",
     amount=0.0,

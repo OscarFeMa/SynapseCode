@@ -118,9 +118,7 @@ class SessionManager:
         Evalúa convergencia entre rondas y decide si continuar o detener.
         """
         # Obtener sesión
-        result = await db_session.execute(
-            select(Session).where(Session.id == session_id)
-        )
+        result = await db_session.execute(select(Session).where(Session.id == session_id))
         session = result.scalar_one_or_none()
 
         if not session:
@@ -134,9 +132,7 @@ class SessionManager:
         await db_session.commit()
 
         if on_event:
-            on_event(
-                "session_started", {"session_id": session_id, "query": session.query}
-            )
+            on_event("session_started", {"session_id": session_id, "query": session.query})
 
         logger.info(
             "session.running",
@@ -195,11 +191,7 @@ class SessionManager:
                 synthesis_local = round_result["synthesis"].get("synth_local", "")
                 synthesis_cloud = round_result["synthesis"].get("synth_cloud", "")
 
-                if (
-                    round_num < session.max_rounds
-                    and synthesis_local
-                    and synthesis_cloud
-                ):
+                if round_num < session.max_rounds and synthesis_local and synthesis_cloud:
                     convergence = self.convergence_evaluator.evaluate(
                         local_synthesis=synthesis_local,
                         cloud_synthesis=synthesis_cloud,
@@ -218,9 +210,7 @@ class SessionManager:
                             {
                                 "round_number": round_num,
                                 "consensus_level": convergence.consensus_level,
-                                "similarity_score": round(
-                                    convergence.similarity_score, 2
-                                ),
+                                "similarity_score": round(convergence.similarity_score, 2),
                                 "should_stop": convergence.should_stop,
                             },
                         )
@@ -253,9 +243,7 @@ class SessionManager:
                         break
 
             # Compilar resultado final con veredicto del Tribunal
-            final_summary = self._compile_final_summary(
-                all_round_results, final_tribunal_verdict
-            )
+            final_summary = self._compile_final_summary(all_round_results, final_tribunal_verdict)
 
             # Determinar nivel de consenso final
             consensus_level = "PARTIAL_CONSENSUS"
@@ -281,13 +269,9 @@ class SessionManager:
             # Actualizar reputación de agentes (Fase 5)
             if settings.AGENT_REPUTATION_ENABLED:
                 try:
-                    await self.reputation_manager.update_reputation_after_session(
-                        session_id, db_session
-                    )
+                    await self.reputation_manager.update_reputation_after_session(session_id, db_session)
                 except Exception as e:
-                    logger.error(
-                        "reputation.update_failed", session_id=session_id, error=str(e)
-                    )
+                    logger.error("reputation.update_failed", session_id=session_id, error=str(e))
 
             # Elevar a Supabase si cumple criterios (Fase 5)
             if settings.AUTO_ELEVATION_ENABLED and session.consensus_level in [
@@ -318,18 +302,14 @@ class SessionManager:
                         # No hacemos commit aquí todavía
 
                 except Exception as e:
-                    logger.error(
-                        "supabase.elevation_failed", session_id=session_id, error=str(e)
-                    )
+                    logger.error("supabase.elevation_failed", session_id=session_id, error=str(e))
 
             logger.info(
                 "session.completed",
                 session_id=session_id,
                 rounds=session.rounds_executed,
                 consensus=session.consensus_level,
-                tribunal_consensus=final_tribunal_verdict.get("consensus_reached")
-                if final_tribunal_verdict
-                else None,
+                tribunal_consensus=final_tribunal_verdict.get("consensus_reached") if final_tribunal_verdict else None,
             )
 
             # ─── ÚNICO COMMIT FINAL ───
@@ -340,9 +320,7 @@ class SessionManager:
                 warehouse_mgr = _get_warehouse_manager()
                 await warehouse_mgr.process_session(session_id)
             except Exception as e:
-                logger.warning(
-                    "session.warehouse_failed", session_id=session_id, error=str(e)
-                )
+                logger.warning("session.warehouse_failed", session_id=session_id, error=str(e))
 
             if on_event:
                 on_event(
@@ -351,9 +329,7 @@ class SessionManager:
                         "session_id": session_id,
                         "consensus_level": session.consensus_level,
                         "rounds": session.rounds_executed,
-                        "tribunal_consensus": final_tribunal_verdict.get(
-                            "consensus_reached"
-                        )
+                        "tribunal_consensus": final_tribunal_verdict.get("consensus_reached")
                         if final_tribunal_verdict
                         else None,
                     },
@@ -385,31 +361,23 @@ class SessionManager:
             )
             raise
 
-    async def get_session_detail(
-        self, session_id: str, db_session: AsyncSession
-    ) -> Dict[str, Any]:
+    async def get_session_detail(self, session_id: str, db_session: AsyncSession) -> Dict[str, Any]:
         """
         Obtiene detalle completo de una sesión con todas sus rondas y llamadas
         """
         # Sesión
-        result = await db_session.execute(
-            select(Session).where(Session.id == session_id)
-        )
+        result = await db_session.execute(select(Session).where(Session.id == session_id))
         session = result.scalar_one_or_none()
 
         if not session:
             return None
 
         # Rondas
-        rounds_result = await db_session.execute(
-            select(Round).where(Round.session_id == session_id)
-        )
+        rounds_result = await db_session.execute(select(Round).where(Round.session_id == session_id))
         rounds = rounds_result.scalars().all()
 
         # Agent calls
-        calls_result = await db_session.execute(
-            select(AgentCall).where(AgentCall.session_id == session_id)
-        )
+        calls_result = await db_session.execute(select(AgentCall).where(AgentCall.session_id == session_id))
         calls = calls_result.scalars().all()
 
         # Organizar por fases
@@ -468,9 +436,7 @@ class SessionManager:
     async def _update_session_metrics(self, session: Session, db_session: AsyncSession):
         """Calcula métricas agregadas de la sesión"""
         result = await db_session.execute(
-            select(AgentCall).where(
-                AgentCall.session_id == session.id, AgentCall.status == "COMPLETED"
-            )
+            select(AgentCall).where(AgentCall.session_id == session.id, AgentCall.status == "COMPLETED")
         )
         calls = result.scalars().all()
 
@@ -550,9 +516,7 @@ class SessionManager:
         # Veredicto del tribunal si existe
         tribunal = round_result.get("tribunal_verdict")
         if tribunal:
-            consensus = (
-                "alcanzado" if tribunal.get("consensus_reached") else "no alcanzado"
-            )
+            consensus = "alcanzado" if tribunal.get("consensus_reached") else "no alcanzado"
             context_parts.append(f"\n**Consenso Tribunal:** {consensus}")
             context_parts.append(
                 f"(Evidencia: {tribunal.get('evidence_score', 0)}/100, Riesgo: {tribunal.get('risk_score', 0)}/100)\n"
@@ -601,24 +565,14 @@ class SessionManager:
             summary_parts.append(
                 f"- Consenso alcanzado: {'Sí' if final_tribunal_verdict.get('consensus_reached') else 'No'}"
             )
-            summary_parts.append(
-                f"- Iteraciones PCO: {final_tribunal_verdict.get('iterations_required', 0)}"
-            )
-            summary_parts.append(
-                f"- Score Técnico: {final_tribunal_verdict.get('evidence_score', 0)}/100"
-            )
-            summary_parts.append(
-                f"- Score de Riesgo: {final_tribunal_verdict.get('risk_score', 0)}/100"
-            )
-            summary_parts.append(
-                f"- Score de Alineación: {final_tribunal_verdict.get('alignment_score', 0)}/100"
-            )
+            summary_parts.append(f"- Iteraciones PCO: {final_tribunal_verdict.get('iterations_required', 0)}")
+            summary_parts.append(f"- Score Técnico: {final_tribunal_verdict.get('evidence_score', 0)}/100")
+            summary_parts.append(f"- Score de Riesgo: {final_tribunal_verdict.get('risk_score', 0)}/100")
+            summary_parts.append(f"- Score de Alineación: {final_tribunal_verdict.get('alignment_score', 0)}/100")
 
         # Resumen de rondas
         if len(all_round_results) > 1:
-            summary_parts.append(
-                f"\n\n## 📊 Proceso de Deliberación ({len(all_round_results)} rondas)"
-            )
+            summary_parts.append(f"\n\n## 📊 Proceso de Deliberación ({len(all_round_results)} rondas)")
             for i, round_result in enumerate(all_round_results, 1):
                 tribunal = round_result.get("tribunal_verdict")
                 if tribunal:
@@ -627,8 +581,6 @@ class SessionManager:
                         f"\n**Ronda {i}:** {consensus_mark} Evidencia={tribunal.get('evidence_score', 0)}, Riesgo={tribunal.get('risk_score', 0)}"
                     )
 
-        summary_parts.append(
-            "\n\n---\n*Veredicto emitido por el Tribunal de Magistrados del Synapse Council v2.0*"
-        )
+        summary_parts.append("\n\n---\n*Veredicto emitido por el Tribunal de Magistrados del Synapse Council v2.0*")
 
         return "\n".join(summary_parts)

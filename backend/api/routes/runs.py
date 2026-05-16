@@ -16,9 +16,7 @@ router = APIRouter(prefix="/runs", tags=["Runs"])
 session_manager = SessionManager()
 
 
-def _normalize_sequential_summary(
-    debate: Dict[str, Any], source: str = "database"
-) -> Dict[str, Any]:
+def _normalize_sequential_summary(debate: Dict[str, Any], source: str = "database") -> Dict[str, Any]:
     return {
         "id": debate.get("id") or debate.get("session_id"),
         "type": "sequential_debate",
@@ -53,9 +51,7 @@ def _normalize_classic_summary(session: Dict[str, Any]) -> Dict[str, Any]:
 
 def _normalize_active_session(session: Any, run_type: str) -> Dict[str, Any]:
     turns = getattr(session, "turns", []) or []
-    completed_turns = [
-        turn for turn in turns if getattr(turn, "status", None) == "completed"
-    ]
+    completed_turns = [turn for turn in turns if getattr(turn, "status", None) == "completed"]
     return {
         "id": getattr(session, "id", None),
         "type": run_type,

@@ -68,9 +68,7 @@ async def lifespan(app: FastAPI):
     global heartbeat_manager, tcp_handshake
 
     # Startup
-    logger.info(
-        "synapse_council.starting", version="2.0.0", node_role=settings.NODE_ROLE
-    )
+    logger.info("synapse_council.starting", version="2.0.0", node_role=settings.NODE_ROLE)
 
     # Inicializar base de datos
     await init_db()
@@ -104,12 +102,8 @@ async def lifespan(app: FastAPI):
                     import asyncio
 
                     try:
-                        r = await asyncio.wait_for(
-                            worker_service_manager.launch_service_rdp(name), timeout=5
-                        )
-                        logger.info(
-                            f"worker.{name}_launch_result", success=r.get("success")
-                        )
+                        r = await asyncio.wait_for(worker_service_manager.launch_service_rdp(name), timeout=5)
+                        logger.info(f"worker.{name}_launch_result", success=r.get("success"))
                     except asyncio.TimeoutError:
                         logger.warning(f"worker.{name}_launch_timeout")
                 else:

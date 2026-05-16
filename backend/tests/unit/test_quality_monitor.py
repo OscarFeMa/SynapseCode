@@ -29,8 +29,6 @@ class TestQualityMonitor:
         assert is_response_usable("[ERROR: Connection failed]", "analyst") is False
 
     def test_evaluate_response_returns_score(self):
-        score, details = evaluate_response(
-            "Good response with detailed analysis.", "analyst"
-        )
+        score, details = evaluate_response("Good response with detailed analysis.", "analyst")
         assert isinstance(score, float)
         assert 0.0 <= score <= 1.0

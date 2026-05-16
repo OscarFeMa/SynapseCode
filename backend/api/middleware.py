@@ -43,9 +43,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         # Skip rate limiting for exempt paths or OPTIONS (CORS preflight)
-        if request.method == "OPTIONS" or request.url.path.startswith(
-            self._exempt_prefixes
-        ):
+        if request.method == "OPTIONS" or request.url.path.startswith(self._exempt_prefixes):
             return await call_next(request)
 
         # Get client IP
@@ -58,39 +56,27 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Clean old requests and count recent ones
         if client_ip in self.requests:
-            self.requests[client_ip] = [
-                ts for ts in self.requests[client_ip] if ts > window_start
-            ]
+            self.requests[client_ip] = [ts for ts in self.requests[client_ip] if ts > window_start]
             recent_count = len(self.requests[client_ip])
-            burst_count = sum(
-                1 for ts in self.requests[client_ip] if ts > burst_window_start
-            )
+            burst_count = sum(1 for ts in self.requests[client_ip] if ts > burst_window_start)
         else:
             recent_count = 0
             burst_count = 0
 
         # Check burst limit (immediate, per 5 seconds)
         if burst_count >= self.burst_size:
-            logger.warning(
-                "rate_limit.burst_exceeded", ip=client_ip, path=request.url.path
-            )
+            logger.warning("rate_limit.burst_exceeded", ip=client_ip, path=request.url.path)
             return JSONResponse(
                 status_code=429,
-                content={
-                    "detail": f"Rate limit exceeded. Max {self.burst_size} requests per burst (5s)."
-                },
+                content={"detail": f"Rate limit exceeded. Max {self.burst_size} requests per burst (5s)."},
             )
 
         # Check sustained limit
         if recent_count >= self.requests_per_minute:
-            logger.warning(
-                "rate_limit.sustained_exceeded", ip=client_ip, path=request.url.path
-            )
+            logger.warning("rate_limit.sustained_exceeded", ip=client_ip, path=request.url.path)
             return JSONResponse(
                 status_code=429,
-                content={
-                    "detail": f"Rate limit exceeded. Max {self.requests_per_minute} requests per minute."
-                },
+                content={"detail": f"Rate limit exceeded. Max {self.requests_per_minute} requests per minute."},
             )
 
         # Record request

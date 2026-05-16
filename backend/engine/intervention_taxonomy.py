@@ -117,9 +117,7 @@ class InterventionDetector:
         # Por rol (fallback)
         if role == "critic":
             has_critica = sum(1 for kw in self.CRITICA_KW if kw in cl) >= 1
-            return (
-                TipoIntervencion.REFUTACION if has_critica else TipoIntervencion.CRITICA
-            )
+            return TipoIntervencion.REFUTACION if has_critica else TipoIntervencion.CRITICA
         if role == "synthesizer":
             return TipoIntervencion.SINTESIS
         if role in ("analyst", "refiner"):
@@ -150,8 +148,7 @@ class InterventionDetector:
         return {
             "by_type": counts,
             "consensus_ratio": counts.get("consenso", 0) / total,
-            "conflict_ratio": (counts.get("refutacion", 0) + counts.get("critica", 0))
-            / total,
+            "conflict_ratio": (counts.get("refutacion", 0) + counts.get("critica", 0)) / total,
             "total_analyzed": total,
         }
 

@@ -34,16 +34,11 @@ class SQLiteBackupService:
         self.key = settings.SUPABASE_ANON_KEY
         self.service_key = getattr(settings, "SUPABASE_SERVICE_KEY", None) or self.key
         is_placeholder = (
-            "CHANGEME" in (self.url or "")
-            or "CHANGEME" in (self.key or "")
-            or not self.url
-            or not self.key
+            "CHANGEME" in (self.url or "") or "CHANGEME" in (self.key or "") or not self.url or not self.key
         )
         self.enabled = settings.SUPABASE_ENABLED and not is_placeholder
         self.db_path = (
-            settings.DATABASE_URL.replace("sqlite+aiosqlite:///", "").replace(
-                "sqlite:///", ""
-            )
+            settings.DATABASE_URL.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
             if settings.DATABASE_URL
             else ""
         )
@@ -94,9 +89,7 @@ class SQLiteBackupService:
                 )
 
                 if create_response.status_code in [200, 201]:
-                    logger.info(
-                        "supabase_storage.bucket_created", bucket=self.BACKUP_BUCKET
-                    )
+                    logger.info("supabase_storage.bucket_created", bucket=self.BACKUP_BUCKET)
                     return True
                 elif "already exists" in create_response.text.lower():
                     return True
@@ -294,9 +287,7 @@ class SQLiteBackupService:
 
         try:
             client = self._get_storage_client()
-            response = await client.get(
-                f"{self.url}/storage/v1/object/{self.BACKUP_BUCKET}/{filename}"
-            )
+            response = await client.get(f"{self.url}/storage/v1/object/{self.BACKUP_BUCKET}/{filename}")
 
             if response.status_code == 200:
                 with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:

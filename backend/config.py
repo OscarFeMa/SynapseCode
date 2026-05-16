@@ -15,9 +15,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Configuración centralizada del sistema"""
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # ─── Rol del Nodo ─────────────────────────────────────────
     NODE_ROLE: str = Field(default="MASTER", pattern="^(MASTER|WORKER)$")
@@ -87,9 +85,7 @@ class Settings(BaseSettings):
     WEB_AGENT_TIMEOUT_SECONDS: int = 120
     WEB_AGENT_SITES: str = "chat.openai.com,claude.ai,gemini.google.com,chat.deepseek.com,perplexity.ai,grok.com,chat.mistral.ai,meta.ai,huggingface.co/chat,you.com"
     WEB_AGENT_SESSION_DIR: str = "./data/browser_sessions"
-    WEB_AGENT_CHROME_PATH: str = (
-        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-    )
+    WEB_AGENT_CHROME_PATH: str = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
     WEB_AGENT_CHROME_PROFILE: str = ""  # Vacío = usa perfil por defecto del usuario
 
     # ─── HuggingFace Inference API ───────────────────────────
@@ -195,9 +191,7 @@ class Settings(BaseSettings):
 
     @field_validator("SUPABASE_URL", "SUPABASE_ANON_KEY", mode="before")
     @classmethod
-    def normalize_placeholder_supabase_values(
-        cls, value: Optional[str]
-    ) -> Optional[str]:
+    def normalize_placeholder_supabase_values(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
         if "CHANGEME" in value:
@@ -268,9 +262,7 @@ class Settings(BaseSettings):
         """Limpia la cache de IP del Worker para forzar re-resolución DNS"""
         self.WORKER_HOST = None
 
-    def get_model_timeout(
-        self, model: str, engine: str = "ollama", default: Optional[int] = None
-    ) -> int:
+    def get_model_timeout(self, model: str, engine: str = "ollama", default: Optional[int] = None) -> int:
         """
         Obtiene el timeout en segundos para un modelo especifico.
 

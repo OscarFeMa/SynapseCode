@@ -43,9 +43,7 @@ class DebateRequest(BaseModel):
     mode: str = "standard"  # standard, local_only, custom
     max_turns: Optional[int] = None
     include_cloud: bool = True
-    agents: Optional[List[Dict[str, Any]]] = (
-        None  # Configuración personalizada de agentes
-    )
+    agents: Optional[List[Dict[str, Any]]] = None  # Configuración personalizada de agentes
 
 
 class DebateAgentResponse(BaseModel):
@@ -168,11 +166,7 @@ def build_debate_response(session) -> DebateResponse:
         # Manejar tanto DebateTurn (dataclass) como dict (desde BD)
         if hasattr(turn, "turn_number"):
             # Dataclass
-            role_val = (
-                turn.agent.role.value
-                if hasattr(turn.agent.role, "value")
-                else turn.agent.role
-            )
+            role_val = turn.agent.role.value if hasattr(turn.agent.role, "value") else turn.agent.role
             turns_response.append(
                 DebateAgentResponse(
                     turn_number=turn.turn_number,
@@ -257,9 +251,7 @@ async def sync_debate_to_cloud(session_id: str):
     # Obtener desde BD local
     debate = await debate_controller.get_debate_from_db(session_id)
     if not debate:
-        raise HTTPException(
-            status_code=404, detail="Debate not found in local database"
-        )
+        raise HTTPException(status_code=404, detail="Debate not found in local database")
 
     # Preparar datos completos
     debate_data = {
@@ -288,9 +280,7 @@ async def sync_debate_to_cloud(session_id: str):
             "turns_synced": result.get("turns_synced"),
         }
     else:
-        raise HTTPException(
-            status_code=500, detail=f"Sync failed: {result.get('error')}"
-        )
+        raise HTTPException(status_code=500, detail=f"Sync failed: {result.get('error')}")
 
 
 @router.get("/history/list", response_model=DebateListResponse)
@@ -314,9 +304,7 @@ async def list_reputations(min_turns: int = 1) -> Dict[str, Any]:
         return {"status": "ok", "count": len(reps), "reputations": reps}
     except Exception as e:
         # logger.error("reputation.list_error", error=str(e))
-        raise HTTPException(
-            status_code=500, detail=f"Error listing reputations: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error listing reputations: {str(e)}")
 
 
 @router.get("/reputation/{model}/{role}")
@@ -330,18 +318,14 @@ async def get_reputation(model: str, role: str) -> Dict[str, Any]:
         rep = await reputation_service.get_reputation(model, role)
 
         if rep is None:
-            raise HTTPException(
-                status_code=404, detail=f"No reputation found for {model}@{role}"
-            )
+            raise HTTPException(status_code=404, detail=f"No reputation found for {model}@{role}")
 
         return {"status": "ok", "reputation": rep}
     except HTTPException:
         raise
     except Exception as e:
         # logger.error("reputation.get_error", model=model, role=role, error=str(e))
-        raise HTTPException(
-            status_code=500, detail=f"Error getting reputation: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error getting reputation: {str(e)}")
 
 
 @router.post("/create", status_code=202, response_model=DebateCreateResponse)
@@ -384,9 +368,7 @@ async def create_debate(request: DebateRequest, background_tasks: BackgroundTask
 
         async def run_ultra():
             # Ejecutar el debate (esto toma tiempo)
-            await ultra_controller.create_ultra_debate_with_id(
-                session_id, request.topic
-            )
+            await ultra_controller.create_ultra_debate_with_id(session_id, request.topic)
 
         # Registrar solo en ultra_controller (la API ya busca allí)
         background_tasks.add_task(run_ultra)
@@ -413,18 +395,10 @@ async def create_debate(request: DebateRequest, background_tasks: BackgroundTask
             session_id=session_id,
             topic=request.topic,
             agents_config=agents,
-            on_turn_start=lambda turn: print(
-                f"Turn {turn.turn_number}: {turn.agent.name} ({turn.agent.model})"
-            ),
-            on_turn_complete=lambda turn: print(
-                f"Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"
-            ),
-            on_model_load=lambda model, provider: print(
-                f"Loading: {model} ({provider})"
-            ),
-            on_model_unload=lambda model, provider: print(
-                f"Unloading: {model} ({provider})"
-            ),
+            on_turn_start=lambda turn: print(f"Turn {turn.turn_number}: {turn.agent.name} ({turn.agent.model})"),
+            on_turn_complete=lambda turn: print(f"Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"),
+            on_model_load=lambda model, provider: print(f"Loading: {model} ({provider})"),
+            on_model_unload=lambda model, provider: print(f"Unloading: {model} ({provider})"),
         )
 
     background_tasks.add_task(run_debate)
@@ -438,9 +412,7 @@ async def create_debate(request: DebateRequest, background_tasks: BackgroundTask
     }
 
 
-@router.post(
-    "/{session_id}/continue", status_code=202, response_model=DebateCreateResponse
-)
+@router.post("/{session_id}/continue", status_code=202, response_model=DebateCreateResponse)
 async def continue_debate(
     session_id: str,
     request: DebateContinueRequest,
@@ -456,14 +428,10 @@ async def continue_debate(
         if not debate_data:
             raise HTTPException(status_code=404, detail="Debate not found")
         if debate_data.get("status") not in ("completed", "failed"):
-            raise HTTPException(
-                status_code=400, detail="Debate must be completed or failed to continue"
-            )
+            raise HTTPException(status_code=400, detail="Debate must be completed or failed to continue")
 
     if session and session.status not in ("completed", "failed"):
-        raise HTTPException(
-            status_code=400, detail="Debate must be completed or failed to continue"
-        )
+        raise HTTPException(status_code=400, detail="Debate must be completed or failed to continue")
 
     agents = None
     if request.agents:
@@ -489,17 +457,13 @@ async def continue_debate(
             agents_config=agents,
             max_additional_turns=request.max_additional_turns,
             continuation_prompt=request.continuation_prompt,
-            on_turn_start=lambda turn: print(
-                f"[Continue] Turn {turn.turn_number}: {turn.agent.name}"
-            ),
+            on_turn_start=lambda turn: print(f"[Continue] Turn {turn.turn_number}: {turn.agent.name}"),
             on_turn_complete=lambda turn: print(
                 f"[Continue] Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"
             ),
         )
         if result:
-            print(
-                f"[Continue] Debate {session_id} continued with {len(result.turns)} total turns"
-            )
+            print(f"[Continue] Debate {session_id} continued with {len(result.turns)} total turns")
 
     background_tasks.add_task(run_continuation)
 
@@ -509,16 +473,13 @@ async def continue_debate(
         "topic": session.topic if session else "unknown",
         "status": "accepted",
         "mode": "continuation",
-        "total_turns": existing_turns
-        + (request.max_additional_turns or len(agents) if agents else 4),
+        "total_turns": existing_turns + (request.max_additional_turns or len(agents) if agents else 4),
         "features": ["continuation", "context_persistence"],
     }
 
 
 @router.post("/{session_id}/pause", response_model=DebateResumeResponse)
-async def pause_debate(
-    session_id: str, request: DebatePauseRequest = DebatePauseRequest()
-):
+async def pause_debate(session_id: str, request: DebatePauseRequest = DebatePauseRequest()):
     """
     Pausa un debate en ejecucion.
     El debate se puede reanudar con POST /debates/{id}/resume.
@@ -529,9 +490,7 @@ async def pause_debate(
         if not debate_data:
             raise HTTPException(status_code=404, detail="Debate not found")
         if debate_data.get("status") != "running":
-            raise HTTPException(
-                status_code=400, detail="Debate must be running to pause"
-            )
+            raise HTTPException(status_code=400, detail="Debate must be running to pause")
 
     if session and session.status != "running":
         raise HTTPException(status_code=400, detail="Debate must be running to pause")
@@ -550,9 +509,7 @@ async def pause_debate(
     }
 
 
-@router.post(
-    "/{session_id}/resume", status_code=202, response_model=DebateCreateResponse
-)
+@router.post("/{session_id}/resume", status_code=202, response_model=DebateCreateResponse)
 async def resume_debate(session_id: str, background_tasks: BackgroundTasks):
     """
     Reanuda un debate pausado desde donde se quedo.
@@ -564,9 +521,7 @@ async def resume_debate(session_id: str, background_tasks: BackgroundTasks):
         if not debate_data:
             raise HTTPException(status_code=404, detail="Debate not found")
         if debate_data.get("status") != "paused":
-            raise HTTPException(
-                status_code=400, detail="Debate must be paused to resume"
-            )
+            raise HTTPException(status_code=400, detail="Debate must be paused to resume")
 
     if session and session.status != "paused":
         raise HTTPException(status_code=400, detail="Debate must be paused to resume")
@@ -574,17 +529,11 @@ async def resume_debate(session_id: str, background_tasks: BackgroundTasks):
     async def run_resume():
         result = await debate_controller.resume_debate(
             session_id=session_id,
-            on_turn_start=lambda turn: print(
-                f"[Resume] Turn {turn.turn_number}: {turn.agent.name}"
-            ),
-            on_turn_complete=lambda turn: print(
-                f"[Resume] Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"
-            ),
+            on_turn_start=lambda turn: print(f"[Resume] Turn {turn.turn_number}: {turn.agent.name}"),
+            on_turn_complete=lambda turn: print(f"[Resume] Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"),
         )
         if result:
-            print(
-                f"[Resume] Debate {session_id} resumed and completed with {len(result.turns)} total turns"
-            )
+            print(f"[Resume] Debate {session_id} resumed and completed with {len(result.turns)} total turns")
 
     background_tasks.add_task(run_resume)
 
@@ -628,11 +577,7 @@ async def get_debate_report(session_id: str):
                 "source": "database",
             }
         if debate.get("status") == "completed":
-            generated_report = (
-                await debate_controller.generate_structured_report_for_debate(
-                    session_id
-                )
-            )
+            generated_report = await debate_controller.generate_structured_report_for_debate(session_id)
             if generated_report:
                 record_debate_report_generated("database_backfill")
                 return {
@@ -746,15 +691,11 @@ async def get_debate_transcript(session_id: str):
 
         # Agregar info de archivo si existe
         if debate_data.get("transcript_path"):
-            lines.extend(
-                ["", f"📄 **Archivo completo:** `{debate_data['transcript_path']}`"]
-            )
+            lines.extend(["", f"📄 **Archivo completo:** `{debate_data['transcript_path']}`"])
 
         return {"transcript": "\n".join(lines), "source": "database"}
 
-    raise HTTPException(
-        status_code=404, detail="Debate session not found in memory or database"
-    )
+    raise HTTPException(status_code=404, detail="Debate session not found in memory or database")
 
 
 @router.get("/history/{session_id}")
@@ -777,9 +718,7 @@ async def get_debate_file(session_id: str):
         raise HTTPException(status_code=404, detail="Debate not found")
 
     if not debate.get("transcript_path"):
-        raise HTTPException(
-            status_code=404, detail="Transcript file not found for this debate"
-        )
+        raise HTTPException(status_code=404, detail="Transcript file not found for this debate")
 
     # Leer archivo
     import os
@@ -825,9 +764,7 @@ class ConsensusRequest(BaseModel):
 
 
 @router.post("/consensus/create", status_code=202, response_model=DebateCreateResponse)
-async def create_consensus_debate(
-    request: ConsensusRequest, background_tasks: BackgroundTasks
-):
+async def create_consensus_debate(request: ConsensusRequest, background_tasks: BackgroundTasks):
     """
     Crea debate de CONSENSO (Asincrono).
     """
@@ -845,9 +782,7 @@ async def create_consensus_debate(
             session_id=session_id,
             topic=request.topic,
             agents_config=agents,
-            on_round_complete=lambda r: print(
-                f"Round {r.round_number}: {r.global_consensus_score:.1%}"
-            ),
+            on_round_complete=lambda r: print(f"Round {r.round_number}: {r.global_consensus_score:.1%}"),
             on_consensus_update=lambda s, st: print(f"Consensus: {s:.1%} [{st}]"),
         )
 
@@ -876,9 +811,7 @@ class IterativeDebateRequest(BaseModel):
 
 
 @router.post("/create/iterative", status_code=202, response_model=DebateCreateResponse)
-async def create_iterative_debate(
-    request: IterativeDebateRequest, background_tasks: BackgroundTasks
-):
+async def create_iterative_debate(request: IterativeDebateRequest, background_tasks: BackgroundTasks):
     """
     Crea debate ITERATIVO avanzado con múltiples fases:
     - Análisis inicial de cada agente
@@ -962,9 +895,7 @@ async def create_iterative_debate(
             on_iteration_complete=lambda i: print(
                 f"Iteración {i.iteration_number} completada: {len(i.turns)} turnos, {len(i.cruzamientos)} cruzamientos"
             ),
-            on_cruzamiento=lambda c: print(
-                f"Cruzamiento: {c.from_agent} → {c.to_agent}"
-            ),
+            on_cruzamiento=lambda c: print(f"Cruzamiento: {c.from_agent} → {c.to_agent}"),
         )
 
     background_tasks.add_task(run_iterative)
@@ -1035,11 +966,7 @@ def _build_clean_turns(session) -> list:
 def _serialize_turn(turn) -> Dict[str, Any]:
     """Serializa un turno a formato estructurado uniforme."""
     if hasattr(turn, "turn_number"):
-        role_value = (
-            turn.agent.role.value
-            if hasattr(turn.agent.role, "value")
-            else str(turn.agent.role)
-        )
+        role_value = turn.agent.role.value if hasattr(turn.agent.role, "value") else str(turn.agent.role)
         return {
             "turn_number": turn.turn_number,
             "agent": {
@@ -1059,9 +986,7 @@ def _serialize_turn(turn) -> Dict[str, Any]:
             },
             "status": turn.status,
             "started_at": turn.started_at.isoformat() if turn.started_at else None,
-            "completed_at": turn.completed_at.isoformat()
-            if turn.completed_at
-            else None,
+            "completed_at": turn.completed_at.isoformat() if turn.completed_at else None,
         }
 
     return {
@@ -1075,9 +1000,7 @@ def _serialize_turn(turn) -> Dict[str, Any]:
             "node": turn.get("node"),
             "engine": turn.get("engine"),
         },
-        "content": (
-            turn.get("response_received") or turn.get("response_preview") or ""
-        ).strip(),
+        "content": (turn.get("response_received") or turn.get("response_preview") or "").strip(),
         "metrics": {
             "tokens_in": turn.get("tokens_in", 0),
             "tokens_out": turn.get("tokens_out", 0),
@@ -1101,19 +1024,11 @@ def _serialize_iterations(session) -> List[Dict[str, Any]]:
             {
                 "number": iteration.iteration_number,
                 "phase": iteration.phase,
-                "started_at": iteration.started_at.isoformat()
-                if iteration.started_at
-                else None,
-                "completed_at": iteration.completed_at.isoformat()
-                if iteration.completed_at
-                else None,
+                "started_at": iteration.started_at.isoformat() if iteration.started_at else None,
+                "completed_at": iteration.completed_at.isoformat() if iteration.completed_at else None,
                 "consensus_points": iteration.consensus_points,
                 "dissent_areas": iteration.disagreement_points,
-                "turns": [
-                    _serialize_turn(turn)
-                    for turn in iteration.turns
-                    if turn.status.startswith("completed")
-                ],
+                "turns": [_serialize_turn(turn) for turn in iteration.turns if turn.status.startswith("completed")],
                 "cross_references": [
                     {
                         "from_agent": cruzamiento.from_agent,
@@ -1121,9 +1036,7 @@ def _serialize_iterations(session) -> List[Dict[str, Any]]:
                         "target_argument": cruzamiento.target_argument,
                         "response": cruzamiento.response,
                         "iteration": cruzamiento.iteration,
-                        "timestamp": cruzamiento.timestamp.isoformat()
-                        if cruzamiento.timestamp
-                        else None,
+                        "timestamp": cruzamiento.timestamp.isoformat() if cruzamiento.timestamp else None,
                     }
                     for cruzamiento in iteration.cruzamientos
                 ],
@@ -1134,11 +1047,7 @@ def _serialize_iterations(session) -> List[Dict[str, Any]]:
 
 def _build_structured_export_from_session(session) -> Dict[str, Any]:
     """Construye exportación estructurada enriquecida desde sesión en memoria."""
-    serialized_turns = [
-        _serialize_turn(turn)
-        for turn in session.turns
-        if turn.status.startswith("completed")
-    ]
+    serialized_turns = [_serialize_turn(turn) for turn in session.turns if turn.status.startswith("completed")]
     total_tokens_out = sum(turn["metrics"]["tokens_out"] for turn in serialized_turns)
     total_latency_ms = sum(turn["metrics"]["latency_ms"] for turn in serialized_turns)
 
@@ -1147,12 +1056,8 @@ def _build_structured_export_from_session(session) -> Dict[str, Any]:
         "topic": session.topic,
         "status": session.status,
         "created_at": session.created_at.isoformat() if session.created_at else None,
-        "completed_at": session.completed_at.isoformat()
-        if session.completed_at
-        else None,
-        "duration_seconds": round(
-            (session.completed_at - session.created_at).total_seconds(), 1
-        )
+        "completed_at": session.completed_at.isoformat() if session.completed_at else None,
+        "duration_seconds": round((session.completed_at - session.created_at).total_seconds(), 1)
         if session.completed_at and session.created_at
         else None,
         "final_verdict": session.final_verdict,
@@ -1174,9 +1079,7 @@ def _build_structured_export_from_session(session) -> Dict[str, Any]:
     return export
 
 
-def _build_structured_export_from_db(
-    session_id: str, debate_data: Dict[str, Any]
-) -> Dict[str, Any]:
+def _build_structured_export_from_db(session_id: str, debate_data: Dict[str, Any]) -> Dict[str, Any]:
     """Construye exportación estructurada enriquecida desde datos persistidos."""
     serialized_turns = [
         _serialize_turn(turn)
@@ -1232,9 +1135,7 @@ async def export_debate_json(session_id: str):
     return Response(
         content=content,
         media_type="application/json",
-        headers={
-            "Content-Disposition": f"attachment; filename=debate_{session_id}.json"
-        },
+        headers={"Content-Disposition": f"attachment; filename=debate_{session_id}.json"},
     )
 
 
@@ -1248,8 +1149,7 @@ async def export_debate_markdown(session_id: str):
     lines = [
         f"# {session.topic}",
         "",
-        f"_{'finalizado' if session.status == 'completed' else 'en progreso'}_ | "
-        f"{len(session.turns)} intervenciones",
+        f"_{'finalizado' if session.status == 'completed' else 'en progreso'}_ | {len(session.turns)} intervenciones",
         "",
     ]
 

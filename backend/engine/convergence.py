@@ -74,19 +74,13 @@ class ConvergenceEvaluator:
         agreement_ratio = self._calculate_point_agreement(local_points, cloud_points)
 
         # Detectar áreas de disenso
-        dissent_areas = self._identify_dissent_areas(
-            local_synthesis, cloud_synthesis, local_points, cloud_points
-        )
+        dissent_areas = self._identify_dissent_areas(local_synthesis, cloud_synthesis, local_points, cloud_points)
 
         # Evaluar estabilidad con rondas previas
-        stability_score = self._evaluate_stability(
-            local_synthesis, cloud_synthesis, previous_syntheses or []
-        )
+        stability_score = self._evaluate_stability(local_synthesis, cloud_synthesis, previous_syntheses or [])
 
         # Calcular score compuesto
-        composite_score = (
-            similarity * 0.4 + agreement_ratio * 0.3 + stability_score * 0.3
-        )
+        composite_score = similarity * 0.4 + agreement_ratio * 0.3 + stability_score * 0.3
 
         # Determinar nivel de consenso
         if composite_score >= self.SIMILARITY_THRESHOLD:
@@ -210,9 +204,7 @@ class ConvergenceEvaluator:
 
         return points
 
-    def _calculate_point_agreement(
-        self, local_points: List[str], cloud_points: List[str]
-    ) -> float:
+    def _calculate_point_agreement(self, local_points: List[str], cloud_points: List[str]) -> float:
         """Calcula ratio de acuerdo entre puntos clave"""
         if not local_points or not cloud_points:
             return 0.0

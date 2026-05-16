@@ -51,9 +51,7 @@ class HybridMemoryV2:
                 # Esperar a que se procese la cola actual
                 await asyncio.wait_for(self._queue.join(), timeout=timeout)
             except asyncio.TimeoutError:
-                logger.warning(
-                    "hybrid_memory_v2.stop_timeout", pending=self._queue.qsize()
-                )
+                logger.warning("hybrid_memory_v2.stop_timeout", pending=self._queue.qsize())
 
             self._task.cancel()
             try:
@@ -139,12 +137,8 @@ class HybridMemoryV2:
             "mode": mode,
             "status": getattr(session, "status", ""),
             "final_verdict": getattr(session, "final_verdict", None),
-            "total_tokens_out": sum(
-                getattr(t, "tokens_out", 0) for t in getattr(session, "turns", [])
-            ),
-            "total_latency_ms": sum(
-                getattr(t, "latency_ms", 0) for t in getattr(session, "turns", [])
-            ),
+            "total_tokens_out": sum(getattr(t, "tokens_out", 0) for t in getattr(session, "turns", [])),
+            "total_latency_ms": sum(getattr(t, "latency_ms", 0) for t in getattr(session, "turns", [])),
             "turns": [
                 {
                     "id": f"{session_id}_turn_{t.turn_number}",
@@ -172,9 +166,7 @@ class HybridMemoryV2:
     async def get_persistent_queue_size(self) -> int:
         async with AsyncSessionLocal() as db_session:
             result = await db_session.execute(
-                select(SupabaseSyncQueueItem).where(
-                    SupabaseSyncQueueItem.status == "pending"
-                )
+                select(SupabaseSyncQueueItem).where(SupabaseSyncQueueItem.status == "pending")
             )
             return len(result.scalars().all())
 
@@ -206,14 +198,10 @@ class HybridMemoryV2:
                 await db_session.commit()
                 return True
 
-            reason = str(
-                sync_result.get("error") or sync_result.get("reason") or "unknown"
-            )
+            reason = str(sync_result.get("error") or sync_result.get("reason") or "unknown")
             db_item.retry_count += 1
             db_item.last_error = reason
-            db_item.next_attempt_at = datetime.now() + self._get_retry_delay(
-                db_item.retry_count
-            )
+            db_item.next_attempt_at = datetime.now() + self._get_retry_delay(db_item.retry_count)
             db_item.status = "pending"
             await db_session.commit()
             record_supabase_sync_failure(reason)

@@ -95,12 +95,8 @@ class BaseOpenAICompatibleClient(ABC):
             cached = await cache.get(
                 prompt=prompt,
                 model=model,
-                engine=self.base_url.split("://")[1].split(":")[0]
-                if "://" in self.base_url
-                else "local",
-                node="LOCAL"
-                if "localhost" in self.base_url or "127.0.0.1" in self.base_url
-                else "CLOUD",
+                engine=self.base_url.split("://")[1].split(":")[0] if "://" in self.base_url else "local",
+                node="LOCAL" if "localhost" in self.base_url or "127.0.0.1" in self.base_url else "CLOUD",
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
@@ -201,13 +197,8 @@ class BaseOpenAICompatibleClient(ABC):
                             prompt=prompt,
                             response_text=response_text,
                             model=model,
-                            engine=self.base_url.split("://")[1].split(":")[0]
-                            if "://" in self.base_url
-                            else "local",
-                            node="LOCAL"
-                            if "localhost" in self.base_url
-                            or "127.0.0.1" in self.base_url
-                            else "CLOUD",
+                            engine=self.base_url.split("://")[1].split(":")[0] if "://" in self.base_url else "local",
+                            node="LOCAL" if "localhost" in self.base_url or "127.0.0.1" in self.base_url else "CLOUD",
                             temperature=temperature,
                             max_tokens=max_tokens,
                             tokens_in=len(prompt),
@@ -245,9 +236,7 @@ class BaseOpenAICompatibleClient(ABC):
         """Text completion simple (convierte a chat format)"""
         messages = [{"role": "user", "content": prompt}]
         result = ""
-        async for token in self.chat_completion(
-            model, messages, temperature, max_tokens, stream=False
-        ):
+        async for token in self.chat_completion(model, messages, temperature, max_tokens, stream=False):
             result += token
         return result
 
@@ -259,9 +248,7 @@ class BaseOpenAICompatibleClient(ABC):
             # override de timeout en la petición
             client = self.client
             headers = self._build_headers()
-            response = await client.get(
-                f"{self.base_url}/v1/models", headers=headers, timeout=5.0
-            )
+            response = await client.get(f"{self.base_url}/v1/models", headers=headers, timeout=5.0)
 
             if response.status_code == 200:
                 data = response.json()

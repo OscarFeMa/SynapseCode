@@ -72,9 +72,7 @@ class RDPManager:
             return hostname
 
         # Validar hostname (alphanumeric + guiones, max 63 chars por label)
-        hostname_pattern = (
-            r"^[a-zA-Z0-9][a-zA-Z0-9\-]{0,62}(\.[a-zA-Z0-9][a-zA-Z0-9\-]{0,62})*$"
-        )
+        hostname_pattern = r"^[a-zA-Z0-9][a-zA-Z0-9\-]{0,62}(\.[a-zA-Z0-9][a-zA-Z0-9\-]{0,62})*$"
         if not re.match(hostname_pattern, hostname):
             raise RDPSecurityError(f"Hostname inválido: {hostname}")
 
@@ -92,9 +90,7 @@ class RDPManager:
             elapsed = (now - last_attempt).total_seconds()
             if elapsed < settings.RDP_RATE_LIMIT_SECONDS:
                 wait_time = settings.RDP_RATE_LIMIT_SECONDS - int(elapsed)
-                raise RDPRateLimitError(
-                    f"Rate limit excedido. Espera {wait_time}s antes de reintentar."
-                )
+                raise RDPRateLimitError(f"Rate limit excedido. Espera {wait_time}s antes de reintentar.")
 
         RDPManager._last_wake_attempt[identifier] = now
 
@@ -196,9 +192,7 @@ class RDPManager:
             )
         except RDPRateLimitError as e:
             logger.warning("rdp_manager.rate_limited", error=str(e))
-            return RDPConnectionResult(
-                success=False, message=str(e), timestamp=start_time
-            )
+            return RDPConnectionResult(success=False, message=str(e), timestamp=start_time)
         except Exception as e:
             logger.error("rdp_manager.exception", error=str(e))
             return RDPConnectionResult(
@@ -277,17 +271,13 @@ class RDPManager:
             return {"success": False, "message": f"Error ejecutando RDP: {str(e)}"}
 
     @staticmethod
-    def connect_to_worker(
-        hostname: str, username: str, password: str
-    ) -> Dict[str, Any]:
+    def connect_to_worker(hostname: str, username: str, password: str) -> Dict[str, Any]:
         """
         Método síncrono (legacy) para compatibilidad.
         Recomendado: usar connect_to_worker_async().
         """
         result = asyncio.run(
-            RDPManager.connect_to_worker_async(
-                hostname=hostname, username=username, password=password
-            )
+            RDPManager.connect_to_worker_async(hostname=hostname, username=username, password=password)
         )
 
         return {
@@ -304,9 +294,7 @@ class RDPManager:
         Usa credenciales de config.py, no requiere parámetros.
         """
         if not settings.RDP_ENABLED:
-            return RDPConnectionResult(
-                success=False, message="RDP deshabilitado en configuración"
-            )
+            return RDPConnectionResult(success=False, message="RDP deshabilitado en configuración")
 
         return asyncio.run(
             RDPManager.connect_to_worker_async(

@@ -44,12 +44,8 @@ SERVICES = {
         port=settings.WORKER_LM_STUDIO_PORT,
         alt_ports=[1235],
         process_name="LM Studio",
-        winrm_command=(
-            'start "" "C:\\Users\\maked\\AppData\\Local\\LM Studio\\LM Studio.exe"'
-        ),
-        rdp_script=(
-            'start "" "C:\\Users\\maked\\AppData\\Local\\LM Studio\\LM Studio.exe"'
-        ),
+        winrm_command=('start "" "C:\\Users\\maked\\AppData\\Local\\LM Studio\\LM Studio.exe"'),
+        rdp_script=('start "" "C:\\Users\\maked\\AppData\\Local\\LM Studio\\LM Studio.exe"'),
     ),
     "jan": WorkerService(
         name="Jan",
@@ -69,9 +65,7 @@ class WorkerServiceManager:
 
     def __init__(self):
         self._worker_ip: Optional[str] = None
-        self._services: Dict[str, WorkerService] = {
-            k: WorkerService(**v.__dict__) for k, v in SERVICES.items()
-        }
+        self._services: Dict[str, WorkerService] = {k: WorkerService(**v.__dict__) for k, v in SERVICES.items()}
         self._check_cache: Dict[str, Dict[str, Any]] = {}
         self._cache_ttl = 15  # segundos
 
@@ -91,9 +85,7 @@ class WorkerServiceManager:
     async def check_port(self, host: str, port: int, timeout: float = 2.0) -> bool:
         """Verifica si un puerto TCP está abierto en el Worker"""
         try:
-            _, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port), timeout=timeout
-            )
+            _, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout)
             writer.close()
             await writer.wait_closed()
             return True
@@ -121,10 +113,7 @@ class WorkerServiceManager:
 
         host = await self.resolve_worker_ip()
         if not host:
-            return {
-                name: {"status": "unknown", "error": "Worker IP no resuelta"}
-                for name in self._services
-            }
+            return {name: {"status": "unknown", "error": "Worker IP no resuelta"} for name in self._services}
 
         results = {}
         for name, svc in self._services.items():
@@ -252,9 +241,7 @@ class WorkerServiceManager:
             return {"success": result.success, "message": result.message}
 
         except Exception as e:
-            logger.error(
-                "worker_launcher.rdp_launch_failed", service=service_name, error=str(e)
-            )
+            logger.error("worker_launcher.rdp_launch_failed", service=service_name, error=str(e))
             return {"success": False, "error": str(e)}
 
     async def ensure_service_running(self, service_name: str) -> Dict[str, Any]:
@@ -309,9 +296,7 @@ class WorkerServiceManager:
         if settings.RDP_ENABLED:
             logger.info("worker_launcher.try_rdp", service=service_name)
             try:
-                rdp_result = await asyncio.wait_for(
-                    self.launch_service_rdp(service_name), timeout=10
-                )
+                rdp_result = await asyncio.wait_for(self.launch_service_rdp(service_name), timeout=10)
                 await asyncio.sleep(3)
                 status = await self.check_all_services()
                 if status.get(service_name, {}).get("status") == "running":

@@ -145,9 +145,7 @@ class BaseDebateController(ABC):
     """
 
     # Directorio base para transcripts
-    TRANSCRIPTS_DIR = os.path.join(
-        os.path.dirname(__file__), "..", "..", "data", "debates"
-    )
+    TRANSCRIPTS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "debates")
 
     def __init__(self, controller_name: str):
         """
@@ -232,9 +230,7 @@ class BaseDebateController(ABC):
         """
         session.status = DebateStatus.RUNNING
 
-        self.logger.info(
-            "debate.started", session_id=session.id, topic=session.topic[:100]
-        )
+        self.logger.info("debate.started", session_id=session.id, topic=session.topic[:100])
 
         if on_event:
             await self._emit_event(
@@ -334,9 +330,7 @@ class BaseDebateController(ABC):
         pass
 
     @abstractmethod
-    async def _create_debate_record(
-        self, session: DebateSessionBase, db_session: AsyncSession
-    ) -> Any:
+    async def _create_debate_record(self, session: DebateSessionBase, db_session: AsyncSession) -> Any:
         """
         Crea el registro específico en la base de datos.
 
@@ -369,9 +363,7 @@ class BaseDebateController(ABC):
             else:
                 callback(event_type, data)
         except Exception as e:
-            self.logger.warning(
-                "debate.event_callback_failed", event_type=event_type, error=str(e)
-            )
+            self.logger.warning("debate.event_callback_failed", event_type=event_type, error=str(e))
 
     def _calculate_duration(self, session: DebateSessionBase) -> int:
         """Calcula duración del debate en ms"""
@@ -380,9 +372,7 @@ class BaseDebateController(ABC):
             return int(delta.total_seconds() * 1000)
         return 0
 
-    async def _initialize_transcript(
-        self, session: DebateSessionBase, metadata: Dict[str, Any]
-    ) -> None:
+    async def _initialize_transcript(self, session: DebateSessionBase, metadata: Dict[str, Any]) -> None:
         """Inicializa archivo de transcript"""
         if session.transcript_path is None:
             return
@@ -410,9 +400,7 @@ class BaseDebateController(ABC):
 
         await self._write_transcript(session.transcript_path, transcript)
 
-    async def _append_turn_to_transcript(
-        self, session: DebateSessionBase, turn_data: Dict[str, Any]
-    ) -> None:
+    async def _append_turn_to_transcript(self, session: DebateSessionBase, turn_data: Dict[str, Any]) -> None:
         """Añade un turno al transcript existente"""
         if session.transcript_path is None:
             return
@@ -436,9 +424,7 @@ class BaseDebateController(ABC):
             await self._write_transcript(session.transcript_path, transcript)
 
         except Exception as e:
-            self.logger.warning(
-                "debate.transcript_append_failed", session_id=session.id, error=str(e)
-            )
+            self.logger.warning("debate.transcript_append_failed", session_id=session.id, error=str(e))
 
     async def _finalize_transcript(self, session: DebateSessionBase) -> None:
         """Finaliza transcript con datos de cierre"""
@@ -451,9 +437,7 @@ class BaseDebateController(ABC):
             transcript.update(
                 {
                     "status": session.status.value,
-                    "completed_at": session.completed_at.isoformat()
-                    if session.completed_at
-                    else None,
+                    "completed_at": session.completed_at.isoformat() if session.completed_at else None,
                     "duration_ms": self._calculate_duration(session),
                     "final_summary": session.final_summary,
                     "final_metrics": {
@@ -470,9 +454,7 @@ class BaseDebateController(ABC):
             await self._write_transcript(session.transcript_path, transcript)
 
         except Exception as e:
-            self.logger.warning(
-                "debate.transcript_finalize_failed", session_id=session.id, error=str(e)
-            )
+            self.logger.warning("debate.transcript_finalize_failed", session_id=session.id, error=str(e))
 
     async def _read_transcript(self, path: str) -> Dict[str, Any]:
         """Lee transcript desde archivo"""
@@ -497,9 +479,7 @@ class BaseDebateController(ABC):
         """Obtiene una sesión de base de datos"""
         return AsyncSessionLocal()
 
-    def log_turn_start(
-        self, session_id: str, turn_number: int, agent_id: str, agent_name: str
-    ) -> None:
+    def log_turn_start(self, session_id: str, turn_number: int, agent_id: str, agent_name: str) -> None:
         """Log estándar de inicio de turno"""
         self.logger.info(
             "debate.turn_start",
@@ -562,9 +542,7 @@ class DebateControllerError(Exception):
 class AgentExecutionError(DebateControllerError):
     """Error en la ejecución de un agente"""
 
-    def __init__(
-        self, agent_id: str, message: str, original_error: Optional[Exception] = None
-    ):
+    def __init__(self, agent_id: str, message: str, original_error: Optional[Exception] = None):
         self.agent_id = agent_id
         self.original_error = original_error
         super().__init__(f"Agent {agent_id}: {message}")

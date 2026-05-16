@@ -162,9 +162,7 @@ class RoundController:
         )
 
         if on_event:
-            on_event(
-                "round_started", {"round_number": round_number, "round_id": round_id}
-            )
+            on_event("round_started", {"round_number": round_number, "round_id": round_id})
 
         try:
             # ═══════════════════════════════════════════════════
@@ -191,9 +189,7 @@ class RoundController:
             )
 
             if self.orchestrator.check_failure_threshold(analysis_results, 0.5):
-                raise RuntimeError(
-                    "Fase de análisis abortada: >50% de agentes fallaron"
-                )
+                raise RuntimeError("Fase de análisis abortada: >50% de agentes fallaron")
 
             # ═══════════════════════════════════════════════════
             # FASE 2: CRÍTICA (cruce híbrido)
@@ -238,15 +234,11 @@ class RoundController:
 
             local_synth = synthesis_results.get(
                 "synth_local",
-                AgentResult(
-                    call_id="", slot="synth_local", node="LOCAL", status="FAILED"
-                ),
+                AgentResult(call_id="", slot="synth_local", node="LOCAL", status="FAILED"),
             )
             cloud_synth = synthesis_results.get(
                 "synth_cloud",
-                AgentResult(
-                    call_id="", slot="synth_cloud", node="CLOUD", status="FAILED"
-                ),
+                AgentResult(call_id="", slot="synth_cloud", node="CLOUD", status="FAILED"),
             )
 
             tribunal_verdict = None
@@ -295,40 +287,16 @@ class RoundController:
                 "round_id": round_id,
                 "round_number": round_number,
                 "status": "COMPLETED",
-                "analysis": {
-                    slot: r.response
-                    for slot, r in analysis_results.items()
-                    if r.response
-                },
-                "critique": {
-                    slot: r.response
-                    for slot, r in critique_results.items()
-                    if r.response
-                },
-                "synthesis": {
-                    slot: r.response
-                    for slot, r in synthesis_results.items()
-                    if r.response
-                },
+                "analysis": {slot: r.response for slot, r in analysis_results.items() if r.response},
+                "critique": {slot: r.response for slot, r in critique_results.items() if r.response},
+                "synthesis": {slot: r.response for slot, r in synthesis_results.items() if r.response},
                 "tribunal_verdict": {
-                    "verdict_text": tribunal_verdict.verdict_text
-                    if tribunal_verdict
-                    else None,
-                    "consensus_reached": tribunal_verdict.consensus_reached
-                    if tribunal_verdict
-                    else False,
-                    "iterations_required": tribunal_verdict.iterations_required
-                    if tribunal_verdict
-                    else 0,
-                    "evidence_score": tribunal_verdict.evidence_score
-                    if tribunal_verdict
-                    else 0,
-                    "risk_score": tribunal_verdict.risk_score
-                    if tribunal_verdict
-                    else 0,
-                    "alignment_score": tribunal_verdict.alignment_score
-                    if tribunal_verdict
-                    else 0,
+                    "verdict_text": tribunal_verdict.verdict_text if tribunal_verdict else None,
+                    "consensus_reached": tribunal_verdict.consensus_reached if tribunal_verdict else False,
+                    "iterations_required": tribunal_verdict.iterations_required if tribunal_verdict else 0,
+                    "evidence_score": tribunal_verdict.evidence_score if tribunal_verdict else 0,
+                    "risk_score": tribunal_verdict.risk_score if tribunal_verdict else 0,
+                    "alignment_score": tribunal_verdict.alignment_score if tribunal_verdict else 0,
                 }
                 if tribunal_verdict
                 else None,
@@ -362,9 +330,7 @@ class RoundController:
         # Construir prompts
         prompts = {}
         for config in self.ANALYSIS_AGENTS:
-            system_prompt = (
-                ""  # El prompt del rol va en user_prompt para compatibilidad
-            )
+            system_prompt = ""  # El prompt del rol va en user_prompt para compatibilidad
             user_prompt = self.prompt_builder.build_analyst_prompt(
                 agent_slot=config.slot,
                 query=query,
@@ -449,11 +415,7 @@ class RoundController:
 
         # Construir texto de todos los análisis para el contexto global de los críticos
         all_analyses_text = "\n\n".join(
-            [
-                f"--- ANÁLISIS DE {res.slot} ---\n{res.response}"
-                for res in analysis_results.values()
-                if res.response
-            ]
+            [f"--- ANÁLISIS DE {res.slot} ---\n{res.response}" for res in analysis_results.values() if res.response]
         )
 
         # Construir prompts con el cruce
@@ -464,9 +426,7 @@ class RoundController:
             target_analysis = analysis_results.get(target_slot)
 
             if not target_analysis or not target_analysis.response:
-                logger.warning(
-                    "critique_target_missing", critic=config.slot, target=target_slot
-                )
+                logger.warning("critique_target_missing", critic=config.slot, target=target_slot)
                 continue
 
             # Preparar contexto global excluyendo el target si se desea,

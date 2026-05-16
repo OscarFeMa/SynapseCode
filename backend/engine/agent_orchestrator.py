@@ -80,9 +80,7 @@ class AgentOrchestrator:
     @property
     def openrouter(self):
         if self._openrouter is None:
-            self._openrouter = (
-                OpenRouterClient() if settings.OPENROUTER_API_KEY else None
-            )
+            self._openrouter = OpenRouterClient() if settings.OPENROUTER_API_KEY else None
         return self._openrouter
 
     @property
@@ -192,9 +190,7 @@ class AgentOrchestrator:
 
             if config.node == "LOCAL":
                 engine_type = EngineType(config.engine)
-                logger.info(
-                    "call_agent.local_engine_selected", engine_type=engine_type.value
-                )
+                logger.info("call_agent.local_engine_selected", engine_type=engine_type.value)
 
                 # Forzar stream=True siempre para asegurar consumo completo del generador
                 logger.info(
@@ -499,9 +495,7 @@ class AgentOrchestrator:
             type=context_type,
         )
 
-    def check_failure_threshold(
-        self, results: Dict[str, AgentResult], threshold_percent: float = 0.5
-    ) -> bool:
+    def check_failure_threshold(self, results: Dict[str, AgentResult], threshold_percent: float = 0.5) -> bool:
         """
         Verifica si se superó el umbral de fallos (>50% por defecto)
         Retorna True si se debe abortar la sesión

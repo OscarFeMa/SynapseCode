@@ -119,15 +119,11 @@ class ReductioAbsurdumEngine:
         )
 
         # Detectar suposiciones débiles (consenso sin suficiente debate)
-        weak_assumptions = self._detect_weak_assumptions(
-            consensus_points, dissent_points, iteration_number
-        )
+        weak_assumptions = self._detect_weak_assumptions(consensus_points, dissent_points, iteration_number)
         scan.weak_assumptions = weak_assumptions
 
         # Detectar premisas no cuestionadas
-        unquestioned = self._detect_unquestioned_premises(
-            consensus_points, debate_history
-        )
+        unquestioned = self._detect_unquestioned_premises(consensus_points, debate_history)
         scan.unquestioned_premises = unquestioned
 
         # Calcular riesgo de complacencia
@@ -155,9 +151,7 @@ class ReductioAbsurdumEngine:
                 *[f"  • {point[:80]}..." for point in weak_assumptions[:2]],
             ]
         else:
-            scan.recommendations = [
-                f"✅ DEBATE ROBUSTO - Bajo riesgo de complacencia ({complacency_risk:.0%})"
-            ]
+            scan.recommendations = [f"✅ DEBATE ROBUSTO - Bajo riesgo de complacencia ({complacency_risk:.0%})"]
 
         self.complacency_history.append(scan)
         logger.info(
@@ -204,9 +198,7 @@ class ReductioAbsurdumEngine:
 
         return list(dict.fromkeys(weak))  # Eliminar duplicados manteniendo orden
 
-    def _detect_unquestioned_premises(
-        self, consensus_points: List[str], debate_history: str
-    ) -> List[str]:
+    def _detect_unquestioned_premises(self, consensus_points: List[str], debate_history: str) -> List[str]:
         """Detecta premisas que no han sido cuestionadas explícitamente"""
 
         unquestioned = []
@@ -279,11 +271,7 @@ class ReductioAbsurdumEngine:
         unquestioned_risk = min(unquestioned_ratio * 0.7, 1.0)
 
         # Combinar factores (media ponderada)
-        total_risk = (
-            early_consensus_risk * 0.4
-            + weak_assumption_risk * 0.35
-            + unquestioned_risk * 0.25
-        )
+        total_risk = early_consensus_risk * 0.4 + weak_assumption_risk * 0.35 + unquestioned_risk * 0.25
 
         return min(total_risk, 1.0)
 
@@ -334,9 +322,7 @@ Responde en máximo 300 palabras con estructura clara."""
 
         return prompt
 
-    def generate_tribunal_self_challenge_prompt(
-        self, magistrate_verdict: str, magistrate_role: str
-    ) -> str:
+    def generate_tribunal_self_challenge_prompt(self, magistrate_verdict: str, magistrate_role: str) -> str:
         """
         Genera un prompt para que el magistrado se desafíe a sí mismo.
         Usado en ronda 2 para eliminar el sesgo del magistrado (self-complacency).
@@ -421,20 +407,14 @@ Sé honesto y crítico. Un buen magistrado reconoce sus sesgos."""
                 continue
 
             # Filtrar sentencias que son preguntas o instrucciones
-            if (
-                sentence.endswith("?")
-                or sentence.startswith("Por favor")
-                or sentence.startswith("Nota")
-            ):
+            if sentence.endswith("?") or sentence.startswith("Por favor") or sentence.startswith("Nota"):
                 continue
 
             propositions.append(sentence)
 
         return propositions[:5]  # Top 5 proposiciones más importantes
 
-    def rank_propositions_by_robustness(
-        self, propositions: List[str]
-    ) -> List[Tuple[str, float]]:
+    def rank_propositions_by_robustness(self, propositions: List[str]) -> List[Tuple[str, float]]:
         """
         Ordena proposiciones por robustez (qué tan resistentes son al cuestionamiento).
 
@@ -528,18 +508,14 @@ Sé honesto y crítico. Un buen magistrado reconoce sus sesgos."""
         )
 
         # Generar desafío
-        challenge_prompt = self.generate_absurdum_challenge(
-            target_proposition, challenging_agent.name
-        )
+        challenge_prompt = self.generate_absurdum_challenge(target_proposition, challenging_agent.name)
 
         try:
             # Obtener respuesta del modelo
             response = await generate_func(target_agent, challenge_prompt)
 
             # Detectar si reconoció contradicción
-            contradiction_found = any(
-                marker in response.lower() for marker in self.CONTRADICTION_MARKERS
-            )
+            contradiction_found = any(marker in response.lower() for marker in self.CONTRADICTION_MARKERS)
 
             proof = AbsurdumProof(
                 proposition=target_proposition,

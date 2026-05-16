@@ -27,9 +27,7 @@ class TCPHandshake:
         self.tcp_socket: Optional[socket.socket] = None
         self.peer_info: Optional[Dict[str, Any]] = None
 
-    def connect_to_master(
-        self, master_ip: str, port: int = 54322, worker_info: Dict[str, Any] = None
-    ) -> bool:
+    def connect_to_master(self, master_ip: str, port: int = 54322, worker_info: Dict[str, Any] = None) -> bool:
         """
         Worker se conecta al Master vía TCP.
 
@@ -66,9 +64,7 @@ class TCPHandshake:
                 logger.info(f"Conexión TCP establecida con Master en {master_ip}")
                 return True
             else:
-                logger.error(
-                    f"Conexión rechazada por Master: {response_data.get('message')}"
-                )
+                logger.error(f"Conexión rechazada por Master: {response_data.get('message')}")
                 return False
 
         except Exception as e:

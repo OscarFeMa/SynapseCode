@@ -31,10 +31,7 @@ class SupabaseSyncService:
         self.key = settings.SUPABASE_ANON_KEY
         # Detectar placeholders y tratar como "no configurado"
         is_placeholder = (
-            "CHANGEME" in (self.url or "")
-            or "CHANGEME" in (self.key or "")
-            or not self.url
-            or not self.key
+            "CHANGEME" in (self.url or "") or "CHANGEME" in (self.key or "") or not self.url or not self.key
         )
         self.enabled = settings.SUPABASE_ENABLED and not is_placeholder
 
@@ -59,9 +56,7 @@ class SupabaseSyncService:
         try:
             client = self._get_client()
             # Intentar obtener datos de la tabla sequential_debates
-            response = await client.get(
-                f"{self.url}/rest/v1/sequential_debates?select=id&limit=1"
-            )
+            response = await client.get(f"{self.url}/rest/v1/sequential_debates?select=id&limit=1")
 
             if response.status_code in [200, 404]:  # 404 = tabla existe pero vacía
                 return {
@@ -108,14 +103,10 @@ class SupabaseSyncService:
                 "total_latency_ms": debate_data.get("total_latency_ms", 0),
                 "final_verdict": debate_data.get("final_verdict"),
                 "transcript_path": debate_data.get("transcript_path"),
-                "created_at": debate_data.get(
-                    "created_at", datetime.utcnow()
-                ).isoformat()
+                "created_at": debate_data.get("created_at", datetime.utcnow()).isoformat()
                 if isinstance(debate_data.get("created_at"), datetime)
                 else debate_data.get("created_at"),
-                "completed_at": debate_data.get(
-                    "completed_at", datetime.utcnow()
-                ).isoformat()
+                "completed_at": debate_data.get("completed_at", datetime.utcnow()).isoformat()
                 if isinstance(debate_data.get("completed_at"), datetime)
                 else debate_data.get("completed_at"),
                 "synced_at": datetime.utcnow().isoformat(),
@@ -156,19 +147,13 @@ class SupabaseSyncService:
                     "turn_number": turn.get("turn_number"),
                     "agent_id": turn.get("agent_id", "unknown"),
                     "agent_name": turn.get("agent_name"),
-                    "agent_role": turn.get(
-                        "agent_role", "analyst"
-                    ),  # Valor por defecto para evitar null
+                    "agent_role": turn.get("agent_role", "analyst"),  # Valor por defecto para evitar null
                     "model": turn.get("model"),
                     "provider": turn.get("provider") or "unknown",
                     "node": turn.get("node", "LOCAL"),
                     "engine": turn.get("engine", "ollama"),
-                    "prompt_sent": turn.get("prompt_sent", "")[
-                        :10000
-                    ],  # Limitar tamaño
-                    "response_received": turn.get("response_received", "")[
-                        :20000
-                    ],  # Limitar
+                    "prompt_sent": turn.get("prompt_sent", "")[:10000],  # Limitar tamaño
+                    "response_received": turn.get("response_received", "")[:20000],  # Limitar
                     "tokens_in": turn.get("tokens_in", 0),
                     "tokens_out": turn.get("tokens_out", 0),
                     "latency_ms": turn.get("latency_ms", 0),
@@ -177,9 +162,7 @@ class SupabaseSyncService:
                     "started_at": turn.get("started_at", datetime.utcnow()).isoformat()
                     if isinstance(turn.get("started_at"), datetime)
                     else turn.get("started_at"),
-                    "completed_at": turn.get(
-                        "completed_at", datetime.utcnow()
-                    ).isoformat()
+                    "completed_at": turn.get("completed_at", datetime.utcnow()).isoformat()
                     if isinstance(turn.get("completed_at"), datetime)
                     else turn.get("completed_at"),
                 }
@@ -199,9 +182,7 @@ class SupabaseSyncService:
                         error=turn_response.text[:500],
                     )
 
-            logger.info(
-                "supabase_sync.success", debate_id=debate_id, turns_synced=len(turns)
-            )
+            logger.info("supabase_sync.success", debate_id=debate_id, turns_synced=len(turns))
 
             return {
                 "synced": True,
@@ -214,9 +195,7 @@ class SupabaseSyncService:
             logger.error("supabase_sync.exception", debate_id=debate_id, error=str(e))
             return {"synced": False, "error": str(e)}
 
-    async def sync_consensus_debate(
-        self, debate_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def sync_consensus_debate(self, debate_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Sincroniza un debate de consenso con Supabase.
         Requiere tabla 'consensus_debates' en Supabase.
@@ -245,14 +224,10 @@ class SupabaseSyncService:
                 "total_tokens_in": debate_data.get("total_tokens_in", 0),
                 "total_tokens_out": debate_data.get("total_tokens_out", 0),
                 "total_latency_ms": debate_data.get("total_latency_ms", 0),
-                "created_at": debate_data.get(
-                    "created_at", datetime.utcnow()
-                ).isoformat()
+                "created_at": debate_data.get("created_at", datetime.utcnow()).isoformat()
                 if isinstance(debate_data.get("created_at"), datetime)
                 else debate_data.get("created_at"),
-                "completed_at": debate_data.get(
-                    "completed_at", datetime.utcnow()
-                ).isoformat()
+                "completed_at": debate_data.get("completed_at", datetime.utcnow()).isoformat()
                 if isinstance(debate_data.get("completed_at"), datetime)
                 else debate_data.get("completed_at"),
                 "synced_at": datetime.utcnow().isoformat(),
@@ -349,9 +324,7 @@ class SupabaseSyncService:
             }
 
         except Exception as e:
-            logger.error(
-                "supabase_sync.consensus_exception", debate_id=debate_id, error=str(e)
-            )
+            logger.error("supabase_sync.consensus_exception", debate_id=debate_id, error=str(e))
             return {"synced": False, "error": str(e)}
 
     async def get_debate_from_cloud(self, debate_id: str) -> Optional[Dict[str, Any]]:
@@ -363,9 +336,7 @@ class SupabaseSyncService:
             client = self._get_client()
 
             # Obtener debate
-            response = await client.get(
-                f"{self.url}/rest/v1/sequential_debates?id=eq.{debate_id}"
-            )
+            response = await client.get(f"{self.url}/rest/v1/sequential_debates?id=eq.{debate_id}")
 
             if response.status_code != 200:
                 return None
@@ -415,9 +386,7 @@ class SupabaseSyncService:
         """Cierra conexión HTTP"""
         await HTTPClientManager.close(self.SERVICE_NAME)
 
-    async def sync_reductio_proofs(
-        self, debate_id: str, proofs: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    async def sync_reductio_proofs(self, debate_id: str, proofs: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Sincroniza pruebas Reductio ad Absurdum con Supabase.
         Requiere tabla 'reductio_absurdum_proofs' en Supabase.
@@ -438,9 +407,7 @@ class SupabaseSyncService:
                     "iteration_number": proof.get("iteration_number", 0),
                     "proposition": proof.get("proposition", "")[:5000],
                     "extreme_case": proof.get("extreme_case", "")[:5000],
-                    "contradiction": proof.get("contradiction", "")[:5000]
-                    if proof.get("contradiction")
-                    else None,
+                    "contradiction": proof.get("contradiction", "")[:5000] if proof.get("contradiction") else None,
                     "is_valid": proof.get("is_valid", True),
                     "confidence_score": proof.get("confidence_score", 0.0),
                     "questioning_agent": proof.get("questioning_agent", "unknown"),
@@ -448,9 +415,7 @@ class SupabaseSyncService:
                     "consensus_areas": proof.get("consensus_areas", []),
                     "weak_assumptions": proof.get("weak_assumptions", []),
                     "unquestioned_premises": proof.get("unquestioned_premises", []),
-                    "overall_complacency_risk": proof.get(
-                        "overall_complacency_risk", 0.0
-                    ),
+                    "overall_complacency_risk": proof.get("overall_complacency_risk", 0.0),
                     "recommendations": proof.get("recommendations", []),
                 }
 
@@ -485,9 +450,7 @@ class SupabaseSyncService:
             }
 
         except Exception as e:
-            logger.error(
-                "supabase_sync.reductio_exception", debate_id=debate_id, error=str(e)
-            )
+            logger.error("supabase_sync.reductio_exception", debate_id=debate_id, error=str(e))
             return {"synced": False, "error": str(e)}
 
 

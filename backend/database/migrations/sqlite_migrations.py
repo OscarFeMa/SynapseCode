@@ -14,9 +14,7 @@ PROMPT_CACHE_TABLE = "prompt_response_cache"
 
 def _table_exists(conn: Connection, table_name: str) -> bool:
     result = conn.execute(
-        text(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = :table_name"
-        ),
+        text("SELECT name FROM sqlite_master WHERE type = 'table' AND name = :table_name"),
         {"table_name": table_name},
     )
     return result.first() is not None
@@ -69,23 +67,12 @@ def _migrate_prompt_response_cache(conn: Connection) -> None:
     )
 
     conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_prompt_cache_engine_model "
-            f"ON {PROMPT_CACHE_TABLE} (engine, model)"
-        )
+        text(f"CREATE INDEX IF NOT EXISTS idx_prompt_cache_engine_model ON {PROMPT_CACHE_TABLE} (engine, model)")
     )
     conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_prompt_cache_last_accessed "
-            f"ON {PROMPT_CACHE_TABLE} (last_accessed_at)"
-        )
+        text(f"CREATE INDEX IF NOT EXISTS idx_prompt_cache_last_accessed ON {PROMPT_CACHE_TABLE} (last_accessed_at)")
     )
-    conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_prompt_cache_expires "
-            f"ON {PROMPT_CACHE_TABLE} (expires_at)"
-        )
-    )
+    conn.execute(text(f"CREATE INDEX IF NOT EXISTS idx_prompt_cache_expires ON {PROMPT_CACHE_TABLE} (expires_at)"))
 
 
 def _migrate_sequential_debates(conn: Connection) -> None:

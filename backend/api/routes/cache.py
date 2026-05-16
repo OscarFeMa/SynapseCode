@@ -58,9 +58,7 @@ async def get_cache_stats() -> CacheStatsResponse:
         return CacheStatsResponse(**stats)
     except Exception as e:
         logger.error("cache.stats_failed", error=str(e))
-        raise HTTPException(
-            status_code=500, detail=f"Failed to get cache stats: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to get cache stats: {str(e)}")
 
 
 @router.post("/invalidate", response_model=CacheInvalidateResponse)
@@ -70,9 +68,7 @@ async def invalidate_cache(request: CacheInvalidateRequest) -> CacheInvalidateRe
     Si no se especifica modelo/engine, invalida todas las entradas.
     """
     try:
-        count = await semantic_cache.invalidate(
-            model=request.model, engine=request.engine
-        )
+        count = await semantic_cache.invalidate(model=request.model, engine=request.engine)
         message = f"Invalidated {count} cache entries"
         if request.model:
             message += f" for model {request.model}"
@@ -81,9 +77,7 @@ async def invalidate_cache(request: CacheInvalidateRequest) -> CacheInvalidateRe
         return CacheInvalidateResponse(count=count, message=message)
     except Exception as e:
         logger.error("cache.invalidate_failed", error=str(e))
-        raise HTTPException(
-            status_code=500, detail=f"Failed to invalidate cache: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to invalidate cache: {str(e)}")
 
 
 @router.post("/cleanup", response_model=CacheCleanupResponse)
@@ -93,14 +87,10 @@ async def cleanup_cache() -> CacheCleanupResponse:
     """
     try:
         count = await semantic_cache.cleanup_expired()
-        return CacheCleanupResponse(
-            count=count, message=f"Cleaned up {count} expired cache entries"
-        )
+        return CacheCleanupResponse(count=count, message=f"Cleaned up {count} expired cache entries")
     except Exception as e:
         logger.error("cache.cleanup_failed", error=str(e))
-        raise HTTPException(
-            status_code=500, detail=f"Failed to cleanup cache: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to cleanup cache: {str(e)}")
 
 
 @router.get("/health")

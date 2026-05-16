@@ -47,20 +47,14 @@ class TestPromptResponseCache:
                 await db_session.commit()
 
                 result = await db_session.execute(
-                    select(PromptResponseCache).where(
-                        PromptResponseCache.cache_key == cache_key
-                    )
+                    select(PromptResponseCache).where(PromptResponseCache.cache_key == cache_key)
                 )
                 persisted = result.scalar_one_or_none()
                 assert persisted is not None
                 assert persisted.response_text == "Test response"
                 assert persisted.hit_count == 0
 
-                await db_session.execute(
-                    delete(PromptResponseCache).where(
-                        PromptResponseCache.cache_key == cache_key
-                    )
-                )
+                await db_session.execute(delete(PromptResponseCache).where(PromptResponseCache.cache_key == cache_key))
                 await db_session.commit()
 
         asyncio.run(scenario())
@@ -88,19 +82,13 @@ class TestPromptResponseCache:
                 await db_session.commit()
 
                 result = await db_session.execute(
-                    select(PromptResponseCache).where(
-                        PromptResponseCache.cache_key == cache_key
-                    )
+                    select(PromptResponseCache).where(PromptResponseCache.cache_key == cache_key)
                 )
                 persisted = result.scalar_one_or_none()
                 assert persisted is not None
                 assert persisted.hit_count == 5
 
-                await db_session.execute(
-                    delete(PromptResponseCache).where(
-                        PromptResponseCache.cache_key == cache_key
-                    )
-                )
+                await db_session.execute(delete(PromptResponseCache).where(PromptResponseCache.cache_key == cache_key))
                 await db_session.commit()
 
         asyncio.run(scenario())
@@ -136,9 +124,7 @@ class TestSupabaseSyncQueue:
                 await db_session.commit()
 
                 result = await db_session.execute(
-                    select(SupabaseSyncQueueItem).where(
-                        SupabaseSyncQueueItem.debate_id == "test-sync-1"
-                    )
+                    select(SupabaseSyncQueueItem).where(SupabaseSyncQueueItem.debate_id == "test-sync-1")
                 )
                 persisted = result.scalar_one_or_none()
                 assert persisted is not None
@@ -146,9 +132,7 @@ class TestSupabaseSyncQueue:
                 assert persisted.status == "pending"
 
                 await db_session.execute(
-                    delete(SupabaseSyncQueueItem).where(
-                        SupabaseSyncQueueItem.debate_id == "test-sync-1"
-                    )
+                    delete(SupabaseSyncQueueItem).where(SupabaseSyncQueueItem.debate_id == "test-sync-1")
                 )
                 await db_session.commit()
 
@@ -169,9 +153,7 @@ class TestSupabaseSyncQueue:
                 await db_session.commit()
 
                 result = await db_session.execute(
-                    select(SupabaseSyncQueueItem).where(
-                        SupabaseSyncQueueItem.debate_id == "test-blocked-1"
-                    )
+                    select(SupabaseSyncQueueItem).where(SupabaseSyncQueueItem.debate_id == "test-blocked-1")
                 )
                 persisted = result.scalar_one_or_none()
                 assert persisted is not None
@@ -179,9 +161,7 @@ class TestSupabaseSyncQueue:
                 assert persisted.retry_count == 3
 
                 await db_session.execute(
-                    delete(SupabaseSyncQueueItem).where(
-                        SupabaseSyncQueueItem.debate_id == "test-blocked-1"
-                    )
+                    delete(SupabaseSyncQueueItem).where(SupabaseSyncQueueItem.debate_id == "test-blocked-1")
                 )
                 await db_session.commit()
 

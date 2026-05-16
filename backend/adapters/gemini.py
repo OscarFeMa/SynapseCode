@@ -86,9 +86,7 @@ class GeminiClient:
                 max_tokens=max_tokens,
             )
             if cached:
-                logger.info(
-                    "gemini.cache_hit", model=model, similarity=cached.get("similarity")
-                )
+                logger.info("gemini.cache_hit", model=model, similarity=cached.get("similarity"))
                 yield cached["response_text"]
                 return
 
@@ -103,11 +101,7 @@ class GeminiClient:
             payload["system_instruction"] = system_instruction
 
         gemini_model = model
-        endpoint = (
-            f"{gemini_model}:streamGenerateContent"
-            if stream
-            else f"{gemini_model}:generateContent"
-        )
+        endpoint = f"{gemini_model}:streamGenerateContent" if stream else f"{gemini_model}:generateContent"
         url = f"{self.base_url}/{endpoint}?key={self.api_key}"
 
         start_time = time.time()
@@ -117,9 +111,7 @@ class GeminiClient:
             async with self.client.stream("POST", url, json=payload) as response:
                 if response.status_code == 429:
                     logger.warning("gemini.rate_limit_retry")
-                    raise httpx.HTTPStatusError(
-                        "Rate Limit", request=response.request, response=response
-                    )
+                    raise httpx.HTTPStatusError("Rate Limit", request=response.request, response=response)
 
                 if response.status_code != 200:
                     error_body = await response.aread()
