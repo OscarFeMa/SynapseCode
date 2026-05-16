@@ -332,9 +332,7 @@ class BackgroundTaskManager:
             try:
                 # Ejecutar con timeout opcional
                 if config.timeout_seconds:
-                    await asyncio.wait_for(
-                        coro(), timeout=config.timeout_seconds
-                    )
+                    await asyncio.wait_for(coro(), timeout=config.timeout_seconds)
                 else:
                     await coro()
 
