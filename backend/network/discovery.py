@@ -206,7 +206,7 @@ class NodeDiscoverer:
         # Intentar diferentes formas de bind
         bind_attempts = [
             ("", settings.DISCOVERY_PORT),  # Todas las interfaces
-            ("0.0.0.0", settings.DISCOVERY_PORT),  # Todas IPv4
+            ("0.0.0.0", settings.DISCOVERY_PORT),  # Todas IPv4  # nosec B104
         ]
 
         for bind_addr, bind_port in bind_attempts:
