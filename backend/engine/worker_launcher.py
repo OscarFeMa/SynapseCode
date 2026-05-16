@@ -116,8 +116,15 @@ class WorkerServiceManager:
             svc.is_running = False
             svc.running_on_port = None
 
-            # Check primary port
+            # Check primary port on resolved worker IP
             if await self.check_port(host, svc.port):
+                svc.is_running = True
+                svc.running_on_port = svc.port
+                results[name] = {"status": "running", "port": svc.port}
+                continue
+
+            # Also check on 127.0.0.1 (services may bind to localhost only)
+            if host != "127.0.0.1" and await self.check_port("127.0.0.1", svc.port):
                 svc.is_running = True
                 svc.running_on_port = svc.port
                 results[name] = {"status": "running", "port": svc.port}
@@ -127,6 +134,12 @@ class WorkerServiceManager:
             found = False
             for alt_port in svc.alt_ports:
                 if await self.check_port(host, alt_port):
+                    svc.is_running = True
+                    svc.running_on_port = alt_port
+                    results[name] = {"status": "running", "port": alt_port}
+                    found = True
+                    break
+                if host != "127.0.0.1" and await self.check_port("127.0.0.1", alt_port):
                     svc.is_running = True
                     svc.running_on_port = alt_port
                     results[name] = {"status": "running", "port": alt_port}

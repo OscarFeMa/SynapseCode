@@ -334,20 +334,16 @@ function tabCommand() {
 
   // Connection status panel
   const connStatus = sh ? `
-    <div class="panel" style="border-color:${sh.worker_connected?'rgba(0,255,136,0.3)':'rgba(239,68,68,0.3)'}">
+    <div class="panel" style="border-color:${sh.worker_connected?'rgba(0,255,136,0.3)':'rgba(245,158,11,0.3)'}">
       <div class="panel-title">🔗 Conexión Master ↔ Worker</div>
-      <div class="sn" style="background:${sh.worker_connected?'rgba(0,255,136,0.05)':'rgba(239,68,68,0.05)'}">
-        <span style="font-weight:600">Estado</span>
-        <span style="display:flex;align-items:center;gap:6px">
-          <span class="sdot ${sh.worker_connected?'ok':'err'}"></span>
-          <span style="font-family:var(--mono);font-size:11px;color:${sh.worker_connected?'var(--green)':'var(--red)'}">
-            ${sh.worker_connected?'CONECTADO':'DESCONECTADO'}
-          </span>
+      <div class="sn" style="background:${sh.worker_connected?'rgba(0,255,136,0.05)':'rgba(245,158,11,0.05)'}">
+        <span style="font-weight:600">Modo</span>
+        <span style="font-family:var(--mono);font-size:11px;color:${sh.worker_connected?'var(--green)':'var(--amber)'}">
+          ${sh.worker_connected?'CONECTADO (Master+Worker)':'LOCAL (todo en Master)'}
         </span>
       </div>
-      <div class="sn"><span>Worker IP</span><span style="font-family:var(--mono);font-size:11px">${sh.worker_ip||'--'}</span></div>
-      <div class="sn"><span>Último Heartbeat</span><span style="font-family:var(--mono);font-size:11px">${sh.last_heartbeat?fmtDate(sh.last_heartbeat):'--'}</span></div>
-      <div class="sn"><span>Transfer Speed</span><span style="font-family:var(--mono);font-size:11px">${sh.transfer_speed?sh.transfer_speed.toFixed(1)+' Mbps':'--'}</span></div>
+      ${sh.worker_ip?`<div class="sn"><span>Worker IP</span><span style="font-family:var(--mono);font-size:11px">${sh.worker_ip}</span></div>`:''}
+      ${sh.last_heartbeat?`<div class="sn"><span>Último Heartbeat</span><span style="font-family:var(--mono);font-size:11px">${fmtDate(sh.last_heartbeat)}</span></div>`:''}
       <div class="sn"><span>Master Role</span><span style="font-family:var(--mono);font-size:11px;color:var(--cyan)">${h?.node_role||'MASTER'}</span></div>
     </div>
   ` : '<div class="panel"><div class="sk" style="height:160px"></div></div>';
@@ -825,14 +821,14 @@ let ws = null;
 function tryConnectWS() {
   if(ws) return;
   try {
-    ws = new WebSocket(`ws://${BASE.replace('http://','')}/ws/debate/stream`);
+    ws = new WebSocket(`ws://${BASE.replace('http://','')}/ws/sessions/live`);
     ws.onopen = () => { S.wsOk=true; render(); };
     ws.onclose = () => { S.wsOk=false; ws=null; render(); };
     ws.onerror = () => { S.wsOk=false; ws=null; };
     ws.onmessage = e => { try { S.streamMsgs.push(JSON.parse(e.data)); S.streamId=S.streamId||'active'; render(); } catch(ex){} };
   } catch(e) { S.wsOk=false; }
 }
-setTimeout(tryConnectWS, 2000);
+setTimeout(tryConnectWS, 3000);
 
 render();
 </script>
