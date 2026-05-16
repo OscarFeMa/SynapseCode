@@ -19,6 +19,8 @@ from backend.database.models import (
     ModelPerformance,
     SupabaseSyncQueueItem,
     TopicTrending,
+    ReductioAbsurdumProof,
+    SequentialDebate,
 )
 from backend.engine.agent_orchestrator import AgentOrchestrator, AgentConfig
 from backend.engine.tribunal_config import build_tribunal_config
@@ -442,6 +444,122 @@ async def get_tribunal_config_endpoint():
     }
 
 
+@router.get("/reductio/analytics", dependencies=[Depends(require_admin_access)])
+async def get_reductio_analytics_endpoint(limit: int = 10):
+    """Analiticas de pruebas Reductio ad Absurdum."""
+    safe_limit = max(1, min(limit, 50))
+
+    async with AsyncSessionLocal() as db:
+        total_proofs = await db.scalar(
+            select(func.count(ReductioAbsurdumProof.id))
+        ) or 0
+
+        avg_confidence = await db.scalar(
+            select(func.avg(ReductioAbsurdumProof.confidence_score))
+        )
+        avg_confidence = round(float(avg_confidence), 3) if avg_confidence else 0.0
+
+        avg_complacency_risk = await db.scalar(
+            select(func.avg(ReductioAbsurdumProof.overall_complacency_risk))
+        )
+        avg_complacency_risk = round(float(avg_complacency_risk), 3) if avg_complacency_risk else 0.0
+
+        invalid_count = await db.scalar(
+            select(func.count(ReductioAbsurdumProof.id))
+            .where(ReductioAbsurdumProof.is_valid == False)
+        ) or 0
+
+        recent_proofs_result = await db.execute(
+            select(ReductioAbsurdumProof)
+            .order_by(desc(ReductioAbsurdumProof.created_at))
+            .limit(safe_limit)
+        )
+        recent_proofs = recent_proofs_result.scalars().all()
+
+        top_challenged_result = await db.execute(
+            select(
+                ReductioAbsurdumProof.challenged_agent,
+                func.count(ReductioAbsurdumProof.id).label("challenge_count"),
+                func.avg(ReductioAbsurdumProof.confidence_score).label("avg_confidence"),
+            )
+            .group_by(ReductioAbsurdumProof.challenged_agent)
+            .order_by(desc("challenge_count"))
+            .limit(safe_limit)
+        )
+        top_challenged = top_challenged_result.all()
+
+        top_questioners_result = await db.execute(
+            select(
+                ReductioAbsurdumProof.questioning_agent,
+                func.count(ReductioAbsurdumProof.id).label("proof_count"),
+                func.avg(ReductioAbsurdumProof.confidence_score).label("avg_confidence"),
+            )
+            .group_by(ReductioAbsurdumProof.questioning_agent)
+            .order_by(desc("proof_count"))
+            .limit(safe_limit)
+        )
+        top_questioners = top_questioners_result.all()
+
+        high_risk_proofs = await db.scalar(
+            select(func.count(ReductioAbsurdumProof.id))
+            .where(ReductioAbsurdumProof.overall_complacency_risk >= 0.7)
+        ) or 0
+
+        debates_with_proofs = await db.scalar(
+            select(func.count(func.distinct(ReductioAbsurdumProof.debate_id)))
+        ) or 0
+
+    recent_list = []
+    for proof in recent_proofs:
+        debate = await db.get(SequentialDebate, proof.debate_id)
+        recent_list.append({
+            "id": proof.id,
+            "debateId": proof.debate_id,
+            "debateTopic": debate.topic if debate else "unknown",
+            "iterationNumber": proof.iteration_number,
+            "proposition": proof.proposition,
+            "extremeCase": proof.extreme_case,
+            "contradiction": proof.contradiction,
+            "isValid": proof.is_valid,
+            "confidenceScore": proof.confidence_score,
+            "questioningAgent": proof.questioning_agent,
+            "challengedAgent": proof.challenged_agent,
+            "complacencyRisk": proof.overall_complacency_risk,
+            "weakAssumptions": proof.weak_assumptions or [],
+            "recommendations": proof.recommendations or [],
+            "createdAt": proof.created_at.isoformat() if proof.created_at else None,
+        })
+
+    return {
+        "summary": {
+            "totalProofs": total_proofs,
+            "debatesWithProofs": debates_with_proofs,
+            "avgConfidence": avg_confidence,
+            "avgComplacencyRisk": avg_complacency_risk,
+            "invalidProofs": invalid_count,
+            "highRiskProofs": high_risk_proofs,
+            "invalidationRate": round(invalid_count / total_proofs, 3) if total_proofs > 0 else 0.0,
+        },
+        "topChallengedAgents": [
+            {
+                "agent": row.challenged_agent,
+                "challengeCount": row.challenge_count,
+                "avgConfidence": round(float(row.avg_confidence), 3) if row.avg_confidence else 0.0,
+            }
+            for row in top_challenged
+        ],
+        "topQuestioners": [
+            {
+                "agent": row.questioning_agent,
+                "proofCount": row.proof_count,
+                "avgConfidence": round(float(row.avg_confidence), 3) if row.avg_confidence else 0.0,
+            }
+            for row in top_questioners
+        ],
+        "recentProofs": recent_list,
+    }
+
+
 @router.get("/health")
 async def health_check_endpoint():
     """Health check del sistema con detección de Worker por servicios"""
@@ -642,5 +760,152 @@ async def launch_worker_service(req: WorkerLaunchRequest):
         }
     except ImportError:
         return {"error": "WorkerServiceManager no disponible"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── SQLite Backup Management ──────────────────────────────────────
+
+class BackupResponse(BaseModel):
+    success: bool
+    filename: Optional[str] = None
+    bucket: Optional[str] = None
+    size_bytes: Optional[int] = None
+    timestamp: Optional[str] = None
+    url: Optional[str] = None
+    error: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class BackupListItem(BaseModel):
+    name: str
+    size: int
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+@router.post("/backup/create",
+             dependencies=[Depends(require_admin_access)])
+async def create_backup_endpoint():
+    """Crea un backup de la base de datos SQLite y lo sube a Supabase Storage"""
+    try:
+        from backend.services.sqlite_backup import get_backup_service
+        backup_service = get_backup_service()
+        result = await backup_service.create_backup()
+
+        if result.get("success"):
+            return BackupResponse(
+                success=True,
+                filename=result.get("filename"),
+                bucket=result.get("bucket"),
+                size_bytes=result.get("size_bytes"),
+                timestamp=result.get("timestamp"),
+                url=result.get("url"),
+            )
+        else:
+            return BackupResponse(
+                success=False,
+                error=result.get("error"),
+                reason=result.get("reason"),
+            )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/backup/list",
+            dependencies=[Depends(require_admin_access)])
+async def list_backups_endpoint(limit: int = 20):
+    """Lista los backups disponibles en Supabase Storage"""
+    try:
+        from backend.services.sqlite_backup import get_backup_service
+        backup_service = get_backup_service()
+        backups = await backup_service.list_backups(limit=limit)
+
+        return {
+            "count": len(backups),
+            "backups": [
+                BackupListItem(
+                    name=b["name"],
+                    size=b["size"],
+                    created_at=b.get("created_at"),
+                    updated_at=b.get("updated_at"),
+                )
+                for b in backups
+            ],
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/backup/delete/{filename}",
+               dependencies=[Depends(require_admin_access)])
+async def delete_backup_endpoint(filename: str):
+    """Elimina un backup especifico de Supabase Storage"""
+    try:
+        from backend.services.sqlite_backup import get_backup_service
+        backup_service = get_backup_service()
+        result = await backup_service.delete_backup(filename)
+
+        if result.get("success"):
+            return {"success": True, "message": f"Backup {filename} deleted"}
+        else:
+            raise HTTPException(status_code=400, detail=result.get("error", "Delete failed"))
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/backup/restore/{filename}",
+             dependencies=[Depends(require_admin_access)])
+async def restore_backup_endpoint(filename: str):
+    """Descarga un backup de Supabase Storage para restauracion manual"""
+    try:
+        from backend.services.sqlite_backup import get_backup_service
+        backup_service = get_backup_service()
+        result = await backup_service.restore_backup(filename)
+
+        if result.get("success"):
+            return {
+                "success": True,
+                "filename": result.get("filename"),
+                "size_bytes": result.get("size_bytes"),
+                "download_path": result.get("download_path"),
+                "message": result.get("message"),
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.get("error", "Restore failed"))
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/backup/status",
+            dependencies=[Depends(require_admin_access)])
+async def backup_status_endpoint():
+    """Estado del servicio de backup"""
+    try:
+        from backend.services.sqlite_backup import get_backup_service
+        from pathlib import Path as PathLib
+        backup_service = get_backup_service()
+
+        db_path = backup_service.db_path
+        db_exists = PathLib(db_path).exists() if db_path else False
+        db_size = PathLib(db_path).stat().st_size if db_exists else 0
+
+        return {
+            "enabled": backup_service.enabled,
+            "supabase_configured": bool(settings.SUPABASE_URL and settings.SUPABASE_ANON_KEY),
+            "database_path": db_path,
+            "database_exists": db_exists,
+            "database_size_bytes": db_size,
+            "bucket": backup_service.BACKUP_BUCKET,
+        }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

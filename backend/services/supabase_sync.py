@@ -370,6 +370,71 @@ class SupabaseSyncService:
         """Cierra conexión HTTP"""
         await HTTPClientManager.close(self.SERVICE_NAME)
 
+    async def sync_reductio_proofs(self, debate_id: str, proofs: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Sincroniza pruebas Reductio ad Absurdum con Supabase.
+        Requiere tabla 'reductio_absurdum_proofs' en Supabase.
+        """
+        if not self.enabled:
+            return {"synced": False, "reason": "supabase_not_enabled"}
+
+        if not proofs:
+            return {"synced": True, "proofs_synced": 0, "message": "no proofs to sync"}
+
+        try:
+            client = self._get_client()
+            synced_count = 0
+
+            for proof in proofs:
+                proof_record = {
+                    "debate_id": debate_id,
+                    "iteration_number": proof.get("iteration_number", 0),
+                    "proposition": proof.get("proposition", "")[:5000],
+                    "extreme_case": proof.get("extreme_case", "")[:5000],
+                    "contradiction": proof.get("contradiction", "")[:5000] if proof.get("contradiction") else None,
+                    "is_valid": proof.get("is_valid", True),
+                    "confidence_score": proof.get("confidence_score", 0.0),
+                    "questioning_agent": proof.get("questioning_agent", "unknown"),
+                    "challenged_agent": proof.get("challenged_agent", "unknown"),
+                    "consensus_areas": proof.get("consensus_areas", []),
+                    "weak_assumptions": proof.get("weak_assumptions", []),
+                    "unquestioned_premises": proof.get("unquestioned_premises", []),
+                    "overall_complacency_risk": proof.get("overall_complacency_risk", 0.0),
+                    "recommendations": proof.get("recommendations", []),
+                }
+
+                response = await client.post(
+                    f"{self.url}/rest/v1/reductio_absurdum_proofs",
+                    json=proof_record,
+                    headers={"Prefer": "resolution=merge-duplicates"}
+                )
+
+                if response.status_code in [200, 201, 204]:
+                    synced_count += 1
+                else:
+                    logger.warning("supabase_sync.reductio_proof_failed",
+                                debate_id=debate_id,
+                                status=response.status_code,
+                                error=response.text[:500])
+
+            logger.info("supabase_sync.reductio_success",
+                       debate_id=debate_id,
+                       proofs_synced=synced_count,
+                       total=len(proofs))
+
+            return {
+                "synced": synced_count > 0,
+                "debate_id": debate_id,
+                "proofs_synced": synced_count,
+                "total": len(proofs),
+            }
+
+        except Exception as e:
+            logger.error("supabase_sync.reductio_exception",
+                        debate_id=debate_id,
+                        error=str(e))
+            return {"synced": False, "error": str(e)}
+
 
 # Singleton instance
 _supabase_service: Optional[SupabaseSyncService] = None

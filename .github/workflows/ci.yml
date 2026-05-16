@@ -1,51 +1,156 @@
-name: CI Tests
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, master]
   pull_request:
-    branches: [ main ]
+    branches: [main, master]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-  # Añadimos la variable simulada para que test_worker_urls no devuelva None
-  WORKER_HOST: 'http://localhost:8000' 
+  WORKER_HOST: 'http://localhost:8000'
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install linters
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+
+      - name: Run Ruff linter
+        run: ruff check backend/ --select E,F,W,I --ignore E501
+
+      - name: Run Ruff formatter check
+        run: ruff format backend/ --check --diff
+
   test:
     runs-on: ubuntu-latest
-    
+    needs: lint
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r backend/requirements.txt
-        # Limitamos httpx para corregir el fallo del TestClient
-        pip install "pytest>=8.3.0" "pytest-asyncio>=0.24.0" "httpx<0.28.0"
-    
-    - name: Create .env for tests
-      run: |
-        cp .env.example .env
-    
-    - name: Run import tests
-      run: |
-        python -c "
-        import sys; sys.path.insert(0, '.')
-        from backend.config import get_settings
-        from backend.database.models import SequentialDebate
-        from backend.engine.debate_models import DebateSession
-        from backend.engine.sequential_debate_controller import SequentialDebateController
-        from backend.main import app
-        print('[PASS] All imports OK')
-        "
-    
-    - name: Run all tests
-      run: |
-        python -m pytest backend/tests/test_system.py -v --tb=short
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install "pytest>=8.3.0" "pytest-asyncio>=0.24.0" "pytest-cov>=4.1.0" "httpx<0.28.0" numpy
+
+      - name: Create .env for tests
+        run: |
+          cat > .env << 'EOF'
+          NODE_ROLE=MASTER
+          PORT=8000
+          HOST=0.0.0.0
+          RELOAD=false
+          DATABASE_URL=sqlite+aiosqlite:///./data/synapse_test.db
+          SUPABASE_URL=https://example.supabase.co
+          SUPABASE_ANON_KEY=test-key-not-changeme
+          SUPABASE_ENABLED=false
+          GROQ_API_KEY=
+          GEMINI_API_KEY=
+          OPENROUTER_API_KEY=
+          DEEPSEEK_API_KEY=
+          OLLAMA_BASE_URL=http://localhost:11434
+          LM_STUDIO_BASE_URL=http://localhost:1234
+          JAN_BASE_URL=http://localhost:1337
+          WORKER_HOST=localhost
+          WORKER_OLLAMA_PORT=11434
+          WORKER_LM_STUDIO_PORT=1234
+          WORKER_JAN_PORT=1337
+          DISCOVERY_PORT=5000
+          DISCOVERY_INTERVAL=30
+          WEB_AGENT_ENABLED=false
+          AGENT_REPUTATION_ENABLED=true
+          TRIBUNAL_MAX_ITERATIONS=3
+          TRIBUNAL_ENABLE_CLOUD_FALLBACK=true
+          ADMIN_API_TOKEN=
+          ADMIN_API_LOCALHOST_ONLY=true
+          RDP_ENABLED=false
+          RDP_WORKER_HOSTNAME=
+          RDP_WORKER_USERNAME=
+          RDP_WORKER_PASSWORD=
+          RDP_RATE_LIMIT_SECONDS=60
+          LOG_LEVEL=WARNING
+          LOG_DIR=logs
+          LOG_MAX_BYTES=10485760
+          LOG_BACKUP_COUNT=5
+          LOG_TO_FILE=false
+          EOF
+
+      - name: Run unit tests
+        run: python -m pytest backend/tests/unit -v --tb=short --cov=backend --cov-report=xml
+
+      - name: Run integration tests
+        run: python -m pytest backend/tests/integration -v --tb=short --cov=backend --cov-report=xml --cov-append
+
+      - name: Run API tests
+        run: python -m pytest backend/tests/api -v --tb=short --cov=backend --cov-report=xml --cov-append
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  security:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety
+
+      - name: Run Bandit security scan
+        run: bandit -r backend/ -ll -ii --skip B101,B105,B106,B107
+
+      - name: Check dependencies for known vulnerabilities
+        run: safety check -r backend/requirements.txt --ignore 70612,70613
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build backend package
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+          python -m build --sdist --outdir dist/
+
+      - name: Verify build
+        run: |
+          ls -la dist/
+          python -c "import tarfile; t = tarfile.open([f for f in __import__('os').listdir('dist/') if f.endswith('.tar.gz')][0], 'r:gz'); print('Build OK:', len(t.getnames()), 'files')"
