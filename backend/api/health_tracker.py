@@ -4,8 +4,8 @@ Mantiene estado persistente entre health checks:
 - last_error, consecutive_failures, uptime, last_check_time
 """
 import time
-from typing import Dict, Any, Optional
 from dataclasses import dataclass, field
+from typing import Any, Dict, Optional
 
 
 @dataclass

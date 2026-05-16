@@ -5,9 +5,10 @@ Health check inteligente con diagnostico, uptime, last_error, suggested_fix
 
 import asyncio
 import time
-from typing import Dict, Any
-from fastapi import APIRouter, HTTPException
+from typing import Any, Dict
+
 import structlog
+from fastapi import APIRouter, HTTPException
 from sqlalchemy import text
 
 from backend.adapters.jan import JanClient
@@ -15,9 +16,9 @@ from backend.adapters.lm_studio import LMStudioClient
 from backend.adapters.ollama import OllamaClient
 from backend.adapters.openrouter import OpenRouterClient
 from backend.adapters.web_agent import WebAgentClient
+from backend.api.health_tracker import health_tracker
 from backend.config import get_settings
 from backend.database.local_db import engine
-from backend.api.health_tracker import health_tracker
 
 logger = structlog.get_logger()
 settings = get_settings()
