@@ -170,7 +170,7 @@ class Settings(BaseSettings):
     # ─── Servidor ─────────────────────────────────────────────
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177,http://localhost:5178,http://localhost:5179,http://localhost:5180"
+    CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177,http://localhost:5178,http://localhost:5179,http://localhost:5180,http://localhost:8080"
     LOG_LEVEL: str = "INFO"
     LOG_DIR: str = "logs"
     LOG_MAX_BYTES: int = 10485760  # 10 MB
