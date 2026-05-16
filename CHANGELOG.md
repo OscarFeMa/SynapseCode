@@ -7,6 +7,34 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ---
 
+## [2.6.0] - 2026-05-16
+
+### 🚀 Añadido (Added)
+
+#### Timeout Configurable por Modelo
+- **`MODEL_TIMEOUTS` en `.env`**: JSON con patrones de modelo → timeout en segundos
+- **Timeout automatico**: `asyncio.wait_for()` envuelve cada llamada a agente
+- **Patrones por substring**: `"70b": 300` aplica a cualquier modelo con "70b" en el nombre
+- **Defaults por engine**: Ollama (600s), OpenRouter (90s), Groq (30s), Gemini (30s)
+- **Mensajes de error claros**: Indica modelo, timeout usado, tokens generados
+- **6 nuevos tests**: Coverage completo de `get_model_timeout()`
+
+### 🔧 Mejoras Tecnicas
+
+- **`get_model_timeout()`** en Settings: Busca patrones ordenados por longitud (mas largo primero)
+- **`_run_local_agent()`**: Envuelto con `asyncio.wait_for(timeout)`
+- **`_run_cloud_agent()`**: Envuelto con `asyncio.wait_for(timeout)`
+- **Error handling**: `TimeoutError` con mensaje descriptivo y sugerencia
+
+### 📋 Configuracion Ejemplo (.env)
+
+```env
+# Timeouts por modelo (segundos)
+MODEL_TIMEOUTS='{"llama3.1:70b": 300, "deepseek-r1:70b": 600, "70b": 300, "405b": 600}'
+```
+
+---
+
 ## [2.5.0] - 2026-05-16
 
 ### 🚀 Añadido (Added)

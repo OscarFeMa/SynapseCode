@@ -684,35 +684,52 @@ class SequentialDebateController:
         start_time = datetime.now()
         engine_type = EngineType(agent.engine)
         
-        # El modelo ya debe estar cargado en Ollama del Worker
-        # Ollama lo cargará automáticamente al primer uso
-        # y con keep_alive:0 se descargará tras inactividad
+        timeout_seconds = settings.get_model_timeout(agent.model, agent.engine)
+        
+        logger.info("sequential_debate.local_agent_start",
+                   model=agent.model,
+                   engine=agent.engine,
+                   timeout_seconds=timeout_seconds)
         
         response_parts = []
         tokens_out = 0
         
-        async for token in self.local_manager.generate(
-            engine_type=engine_type,
-            model=agent.model,
-            prompt=prompt,
-            system=None,  # Ya incluido en prompt
-            temperature=agent.temperature,
-            max_tokens=agent.max_tokens,
-            stream=True
-        ):
-            response_parts.append(token)
-            tokens_out += 1
+        async def _generate_tokens():
+            nonlocal tokens_out
+            async for token in self.local_manager.generate(
+                engine_type=engine_type,
+                model=agent.model,
+                prompt=prompt,
+                system=None,
+                temperature=agent.temperature,
+                max_tokens=agent.max_tokens,
+                stream=True
+            ):
+                response_parts.append(token)
+                tokens_out += 1
+        
+        try:
+            await asyncio.wait_for(_generate_tokens(), timeout=timeout_seconds)
+        except asyncio.TimeoutError:
+            logger.error("sequential_debate.local_agent_timeout",
+                        model=agent.model,
+                        timeout_seconds=timeout_seconds,
+                        tokens_generated=tokens_out)
+            raise TimeoutError(
+                f"Model '{agent.model}' timed out after {timeout_seconds}s "
+                f"({tokens_out} tokens generated). "
+                f"Increase MODEL_TIMEOUTS in .env or use a smaller model."
+            )
         
         end_time = datetime.now()
         latency_ms = int((end_time - start_time).total_seconds() * 1000)
         
-        # Callback: modelo descargado (virtualmente, Ollama maneja el keep_alive)
         if on_model_unload:
             on_model_unload(agent.model, agent.provider)
         
         result = {
             "text": "".join(response_parts),
-            "tokens_in": len(prompt.split()),  # Aproximación
+            "tokens_in": len(prompt.split()),
             "tokens_out": tokens_out,
             "latency_ms": latency_ms,
             "cache_hit": False,
@@ -734,8 +751,8 @@ class SequentialDebateController:
         response_parts: list[str] = []
         tokens_out = 0
 
-        # Seleccionar cliente según engine del agente
         engine = agent.engine.lower()
+        timeout_seconds = settings.get_model_timeout(agent.model, engine)
 
         async def _stream(client_generator):
             nonlocal tokens_out
@@ -743,7 +760,7 @@ class SequentialDebateController:
                 response_parts.append(token)
                 tokens_out += 1
 
-        try:
+        async def _run_cloud_request():
             if engine == "groq" and settings.GROQ_API_KEY:
                 from backend.adapters.groq import GroqClient
                 client = GroqClient()
@@ -769,7 +786,6 @@ class SequentialDebateController:
                 ))
 
             elif self.openrouter:
-                # OpenRouter como default / fallback
                 await _stream(self.openrouter.chat_completion(
                     model=agent.model, messages=messages,
                     temperature=agent.temperature, max_tokens=agent.max_tokens, stream=True
@@ -781,8 +797,19 @@ class SequentialDebateController:
                     "Configure at least one API key (GROQ, GEMINI, DEEPSEEK, OPENROUTER)."
                 )
 
-        except Exception:
-            raise
+        try:
+            await asyncio.wait_for(_run_cloud_request(), timeout=timeout_seconds)
+        except asyncio.TimeoutError:
+            logger.error("sequential_debate.cloud_agent_timeout",
+                        model=agent.model,
+                        engine=engine,
+                        timeout_seconds=timeout_seconds,
+                        tokens_generated=tokens_out)
+            raise TimeoutError(
+                f"Cloud model '{agent.model}' ({engine}) timed out after {timeout_seconds}s "
+                f"({tokens_out} tokens generated). "
+                f"Increase MODEL_TIMEOUTS in .env or use a faster model."
+            )
 
         latency_ms = int((datetime.now() - start_time).total_seconds() * 1000)
         response_text = "".join(response_parts)
