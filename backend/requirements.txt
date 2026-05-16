@@ -5,7 +5,7 @@
 # ─── Core Framework ─────────────────────────────────────────────
 fastapi==0.110.0
 uvicorn[standard]==0.27.0
-python-multipart==0.0.9
+python-multipart==0.0.22
 
 # ─── Database ─────────────────────────────────────────────────
 sqlalchemy[asyncio]==2.0.27
@@ -43,6 +43,6 @@ pytest-asyncio>=0.24.0
 pytest-cov>=4.1.0
 
 # ─── Development ──────────────────────────────────────────────
-black==24.1.0
+black==26.3.1
 isort==5.13.0
 mypy==1.8.0
