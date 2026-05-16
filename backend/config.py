@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     LM_STUDIO_KEEP_ALIVE: int = 0
     
     # ─── Jan.ai ───────────────────────────────────────────────
-    JAN_BASE_URL: str = "http://localhost:1337"
+    JAN_BASE_URL: str = "http://localhost:1337/v1"
     JAN_TIMEOUT_SECONDS: int = 120
     JAN_MAX_RETRIES: int = 2
     JAN_KEEP_ALIVE: int = 0
@@ -251,7 +251,7 @@ class Settings(BaseSettings):
         if self.is_master:
             host = self.get_worker_host()
             if host:
-                return f"http://{host}:{self.WORKER_JAN_PORT}"
+                return f"http://{host}:{self.WORKER_JAN_PORT}/v1"
         return self.JAN_BASE_URL
     
     def update_worker_host(self, host: str):
