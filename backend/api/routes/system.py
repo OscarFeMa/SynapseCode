@@ -7,12 +7,22 @@ from pydantic import BaseModel, Field
 from typing import Optional
 import psutil
 import time
+from datetime import datetime
+from sqlalchemy import desc, func, select
 
 import structlog
 
 from backend.config import get_settings
+from backend.database.local_db import AsyncSessionLocal
+from backend.database.models import (
+    DailyMetricsSnapshot,
+    ModelPerformance,
+    SupabaseSyncQueueItem,
+    TopicTrending,
+)
 from backend.engine.agent_orchestrator import AgentOrchestrator, AgentConfig
 from backend.services.rdp_manager import RDPManager, RDPSecurityError, RDPRateLimitError
+from backend.memory.hybrid_memory_v2 import get_hybrid_memory_v2
 
 logger = structlog.get_logger()
 
@@ -247,6 +257,8 @@ async def get_metrics_endpoint():
     # Métricas de CPU y memoria
     cpu_percent = psutil.cpu_percent(interval=0.1)
     memory = psutil.virtual_memory()
+    hybrid_memory = get_hybrid_memory_v2()
+    persistent_queue_size = await hybrid_memory.get_persistent_queue_size()
     
     # Métricas de debates (deberían venir de los controllers)
     # Por ahora retornamos valores simulados
@@ -255,7 +267,148 @@ async def get_metrics_endpoint():
         "totalTokens": 0,
         "avgLatency": 0,
         "cpuUsage": cpu_percent,
-        "memoryUsage": memory.percent
+        "memoryUsage": memory.percent,
+        "supabaseSyncQueueSize": persistent_queue_size,
+    }
+
+
+@router.get("/analytics", dependencies=[Depends(require_admin_access)])
+async def get_analytics_endpoint(limit: int = 5):
+    """Resumen operativo básico del Data Warehouse."""
+    safe_limit = max(1, min(limit, 25))
+
+    async with AsyncSessionLocal() as db:
+        daily_result = await db.execute(
+            select(DailyMetricsSnapshot)
+            .order_by(desc(DailyMetricsSnapshot.date))
+            .limit(1)
+        )
+        daily = daily_result.scalar_one_or_none()
+
+        topics_result = await db.execute(
+            select(TopicTrending)
+            .order_by(desc(TopicTrending.debate_count), desc(TopicTrending.date))
+            .limit(safe_limit)
+        )
+        topics = topics_result.scalars().all()
+
+        models_result = await db.execute(
+            select(ModelPerformance)
+            .order_by(
+                desc(ModelPerformance.success_rate),
+                desc(ModelPerformance.total_turns),
+                desc(ModelPerformance.avg_tokens_out),
+            )
+            .limit(safe_limit)
+        )
+        models = models_result.scalars().all()
+
+    return {
+        "dailySummary": None if not daily else {
+            "date": daily.date,
+            "totalDebatesCompleted": daily.total_debates_completed,
+            "totalDebatesFailed": daily.total_debates_failed,
+            "totalTurnsExecuted": daily.total_turns_executed,
+            "totalTokensGenerated": daily.total_tokens_generated,
+            "totalCostUsd": daily.total_cost_usd,
+            "avgDebateDurationSeconds": daily.avg_debate_duration_seconds,
+            "uniqueTopicsCount": daily.unique_topics_count,
+            "activeModelsCount": daily.active_models_count,
+        },
+        "topTopics": [
+            {
+                "date": topic.date,
+                "topic": topic.topic_text,
+                "topicHash": topic.topic_hash,
+                "debateCount": topic.debate_count,
+                "totalTurns": topic.total_turns,
+                "avgDurationSeconds": topic.avg_duration_seconds,
+                "uniqueModelsCount": topic.unique_models_count,
+            }
+            for topic in topics
+        ],
+        "modelLeaderboard": [
+            {
+                "model": model.model_name,
+                "provider": model.provider,
+                "engine": model.engine,
+                "agentRole": model.agent_role,
+                "totalTurns": model.total_turns,
+                "avgTokensOut": model.avg_tokens_out,
+                "avgLatencyMs": model.avg_latency_ms,
+                "successRate": model.success_rate,
+            }
+            for model in models
+        ],
+    }
+
+
+@router.get("/health/sync", dependencies=[Depends(require_admin_access)])
+async def get_sync_health_endpoint():
+    """Estado accionable de sincronización Supabase y cola persistente."""
+    hybrid_memory = get_hybrid_memory_v2()
+    supabase_enabled = bool(getattr(hybrid_memory.supabase, "enabled", False))
+    configured = bool(settings.SUPABASE_URL and settings.SUPABASE_ANON_KEY)
+    now = datetime.now()
+
+    async with AsyncSessionLocal() as db:
+        pending_count = await db.scalar(
+            select(func.count(SupabaseSyncQueueItem.id))
+            .where(SupabaseSyncQueueItem.status == "pending")
+        ) or 0
+        retry_count = await db.scalar(
+            select(func.count(SupabaseSyncQueueItem.id))
+            .where(SupabaseSyncQueueItem.status == "pending")
+            .where(SupabaseSyncQueueItem.retry_count > 0)
+        ) or 0
+        due_count = await db.scalar(
+            select(func.count(SupabaseSyncQueueItem.id))
+            .where(SupabaseSyncQueueItem.status == "pending")
+            .where(SupabaseSyncQueueItem.next_attempt_at <= now)
+        ) or 0
+        last_error_item = (
+            await db.execute(
+                select(SupabaseSyncQueueItem)
+                .where(SupabaseSyncQueueItem.last_error.is_not(None))
+                .order_by(desc(SupabaseSyncQueueItem.updated_at))
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+
+    if not supabase_enabled:
+        status = "disabled"
+        recommendation = "Configura SUPABASE_URL y SUPABASE_ANON_KEY para activar sincronizacion cloud."
+    elif pending_count == 0:
+        status = "healthy"
+        recommendation = "La cola esta vacia y la sincronizacion no requiere accion."
+    elif retry_count > 0 and due_count > 0:
+        status = "blocked"
+        recommendation = "Hay items vencidos con reintentos; revisa credenciales, permisos o conectividad Supabase."
+    else:
+        status = "degraded"
+        recommendation = "Hay items pendientes; espera el backoff o revisa si la cola crece sostenidamente."
+
+    return {
+        "status": status,
+        "supabase": {
+            "enabled": supabase_enabled,
+            "configured": configured,
+            "urlConfigured": bool(settings.SUPABASE_URL),
+            "anonKeyConfigured": bool(settings.SUPABASE_ANON_KEY),
+        },
+        "queue": {
+            "pending": pending_count,
+            "withRetries": retry_count,
+            "dueNow": due_count,
+            "inMemory": hybrid_memory.get_stats()["queue_size"],
+            "lastError": None if not last_error_item else {
+                "debateId": last_error_item.debate_id,
+                "retryCount": last_error_item.retry_count,
+                "message": last_error_item.last_error,
+                "nextAttemptAt": last_error_item.next_attempt_at.isoformat(),
+            },
+        },
+        "recommendation": recommendation,
     }
 
 

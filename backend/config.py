@@ -2,7 +2,7 @@
 Synapse Council v2.0 - Configuration
 Pydantic Settings para validación de variables de entorno
 """
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from typing import List, Optional, Union
 from functools import lru_cache
 import socket
@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     OLLAMA_TIMEOUT_SECONDS: int = 600
     OLLAMA_MAX_RETRIES: int = 2
     OLLAMA_KEEP_ALIVE: int = 0
+    OLLAMA_PRELOAD_KEEP_ALIVE: int = 120
     
     # ─── LM Studio ────────────────────────────────────────────
     LM_STUDIO_BASE_URL: str = "http://localhost:1234"
@@ -122,6 +123,11 @@ class Settings(BaseSettings):
     QUALITY_MONITOR_ENABLED: bool = True
     HYBRID_MEMORY_V2_ENABLED: bool = True
     
+    # ─── Semantic Cache ────────────────────────────────────────
+    SEMANTIC_CACHE_ENABLED: bool = True
+    SEMANTIC_CACHE_TTL_HOURS: int = 24
+    SEMANTIC_CACHE_SIMILARITY_THRESHOLD: float = 0.85
+    
     # ─── Servidor ─────────────────────────────────────────────
     HOST: str = "0.0.0.0"
     PORT: int = 8000
@@ -139,6 +145,21 @@ class Settings(BaseSettings):
         if isinstance(v, list):
             return v
         return [origin.strip() for origin in v.split(",")]
+
+    @field_validator("SUPABASE_URL", "SUPABASE_ANON_KEY", mode="before")
+    @classmethod
+    def normalize_placeholder_supabase_values(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        if "CHANGEME" in value:
+            return None
+        return value
+
+    @model_validator(mode="after")
+    def disable_supabase_when_credentials_missing(self):
+        if not self.SUPABASE_URL or not self.SUPABASE_ANON_KEY:
+            self.SUPABASE_ENABLED = False
+        return self
     
     @property
     def is_master(self) -> bool:

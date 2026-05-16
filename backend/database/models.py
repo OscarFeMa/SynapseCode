@@ -12,7 +12,7 @@ Tablas:
 - system_events: Log de eventos del sistema
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import List, Optional
 from sqlalchemy import (
     String, Integer, Float, Text, Boolean, ForeignKey, DateTime, 
@@ -30,6 +30,11 @@ class Base(DeclarativeBase):
 def generate_uuid() -> str:
     """Genera UUID v4 como string"""
     return str(uuid.uuid4())
+
+
+def utc_now() -> datetime:
+    """Genera timestamps timezone-aware en UTC para defaults de SQLAlchemy."""
+    return datetime.now(UTC)
 
 
 class Session(Base):
@@ -66,12 +71,12 @@ class Session(Base):
     estimated_cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     elevated_to_cloud: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     elevation_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, 
         nullable=False, 
-        default=datetime.utcnow
+        default=utc_now
     )
     
     # Relaciones
@@ -104,7 +109,7 @@ class Round(Base):
         nullable=True
     )  # CONSENSUS_REACHED|PARTIAL_CONSENSUS|DIVERGENT
     convergence_detail: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     
     # Relaciones
@@ -160,7 +165,7 @@ class AgentCall(Base):
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     keep_alive_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     reputation_impact: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     
     # Relaciones
@@ -235,7 +240,7 @@ class AgentReputation(Base):
     last_updated: Mapped[datetime] = mapped_column(
         DateTime, 
         nullable=False, 
-        default=datetime.utcnow
+        default=utc_now
     )
     
     __table_args__ = (
@@ -263,12 +268,12 @@ class ConfigProfile(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, 
         nullable=False, 
-        default=datetime.utcnow
+        default=utc_now
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, 
         nullable=False, 
-        default=datetime.utcnow
+        default=utc_now
     )
 
 
@@ -297,7 +302,7 @@ class SequentialDebate(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, 
         nullable=False, 
-        default=datetime.utcnow
+        default=utc_now
     )
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     
@@ -369,6 +374,104 @@ class SequentialDebateTurn(Base):
     )
 
 
+class ReductioAbsurdumProof(Base):
+    """
+    Tabla: reductio_absurdum_proofs
+    Persistencia de desafíos y pruebas de reducción al absurdo por debate.
+    """
+    __tablename__ = "reductio_absurdum_proofs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    debate_id: Mapped[str] = mapped_column(
+        ForeignKey("sequential_debates.id"),
+        nullable=False
+    )
+    iteration_number: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    proposition: Mapped[str] = mapped_column(Text, nullable=False)
+    extreme_case: Mapped[str] = mapped_column(Text, nullable=False)
+    contradiction: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_valid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    confidence_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    questioning_agent: Mapped[str] = mapped_column(String(100), nullable=False)
+    challenged_agent: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    consensus_areas: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    weak_assumptions: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    unquestioned_premises: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    overall_complacency_risk: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    recommendations: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=utc_now
+    )
+
+    __table_args__ = (
+        Index("idx_reductio_debate_iteration", "debate_id", "iteration_number"),
+        Index("idx_reductio_questioning_agent", "questioning_agent"),
+        Index("idx_reductio_challenged_agent", "challenged_agent"),
+    )
+
+
+class PromptResponseCache(Base):
+    """
+    Tabla: prompt_response_cache
+    Caché semántica de respuestas por embedding + configuración.
+    """
+    __tablename__ = "prompt_response_cache"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    cache_key: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    engine: Mapped[str] = mapped_column(String(20), nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    node: Mapped[str] = mapped_column(String(20), nullable=False)
+    temperature: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    max_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    prompt_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    prompt_embedding: Mapped[Optional[bytes]] = mapped_column(Text, nullable=True)  # JSON array de floats
+    response_text: Mapped[str] = mapped_column(Text, nullable=False)
+    tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    similarity_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=0.85)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+    last_accessed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("idx_prompt_cache_engine_model", "engine", "model"),
+        Index("idx_prompt_cache_last_accessed", "last_accessed_at"),
+        Index("idx_prompt_cache_expires", "expires_at"),
+    )
+
+
+class SupabaseSyncQueueItem(Base):
+    """
+    Tabla: supabase_sync_queue
+    Cola persistente para sincronización confiable con Supabase.
+    """
+    __tablename__ = "supabase_sync_queue"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(30), nullable=False, default="debate")
+    debate_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        Index("idx_sync_queue_status_next_attempt", "status", "next_attempt_at"),
+        Index("idx_sync_queue_debate_id", "debate_id"),
+    )
+
+
 class SystemEvent(Base):
     """
     Tabla: system_events
@@ -395,7 +498,7 @@ class SystemEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, 
         nullable=False, 
-        default=datetime.utcnow
+        default=utc_now
     )
     
     __table_args__ = (
@@ -447,7 +550,7 @@ class ConsensusDebate(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow
+        default=utc_now
     )
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     
@@ -487,7 +590,7 @@ class ConsensusRound(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow
+        default=utc_now
     )
     
     # Relaciones
@@ -536,7 +639,7 @@ class ConsensusAgentPosition(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow
+        default=utc_now
     )
     
     # Relaciones
@@ -576,8 +679,8 @@ class ModelReputation(Base):
     total_turns: Mapped[int] = mapped_column(Integer, default=0)
     
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
     
     # Constraint único por modelo+rol
     __table_args__ = (
@@ -588,3 +691,147 @@ class ModelReputation(Base):
     
     def __repr__(self):
         return f"<ModelReputation {self.model}@{self.role}={self.reputation_score:.2f}>"
+
+
+# ============================================================================
+# Data Warehouse Models - Analytics & Historical Analysis
+# ============================================================================
+
+class DebateAggregate(Base):
+    """
+    Tabla: debates_aggregate
+    Agregación principal por debate (unifica Session y SequentialDebate)
+    """
+    __tablename__ = "debates_aggregate"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    debate_type: Mapped[str] = mapped_column(String(20), nullable=False)  # session|sequential
+    topic_text: Mapped[str] = mapped_column(Text, nullable=False)  # query o topic normalizado
+    topic_hash: Mapped[str] = mapped_column(String(64), nullable=False)  # hash para agrupación
+    mode: Mapped[str] = mapped_column(String(30), nullable=False)  # standard|ultra_crossing|classic
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    consensus_level: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    rounds_executed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    estimated_cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    duration_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    has_tribunal_verdict: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    has_reductio_proofs: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    unique_models_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        Index("idx_debate_agg_type_status", "debate_type", "status"),
+        Index("idx_debate_agg_created", "created_at"),
+        Index("idx_debate_agg_topic_hash", "topic_hash"),
+    )
+
+
+class TopicTrending(Base):
+    """
+    Tabla: topics_trending
+    Agregación diaria de temas más debatidos
+    """
+    __tablename__ = "topics_trending"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[str] = mapped_column(String(10), nullable=False)  # YYYY-MM-DD
+    topic_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    topic_text: Mapped[str] = mapped_column(Text, nullable=False)
+    debate_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_turns: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    avg_consensus_level: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_duration_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    unique_models_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("date", "topic_hash", name="uq_topic_trending_date_hash"),
+        Index("idx_topic_trending_date_count", "date", "debate_count"),
+        Index("idx_topic_trending_hash", "topic_hash"),
+    )
+
+
+class ConsensusPattern(Base):
+    """
+    Tabla: consensus_patterns
+    Patrones de consenso por tema y configuración
+    """
+    __tablename__ = "consensus_patterns"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    topic_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    mode: Mapped[str] = mapped_column(String(30), nullable=False)
+    consensus_level: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    debate_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    avg_rounds_to_convergence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_tokens_per_debate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    success_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("topic_hash", "mode", "consensus_level", name="uq_consensus_pattern"),
+        Index("idx_consensus_pattern_topic_mode", "topic_hash", "mode"),
+        Index("idx_consensus_pattern_level", "consensus_level"),
+    )
+
+
+class ModelPerformance(Base):
+    """
+    Tabla: model_performance
+    Performance de modelos por rol
+    """
+    __tablename__ = "model_performance"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    engine: Mapped[str] = mapped_column(String(20), nullable=False)
+    agent_role: Mapped[str] = mapped_column(String(30), nullable=False)
+    total_turns: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    avg_tokens_out: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    avg_latency_ms: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    avg_quality_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    tsa_score_avg: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    iid_score_avg: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    pvt_score_avg: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    efficiency_score_avg: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    success_rate: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    last_updated: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("model_name", "agent_role", name="uq_model_performance"),
+        Index("idx_model_perf_role", "model_name", "agent_role"),
+        Index("idx_model_perf_efficiency", "efficiency_score_avg"),
+    )
+
+
+class DailyMetricsSnapshot(Base):
+    """
+    Tabla: daily_metrics_snapshot
+    Snapshot diario de métricas globales
+    """
+    __tablename__ = "daily_metrics_snapshot"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)  # YYYY-MM-DD
+    total_debates_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_debates_failed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_turns_executed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_tokens_generated: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    avg_debate_duration_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    unique_topics_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    active_models_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+
+    __table_args__ = (
+        Index("idx_daily_metrics_date", "date"),
+    )

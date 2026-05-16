@@ -5,6 +5,7 @@ Debate secuencial con carga/descarga dinámica de modelos
 import asyncio
 import uuid
 import os
+import hashlib
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
@@ -12,21 +13,36 @@ from enum import Enum
 import structlog
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 import json
 
 from backend.engine.local_engine_manager import LocalEngineManager, EngineType
 from backend.adapters.openrouter import OpenRouterClient
 from backend.config import get_settings
 from backend.database.local_db import AsyncSessionLocal
-from backend.database.models import SequentialDebate, SequentialDebateTurn
+from backend.database.models import SequentialDebate, SequentialDebateTurn, ReductioAbsurdumProof, PromptResponseCache
 from backend.engine.tribunal import TribunalCouncil
 from backend.engine.convergence import ConvergenceEvaluator
 from backend.engine.quality_monitor import is_response_usable, evaluate_response
 from backend.engine.reputation_unified import reputation_service
 from backend.engine.intervention_taxonomy import detect_intervention_type
 from backend.engine.task_manager import task_manager, submit_reputation_update, TaskConfig
+from backend.monitoring.prometheus import (
+    record_debate_completed,
+    record_prompt_cache_hit,
+    record_prompt_cache_miss,
+)
 
 settings = get_settings()
+
+# Lazy init del warehouse manager
+_warehouse_manager = None
+def _get_warehouse_manager():
+    global _warehouse_manager
+    if _warehouse_manager is None:
+        from backend.database.warehouse import warehouse_manager
+        _warehouse_manager = warehouse_manager
+    return _warehouse_manager
 logger = structlog.get_logger()
 
 # Lazy init: solo se crea el servicio si SUPABASE_ENABLED=true y hay URL/key
@@ -47,6 +63,7 @@ from backend.engine.debate_models import (
     AgentRole, DebateAgent, DebateTurn, 
     CruzamientoCritico, IteracionDebate, DebateSession
 )
+from backend.engine.reductio_absurdum import get_reductio_absurdum_engine, ComplacencyScan
 
 
 class SequentialDebateController:
@@ -64,6 +81,7 @@ class SequentialDebateController:
         self.active_sessions: Dict[str, DebateSession] = {}
         self.tribunal = TribunalCouncil()
         self.convergence_evaluator = ConvergenceEvaluator()
+        self.reductio_engine = get_reductio_absurdum_engine()  # Motor de reducción al absurdo
 
     @property
     def openrouter(self):
@@ -71,6 +89,90 @@ class SequentialDebateController:
         if self._openrouter is None and settings.OPENROUTER_API_KEY:
             self._openrouter = OpenRouterClient()
         return self._openrouter
+
+    def _find_next_preload_model(
+        self,
+        agents_config: List[DebateAgent],
+        current_index: int
+    ) -> Optional[str]:
+        """Busca el próximo modelo local de Ollama distinto al turno actual para precarga."""
+        current_model = agents_config[current_index].model if current_index < len(agents_config) else None
+        for next_agent in agents_config[current_index + 1:]:
+            if (
+                next_agent.node == "LOCAL"
+                and next_agent.engine == "ollama"
+                and next_agent.model != current_model
+            ):
+                return next_agent.model
+        return None
+
+    def _build_prompt_cache_key(self, agent: DebateAgent, prompt: str) -> tuple[str, str]:
+        prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        raw_key = "|".join([
+            agent.node,
+            agent.engine,
+            agent.model,
+            str(agent.temperature),
+            str(agent.max_tokens),
+            prompt_hash,
+        ])
+        cache_key = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+        return cache_key, prompt_hash
+
+    async def _get_cached_response(self, agent: DebateAgent, prompt: str) -> Optional[Dict[str, Any]]:
+        cache_key, _ = self._build_prompt_cache_key(agent, prompt)
+        async with AsyncSessionLocal() as db_session:
+            cached = await db_session.scalar(
+                select(PromptResponseCache).where(PromptResponseCache.cache_key == cache_key)
+            )
+            if not cached:
+                record_prompt_cache_miss("deterministic")
+                return None
+
+            cached.hit_count += 1
+            cached.last_accessed_at = datetime.now()
+            await db_session.commit()
+            record_prompt_cache_hit("deterministic")
+
+            return {
+                "text": cached.response_text,
+                "tokens_in": cached.tokens_in,
+                "tokens_out": cached.tokens_out,
+                "latency_ms": cached.latency_ms,
+                "cache_hit": True,
+            }
+
+    async def _store_cached_response(self, agent: DebateAgent, prompt: str, response: Dict[str, Any]) -> None:
+        cache_key, prompt_hash = self._build_prompt_cache_key(agent, prompt)
+        async with AsyncSessionLocal() as db_session:
+            existing = await db_session.scalar(
+                select(PromptResponseCache).where(PromptResponseCache.cache_key == cache_key)
+            )
+            if existing:
+                existing.response_text = response["text"]
+                existing.tokens_in = response["tokens_in"]
+                existing.tokens_out = response["tokens_out"]
+                existing.latency_ms = response["latency_ms"]
+                existing.last_accessed_at = datetime.now()
+            else:
+                db_session.add(
+                    PromptResponseCache(
+                        cache_key=cache_key,
+                        engine=agent.engine,
+                        model=agent.model,
+                        node=agent.node,
+                        temperature=agent.temperature,
+                        max_tokens=agent.max_tokens,
+                        prompt_hash=prompt_hash,
+                        response_text=response["text"],
+                        tokens_in=response["tokens_in"],
+                        tokens_out=response["tokens_out"],
+                        latency_ms=response["latency_ms"],
+                        hit_count=0,
+                        last_accessed_at=datetime.now(),
+                    )
+                )
+            await db_session.commit()
 
         
     async def create_debate(
@@ -146,6 +248,10 @@ class SequentialDebateController:
             previous_model = None
             
             for idx, agent_config in enumerate(agents_config, 1):
+                next_preload_model = self._find_next_preload_model(agents_config, idx - 1)
+                if next_preload_model:
+                    self.local_manager.schedule_ollama_preload(next_preload_model)
+
                 # Liberar modelo anterior de la RAM del worker antes de cargar el nuevo
                 if previous_model and agent_config.node == "LOCAL" and agent_config.engine == "ollama":
                     try:
@@ -496,6 +602,15 @@ class SequentialDebateController:
                         logger.info("sequential_debate.db_finalized",
                                    session_id=session_id,
                                    transcript_path=transcript_path)
+                        
+                        # Trigger del Data Warehouse
+                        try:
+                            warehouse_mgr = _get_warehouse_manager()
+                            await warehouse_mgr.process_sequential_debate(session_id)
+                        except Exception as e:
+                            logger.warning("sequential_debate.warehouse_failed",
+                                         session_id=session_id,
+                                         error=str(e))
             except Exception as e:
                 logger.error("sequential_debate.final_db_error",
                             session_id=session_id,
@@ -506,6 +621,11 @@ class SequentialDebateController:
                        total_turns=len(session.turns),
                        total_tokens=sum(t.tokens_out for t in session.turns),
                        transcript_path=transcript_path)
+            record_debate_completed(
+                total_tokens_out=sum(t.tokens_out for t in session.turns),
+                total_latency_ms=sum(t.latency_ms for t in session.turns),
+                mode=mode,
+            )
             
             # Sincronización asíncrona con Supabase (usando HybridMemoryV2)
             try:
@@ -557,6 +677,9 @@ class SequentialDebateController:
         on_model_unload: Optional[Callable[[str, str], None]] = None
     ) -> Dict[str, Any]:
         """Ejecuta agente local con Ollama"""
+        cached_response = await self._get_cached_response(agent, prompt)
+        if cached_response:
+            return cached_response
         
         start_time = datetime.now()
         engine_type = EngineType(agent.engine)
@@ -587,12 +710,15 @@ class SequentialDebateController:
         if on_model_unload:
             on_model_unload(agent.model, agent.provider)
         
-        return {
+        result = {
             "text": "".join(response_parts),
             "tokens_in": len(prompt.split()),  # Aproximación
             "tokens_out": tokens_out,
-            "latency_ms": latency_ms
+            "latency_ms": latency_ms,
+            "cache_hit": False,
         }
+        await self._store_cached_response(agent, prompt, result)
+        return result
     
     async def _run_cloud_agent(
         self,
@@ -783,27 +909,44 @@ class SequentialDebateController:
         Utiliza un modelo local rápido para la extracción.
         """
         logger.info("sequential_debate.generating_structured_report", session_id=session.id)
-        
-        # Fallback básico siempre disponible
+
+        history = []
+        completed_turns = 0
+        for t in session.turns:
+            if t.status.startswith("completed"):
+                completed_turns += 1
+                history.append(f"Agente {t.agent.name}: {t.response_received[:500]}")
+
+        return await self._generate_structured_report_from_history(
+            session_id=session.id,
+            topic=session.topic,
+            history=history,
+            total_turns=len(session.turns),
+            completed_turns=completed_turns,
+        )
+
+    async def _generate_structured_report_from_history(
+        self,
+        session_id: str,
+        topic: str,
+        history: List[str],
+        total_turns: int,
+        completed_turns: int,
+    ) -> Dict[str, Any]:
+        """Genera un informe estructurado a partir del historial textual del debate."""
         fallback_report = {
-            "summary": f"Debate sobre {session.topic} con {len(session.turns)} turnos.",
+            "summary": f"Debate sobre {topic} con {total_turns} turnos.",
             "consensus_level": 50,
-            "key_findings": [f"Turnos completados: {len([t for t in session.turns if t.status == 'completed'])}"],
+            "key_findings": [f"Turnos completados: {completed_turns}"],
             "risks_identified": [],
             "action_items": [],
             "generated_by": "fallback"
         }
-        
-        # Consolidar todo el debate
-        history = []
-        for t in session.turns:
-            if t.status.startswith("completed"):
-                history.append(f"Agente {t.agent.name}: {t.response_received[:500]}")
-        
+
         full_text = "\n\n".join(history)
-        
+
         prompt = f"""Analiza el siguiente debate y genera un objeto JSON con el resumen ejecutivo.
-TEMA: {session.topic}
+TEMA: {topic}
 
 DEBATE:
 {full_text}
@@ -850,18 +993,92 @@ JSON:"""
                 try:
                     report_data = json.loads(json_str)
                     report_data["generated_by"] = "llama3.2:latest"
-                    logger.info("sequential_debate.structured_report.parsed_successfully", session_id=session.id)
+                    logger.info("sequential_debate.structured_report.parsed_successfully", session_id=session_id)
                     return report_data
                 except json.JSONDecodeError as je:
                     logger.error("sequential_debate.structured_report.json_parse_error", 
-                                 session_id=session.id, error=str(je), text_preview=json_str[:200])
+                                 session_id=session_id, error=str(je), text_preview=json_str[:200])
                     return fallback_report
             
-            logger.warning("sequential_debate.structured_report.no_json_found", session_id=session.id, response_preview=response_text[:200])
+            logger.warning("sequential_debate.structured_report.no_json_found", session_id=session_id, response_preview=response_text[:200])
             return fallback_report
         except Exception as e:
-            logger.error("sequential_debate.structured_report.exception", session_id=session.id, error=str(e))
+            logger.error("sequential_debate.structured_report.exception", session_id=session_id, error=str(e))
             return fallback_report
+
+    async def generate_structured_report_for_debate(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Regenera y persiste el structured_report para debates completados que no lo tengan.
+        Sirve como backfill para reportes históricos.
+        """
+        debate = await self.get_debate_from_db(session_id)
+        if not debate or debate.get("status") != "completed":
+            return None
+
+        completed_turns = []
+        for turn in debate.get("turns", []):
+            if str(turn.get("status", "")).startswith("completed"):
+                response_text = turn.get("response_received") or turn.get("response_preview") or ""
+                if response_text:
+                    completed_turns.append(
+                        f"Agente {turn.get('agent_name', 'unknown')}: {response_text[:500]}"
+                    )
+
+        report = await self._generate_structured_report_from_history(
+            session_id=session_id,
+            topic=debate.get("topic", ""),
+            history=completed_turns,
+            total_turns=len(debate.get("turns", [])),
+            completed_turns=len(completed_turns),
+        )
+
+        try:
+            async with AsyncSessionLocal() as db_session:
+                db_debate = await db_session.get(SequentialDebate, session_id)
+                if db_debate:
+                    db_debate.structured_report = report
+                    await db_session.commit()
+                    logger.info(
+                        "sequential_debate.structured_report_backfilled",
+                        session_id=session_id
+                    )
+        except Exception as e:
+            logger.error(
+                "sequential_debate.structured_report_backfill_failed",
+                session_id=session_id,
+                error=str(e),
+            )
+
+        return report
+
+    async def _persist_reductio_absurdum_proof(
+        self,
+        debate_id: str,
+        iteration_number: int,
+        complacency_scan: ComplacencyScan,
+        proof,
+    ) -> None:
+        """Persiste una prueba de reducción al absurdo junto a su contexto de complacencia."""
+        async with AsyncSessionLocal() as db_session:
+            db_session.add(
+                ReductioAbsurdumProof(
+                    debate_id=debate_id,
+                    iteration_number=iteration_number,
+                    proposition=proof.proposition,
+                    extreme_case=proof.extreme_case,
+                    contradiction=proof.contradiction,
+                    is_valid=proof.is_valid,
+                    confidence_score=proof.confidence_score,
+                    questioning_agent=proof.questioning_agent,
+                    challenged_agent=proof.challenged_agent,
+                    consensus_areas=complacency_scan.consensus_areas,
+                    weak_assumptions=complacency_scan.weak_assumptions,
+                    unquestioned_premises=complacency_scan.unquestioned_premises,
+                    overall_complacency_risk=complacency_scan.overall_complacency_risk,
+                    recommendations=complacency_scan.recommendations,
+                )
+            )
+            await db_session.commit()
 
     async def _save_transcript(self, session: DebateSession) -> str:
         """Guarda la transcripción completa del debate en archivo"""
@@ -964,6 +1181,7 @@ JSON:"""
                     "total_tokens_out": debate.total_tokens_out,
                     "total_latency_ms": debate.total_latency_ms,
                     "final_verdict": debate.final_verdict,
+                    "structured_report": debate.structured_report,
                     "transcript_path": debate.transcript_path,
                     "created_at": debate.created_at,
                     "completed_at": debate.completed_at,
@@ -976,6 +1194,7 @@ JSON:"""
                             "provider": t.provider,
                             "node": t.node,
                             "response_preview": t.response_received[:200] + "..." if len(t.response_received) > 200 else t.response_received,
+                            "response_received": t.response_received,
                             "tokens_in": t.tokens_in,
                             "tokens_out": t.tokens_out,
                             "latency_ms": t.latency_ms,
@@ -1151,6 +1370,11 @@ JSON:"""
                     await self._run_cruzamientos_phase(
                         session, current_iteration, agents_config, on_cruzamiento
                     )
+                    
+                    # FASE 2B: REDUCCIÓN AL ABSURDO (Ronda 2+ para eliminar complacencia)
+                    await self._run_reductio_absurdum_phase(
+                        session, current_iteration, agents_config, iteration_num
+                    )
                 
                 # FASE 3: VALIDACIÓN (cada agente valida los argumentos)
                 await self._run_validation_phase(
@@ -1201,6 +1425,11 @@ JSON:"""
                            session_id=session_id,
                            total_iterations=len(session.iterations),
                            total_turns=len(session.turns))
+                record_debate_completed(
+                    total_tokens_out=sum(t.tokens_out for t in session.turns),
+                    total_latency_ms=sum(t.latency_ms for t in session.turns),
+                    mode="iterative",
+                )
                 
             except Exception as e:
                 logger.error("sequential_debate.tribunal_error",
@@ -1352,6 +1581,136 @@ JSON:"""
                                   from_agent=responder_agent.name,
                                   to_agent=target_agent.name,
                                   error=str(e))
+    
+    async def _run_reductio_absurdum_phase(
+        self,
+        session: DebateSession,
+        iteration: IteracionDebate,
+        agents_config: List[DebateAgent],
+        iteration_num: int
+    ):
+        """
+        FASE 2B: Reducción al Absurdo (Ronda 2+)
+        
+        Aplica técnica lógica de reducción al absurdo para:
+        - Eliminar sesgos de complacencia
+        - Desafiar supuestos no cuestionados
+        - Llevar proposiciones a su límite lógico
+        - Identificar contradicciones
+        
+        Ejecutada solo en ronda 2+
+        """
+        
+        logger.info("sequential_debate.reductio_absurdum_phase_start",
+                   session_id=session.id,
+                   iteration=iteration_num)
+        
+        # Extraer puntos de consenso de turnos anteriores
+        consensus_points = []
+        for turn in iteration.turns:
+            # Proposiciones que aparecen en el debate sin haber sido cuestionadas
+            propositions = self.reductio_engine.extract_propositions_from_text(
+                turn.response_received
+            )
+            consensus_points.extend(propositions)
+        
+        # Construir historial del debate para análisis de complacencia
+        debate_history = "\n\n".join([
+            turn.response_received[:500] for turn in iteration.turns
+        ])
+        
+        # Analizar riesgo de complacencia
+        complacency_scan: ComplacencyScan = self.reductio_engine.analyze_consensus_points(
+            consensus_points=consensus_points,
+            dissent_points=[],  # No hay puntos explícitos de desacuerdo aún
+            debate_history=debate_history,
+            iteration_number=iteration_num
+        )
+        
+        logger.info("sequential_debate.complacency_analysis",
+                   session_id=session.id,
+                   complacency_risk=f"{complacency_scan.overall_complacency_risk:.0%}",
+                   weak_assumptions=len(complacency_scan.weak_assumptions),
+                   unquestioned_premises=len(complacency_scan.unquestioned_premises))
+        
+        # Si hay riesgo alto de complacencia, ejecutar desafíos
+        if complacency_scan.overall_complacency_risk > 0.4:
+            
+            logger.info("sequential_debate.high_complacency_detected",
+                       session_id=session.id,
+                       risk=f"{complacency_scan.overall_complacency_risk:.0%}")
+            
+            # Seleccionar pares de agentes para desafíos cruzados
+            for i, challenger_agent in enumerate(agents_config):
+                if i + 1 >= len(agents_config):
+                    break
+                
+                target_agent = agents_config[i + 1]
+                
+                # Generar prompt de desafío por reducción al absurdo
+                weak_points = complacency_scan.weak_assumptions[:3]
+                
+                if not weak_points:
+                    continue
+                
+                # Construir prompt de desafío específico para este par
+                try:
+                    proof = await self.reductio_engine.run_absurdum_challenge_phase(
+                        topic=session.topic,
+                        consensus_points=weak_points,
+                        debate_history=debate_history,
+                        challenging_agent=challenger_agent,
+                        target_agent=target_agent,
+                        generate_func=lambda agent, prompt: self._generate_absurdum_response(agent, prompt),
+                    )
+                    if not proof:
+                        continue
+
+                    await self._persist_reductio_absurdum_proof(
+                        debate_id=session.id,
+                        iteration_number=iteration_num,
+                        complacency_scan=complacency_scan,
+                        proof=proof,
+                    )
+
+                    # Registrar el desafío como un cruzamiento especial
+                    abs_cruzamiento = CruzamientoCritico(
+                        from_agent=f"{challenger_agent.name} (Reductio)",
+                        to_agent=target_agent.name,
+                        target_argument=proof.proposition,
+                        response=proof.extreme_case,
+                        iteration=iteration_num
+                    )
+                    
+                    iteration.cruzamientos.append(abs_cruzamiento)
+                    
+                    logger.info("sequential_debate.absurdum_challenge_complete",
+                               session_id=session.id,
+                               challenger=challenger_agent.name,
+                               target=target_agent.name,
+                               contradiction_found=bool(proof.contradiction))
+                    
+                except Exception as e:
+                    logger.warning("sequential_debate.absurdum_challenge_failed",
+                                  session_id=session.id,
+                                  challenger=challenger_agent.name,
+                                  error=str(e))
+        
+        else:
+            logger.info("sequential_debate.low_complacency_risk",
+                       session_id=session.id,
+                       risk=f"{complacency_scan.overall_complacency_risk:.0%}",
+                       skipping_reductio="Fase de Reducción al Absurdo no necesaria")
+        
+        logger.info("sequential_debate.reductio_absurdum_phase_complete",
+                   session_id=session.id,
+                   iteration=iteration_num,
+                   recommendations_count=len(complacency_scan.recommendations))
+
+    async def _generate_absurdum_response(self, agent: DebateAgent, prompt: str) -> str:
+        """Adaptador simple para integrar el motor reductio con el runner local del debate."""
+        response = await self._run_local_agent(agent, prompt, None)
+        return response["text"]
     
     async def _run_validation_phase(
         self,

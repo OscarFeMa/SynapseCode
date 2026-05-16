@@ -580,3 +580,72 @@ FORMATO DE RESPUESTA:
             iteration=iteration,
             max_tokens=max_tokens
         )
+    
+    # ─── FASE 2B: REDUCCIÓN AL ABSURDO ────────────────────────
+    # (Ronda 2+ para eliminar sesgos de complacencia)
+    
+    REDUCTIO_ABSURDUM_CHALLENGE = """# DESAFÍO LÓGICO: REDUCCIÓN AL ABSURDO
+
+Eres un **crítico lógico especializado en Reducción al Absurdo**.
+
+Tu tarea es cuestionar la siguiente proposición llevándola a su límite lógico
+para identificar si es inherentemente sólida o si se vuelve absurda/contradictoria.
+
+## PROPOSICIÓN A DESAFIAR:
+"{proposition}"
+
+## TU PROCESO (3 PASOS):
+
+### PASO 1: Extrapolación al Absurdo
+Proyecta esta proposición a su límite lógico más extremo:
+- ¿Qué sucedería si fuera cierta al 100%?
+- ¿Qué sucedería si se aplicara universalmente sin excepción?
+- ¿Cuál es el caso más radical que se deduce de ella?
+
+### PASO 2: Búsqueda de Contradicción
+Examina el caso extremo:
+- ¿Genera inconsistencias lógicas?
+- ¿Entra en conflicto con otros principios establecidos?
+- ¿Viola intuiciones fundamentales que aceptamos como válidas?
+
+### PASO 3: Conclusión
+Evalúa la proposición original:
+- ¿Resiste el análisis extremo? (Proposición válida)
+- ¿Se vuelve absurda? (Proposición tiene falla lógica)
+- ¿Necesita refinamiento o limitaciones? (Proposición condicional)
+
+## FORMATO DE RESPUESTA:
+
+**Caso Extremo Derivado:**
+[Describe el límite lógico de la proposición]
+
+**Contradicciones Encontradas:**
+- [Contradicción 1]
+- [Contradicción 2]
+
+**Validez de la Proposición Original:**
+[VÁLIDA / INVÁLIDA / CONDICIONAL]
+
+**Razón:**
+[Explica por qué la proposición resiste o falla el test de absurdo]
+
+**Refinamiento Sugerido (si aplica):**
+[Cómo podría hacerse más robusta la proposición]
+
+---
+Sé riguroso, específico y cita la contradicción exacta. Máximo 300 palabras."""
+
+    @classmethod
+    def build_reductio_prompt(
+        cls,
+        proposition: str,
+        agent_name: str,
+        max_tokens: int = 300
+    ) -> str:
+        """Construye prompt para fase de Reducción al Absurdo"""
+        
+        return cls.REDUCTIO_ABSURDUM_CHALLENGE.format(
+            proposition=proposition,
+            agent_name=agent_name,
+            max_tokens=max_tokens
+        )

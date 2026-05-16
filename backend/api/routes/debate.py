@@ -18,6 +18,10 @@ from backend.engine.sequential_debate_controller import (
     get_cloud_ollama_config
 )
 from backend.engine.ultra_debate_controller import UltraDebateController
+from backend.monitoring.prometheus import (
+    record_debate_report_cache_hit,
+    record_debate_report_generated,
+)
 
 router = APIRouter(prefix="/debates", tags=["Sequential Debate"])
 
@@ -401,6 +405,7 @@ async def get_debate_report(session_id: str):
     session = debate_controller.get_session(session_id)
     if session:
         if hasattr(session, 'structured_report') and session.structured_report:
+            record_debate_report_cache_hit("memory")
             return {
                 "session_id": session_id,
                 "structured_report": session.structured_report,
@@ -414,13 +419,23 @@ async def get_debate_report(session_id: str):
     debate = await debate_controller.get_debate_from_db(session_id)
     if debate:
         if debate.get('structured_report'):
+            record_debate_report_cache_hit("database")
             return {
                 "session_id": session_id,
                 "structured_report": debate['structured_report'],
                 "source": "database"
             }
-        else:
-            print(f"Debate {session_id} found in DB but without structured report")
+        if debate.get("status") == "completed":
+            generated_report = await debate_controller.generate_structured_report_for_debate(session_id)
+            if generated_report:
+                record_debate_report_generated("database_backfill")
+                return {
+                    "session_id": session_id,
+                    "structured_report": generated_report,
+                    "source": "database_generated"
+                }
+
+        print(f"Debate {session_id} found in DB but without structured report")
     
     raise HTTPException(
         status_code=404, 
@@ -791,25 +806,166 @@ def _build_clean_turns(session) -> list:
     return turns
 
 
+def _serialize_turn(turn) -> Dict[str, Any]:
+    """Serializa un turno a formato estructurado uniforme."""
+    if hasattr(turn, "turn_number"):
+        role_value = turn.agent.role.value if hasattr(turn.agent.role, "value") else str(turn.agent.role)
+        return {
+            "turn_number": turn.turn_number,
+            "agent": {
+                "id": turn.agent.id,
+                "name": turn.agent.name,
+                "role": role_value,
+                "model": turn.agent.model,
+                "provider": turn.agent.provider,
+                "node": turn.agent.node,
+                "engine": turn.agent.engine,
+            },
+            "content": turn.response_received.strip(),
+            "metrics": {
+                "tokens_in": turn.tokens_in,
+                "tokens_out": turn.tokens_out,
+                "latency_ms": turn.latency_ms,
+            },
+            "status": turn.status,
+            "started_at": turn.started_at.isoformat() if turn.started_at else None,
+            "completed_at": turn.completed_at.isoformat() if turn.completed_at else None,
+        }
+
+    return {
+        "turn_number": turn.get("turn_number"),
+        "agent": {
+            "id": turn.get("agent_id"),
+            "name": turn.get("agent_name"),
+            "role": turn.get("agent_role"),
+            "model": turn.get("model"),
+            "provider": turn.get("provider"),
+            "node": turn.get("node"),
+            "engine": turn.get("engine"),
+        },
+        "content": (turn.get("response_received") or turn.get("response_preview") or "").strip(),
+        "metrics": {
+            "tokens_in": turn.get("tokens_in", 0),
+            "tokens_out": turn.get("tokens_out", 0),
+            "latency_ms": turn.get("latency_ms", 0),
+        },
+        "status": turn.get("status"),
+        "started_at": turn.get("started_at").isoformat() if hasattr(turn.get("started_at"), "isoformat") else turn.get("started_at"),
+        "completed_at": turn.get("completed_at").isoformat() if hasattr(turn.get("completed_at"), "isoformat") else turn.get("completed_at"),
+    }
+
+
+def _serialize_iterations(session) -> List[Dict[str, Any]]:
+    """Serializa iteraciones si existen en memoria."""
+    iterations = []
+    for iteration in getattr(session, "iterations", []) or []:
+        iterations.append({
+            "number": iteration.iteration_number,
+            "phase": iteration.phase,
+            "started_at": iteration.started_at.isoformat() if iteration.started_at else None,
+            "completed_at": iteration.completed_at.isoformat() if iteration.completed_at else None,
+            "consensus_points": iteration.consensus_points,
+            "dissent_areas": iteration.disagreement_points,
+            "turns": [_serialize_turn(turn) for turn in iteration.turns if turn.status.startswith("completed")],
+            "cross_references": [
+                {
+                    "from_agent": cruzamiento.from_agent,
+                    "to_agent": cruzamiento.to_agent,
+                    "target_argument": cruzamiento.target_argument,
+                    "response": cruzamiento.response,
+                    "iteration": cruzamiento.iteration,
+                    "timestamp": cruzamiento.timestamp.isoformat() if cruzamiento.timestamp else None,
+                }
+                for cruzamiento in iteration.cruzamientos
+            ],
+        })
+    return iterations
+
+
+def _build_structured_export_from_session(session) -> Dict[str, Any]:
+    """Construye exportación estructurada enriquecida desde sesión en memoria."""
+    serialized_turns = [
+        _serialize_turn(turn)
+        for turn in session.turns
+        if turn.status.startswith("completed")
+    ]
+    total_tokens_out = sum(turn["metrics"]["tokens_out"] for turn in serialized_turns)
+    total_latency_ms = sum(turn["metrics"]["latency_ms"] for turn in serialized_turns)
+
+    export = {
+        "debate_id": session.id,
+        "topic": session.topic,
+        "status": session.status,
+        "created_at": session.created_at.isoformat() if session.created_at else None,
+        "completed_at": session.completed_at.isoformat() if session.completed_at else None,
+        "duration_seconds": round((session.completed_at - session.created_at).total_seconds(), 1) if session.completed_at and session.created_at else None,
+        "final_verdict": session.final_verdict,
+        "structured_report": session.structured_report,
+        "summary": {
+            "total_turns": len(session.turns),
+            "completed_turns": len(serialized_turns),
+            "total_tokens_out": total_tokens_out,
+            "total_latency_ms": total_latency_ms,
+        },
+        "interventions": serialized_turns,
+        "intervenciones": _build_clean_turns(session),
+        "iterations": _serialize_iterations(session),
+    }
+
+    if hasattr(session, "tribunal_verdict") and session.tribunal_verdict:
+        export["tribunal_verdict"] = session.tribunal_verdict
+
+    return export
+
+
+def _build_structured_export_from_db(session_id: str, debate_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Construye exportación estructurada enriquecida desde datos persistidos."""
+    serialized_turns = [
+        _serialize_turn(turn)
+        for turn in debate_data.get("turns", [])
+        if str(turn.get("status", "")).startswith("completed")
+    ]
+
+    return {
+        "debate_id": session_id,
+        "topic": debate_data.get("topic"),
+        "mode": debate_data.get("mode"),
+        "status": debate_data.get("status"),
+        "created_at": debate_data.get("created_at").isoformat() if hasattr(debate_data.get("created_at"), "isoformat") else debate_data.get("created_at"),
+        "completed_at": debate_data.get("completed_at").isoformat() if hasattr(debate_data.get("completed_at"), "isoformat") else debate_data.get("completed_at"),
+        "final_verdict": debate_data.get("final_verdict"),
+        "structured_report": debate_data.get("structured_report"),
+        "transcript_path": debate_data.get("transcript_path"),
+        "summary": {
+            "total_turns": len(debate_data.get("turns", [])),
+            "completed_turns": len(serialized_turns),
+            "total_tokens_out": debate_data.get("total_tokens_out", 0),
+            "total_latency_ms": debate_data.get("total_latency_ms", 0),
+        },
+        "interventions": serialized_turns,
+        "iterations": [],
+    }
+
+
 @router.get("/{session_id}/export/json")
 async def export_debate_json(session_id: str):
-    """Exporta el debate en JSON limpio: solo intervenciones"""
+    """Exporta el debate en JSON estructurado con metadata e intervenciones."""
     session = debate_controller.get_session(session_id)
     if not session:
         session_data = await debate_controller.get_debate_from_db(session_id)
         if not session_data:
             raise HTTPException(status_code=404, detail="Debate not found")
-        content = json.dumps(session_data, indent=2, default=str, ensure_ascii=False)
+        content = json.dumps(
+            _build_structured_export_from_db(session_id, session_data),
+            indent=2,
+            ensure_ascii=False,
+        )
     else:
-        clean = {
-            "tema": session.topic,
-            "estado": session.status,
-            "duracion_seg": round((session.completed_at - session.created_at).total_seconds(), 1) if session.completed_at and session.created_at else None,
-            "intervenciones": _build_clean_turns(session),
-        }
-        if session.final_verdict:
-            clean["veredicto"] = session.final_verdict.strip()
-        content = json.dumps(clean, indent=2, ensure_ascii=False)
+        content = json.dumps(
+            _build_structured_export_from_session(session),
+            indent=2,
+            ensure_ascii=False,
+        )
     
     return Response(
         content=content,

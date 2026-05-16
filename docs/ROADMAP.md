@@ -1,7 +1,8 @@
-# 🗺️ Synapse Code v2.3+ — Plan de Mejoras y Optimizaciones
+# 🗺️ Synapse Code v2.4+ — Plan de Mejoras y Optimizaciones
 
-> Basado en el estado actual del proyecto (v2.2, Mayo 2026)
-> APIs funcionales: Groq, Gemini, Ollama, LM Studio | Pendientes: DeepSeek, OpenRouter
+> Actualizado: 14 Mayo 2026, 22:29 UTC+02:00
+> Estado actual: v2.3
+> APIs funcionales: Groq, Gemini, Ollama, LM Studio, OpenRouter (base) | Pendientes: DeepSeek, HuggingFace
 
 ---
 
@@ -13,6 +14,39 @@ flowchart TD
     P1 --> P2[P2: Calidad de Vida]
     P2 --> P3[P3: Nice to Have]
 ```
+
+---
+
+## ✅ Completado Recientemente (14 Mayo 2026)
+
+### ✅ Data Warehouse / Análisis Histórico
+**Implementado:** Sistema de agregación de datos para analytics
+- Tablas: DebateAggregate, TopicTrending, ConsensusPattern, ModelPerformance, DailyMetricsSnapshot
+- Triggers automáticos en debate controllers para actualizar warehouse
+- Script de backfill para datos históricos
+- Queries SQL para análisis en `docs/ANALYTICS_QUERIES.md`
+
+**Archivos:** `backend/database/models.py`, `backend/database/warehouse.py`, `backend/engine/sequential_debate_controller.py`, `backend/engine/session_manager.py`
+
+### ✅ Caché Semántica
+**Implementado:** Sistema de caché basado en embeddings y similitud coseno
+- Modelo: sentence-transformers (all-MiniLM-L6-v2)
+- Búsqueda semántica con threshold configurable (0.85)
+- TTL configurable (24 horas por defecto)
+- Integrado en todos los adapters (Groq, Gemini, OpenRouter, LM Studio, Jan)
+- API endpoints: `/api/v1/cache/stats`, `/api/v1/cache/invalidate`, `/api/v1/cache/cleanup`
+- Dashboard frontend en `frontend/src/components/Cache/CacheDashboard.jsx`
+
+**Archivos:** `backend/database/models.py`, `backend/caching/semantic_cache.py`, `backend/adapters/groq.py`, `backend/adapters/gemini.py`, `backend/adapters/base.py`, `backend/api/routes/cache.py`, `frontend/src/components/Cache/CacheDashboard.jsx`
+
+### ✅ Supabase Sync Fix
+**Implementado:** Silent fail cuando Supabase no está configurado
+- `SUPABASE_ENABLED=false` desactiva completamente el sync
+- `get_supabase_service()` no crea instancia persistente si no está habilitado
+- `submit_supabase_sync()` verifica estado antes de intentar sync
+- No genera logs de error cuando no está configurado
+
+**Archivos:** `backend/services/supabase_sync.py`, `backend/engine/task_manager.py`
 
 ---
 
@@ -28,12 +62,13 @@ flowchart TD
 
 **Archivos:** `sequential_debate_controller.py`, `websocket.py`, `config.py`
 
-### 0.2 — Supabase sync sin API key válida
-**Problema:** El sync a Supabase intenta conectarse siempre, generando logs de error aunque no esté configurado.
-
-**Solución:**
-- `SUPABASE_ENABLED=false` debe desactivar completamente el sync
+### ✅ 0.2 — Supabase sync sin API key válida
+**Estado:** COMPLETADO (14 Mayo 2026)
+**Solución implementada:**
+- `SUPABASE_ENABLED=false` desactiva completamente el sync
 - Silent fail rápido si no hay URL/config
+- `get_supabase_service()` no crea instancia persistente si no está habilitado
+- `submit_supabase_sync()` verifica estado antes de intentar sync
 
 **Archivos:** `services/supabase_sync.py`, `engine/task_manager.py`
 
@@ -188,26 +223,51 @@ Integrar Web Speech API para dictar prompts al debate.
 
 ## 📋 Resumen por Prioridad
 
-| ID | Tarea | Prioridad | Esfuerzo | Dependencias |
-|----|-------|-----------|----------|-------------|
-| 0.1 | Timeout en debates largos | 🔴 P0 | 2 días | — |
-| 0.2 | Supabase silencioso sin key | 🔴 P0 | 1 hora | — |
-| 1.1 | Adapter HuggingFace | 🟠 P1 | 3 horas | — |
-| 1.2 | DeepSeek fallback | 🟠 P1 | 2 horas | — |
-| 1.3 | OpenRouter check credits | 🟠 P1 | 1 hora | — |
-| 1.4 | Pausar/Reanudar debates | 🟠 P1 | 1 día | DB persistence |
-| 1.5 | Agentes personalizados API | 🟠 P1 | 4 horas | — |
-| 2.1 | Logs rotatorios | 🟡 P2 | 2 horas | — |
-| 2.2 | Health check inteligente | 🟡 P2 | 3 horas | — |
-| 2.3 | Panel admin web | 🟡 P2 | 2 días | — |
-| 2.4 | Tests automatizados | 🟡 P2 | 3 días | GitHub Actions |
-| 2.5 | Exportación resultados | 🟡 P2 | 1 día | — |
-| 3.1 | Más proveedores | 🟢 P3 | 4 horas cada uno | — |
-| 3.2 | WebSocket Worker | 🟢 P3 | 1 día | — |
-| 3.3 | Modo oscuro auto | 🟢 P3 | 30 min | — |
-| 3.4 | Notificaciones | 🟢 P3 | 1 día | — |
-| 3.5 | Estadísticas | 🟢 P3 | 2 días | — |
-| 3.6 | Comandos de voz | 🟢 P3 | 1 día | — |
+| ID | Tarea | Prioridad | Esfuerzo | Estado | Dependencias |
+|----|-------|-----------|----------|--------|-------------|
+| 0.1 | Timeout en debates largos | 🔴 P0 | 2 días | Pendiente | — |
+| 0.2 | Supabase silencioso sin key | 🔴 P0 | 1 hora | ✅ Completado | — |
+| 1.1 | Adapter HuggingFace | 🟠 P1 | 3 horas | Pendiente | — |
+| 1.2 | DeepSeek fallback | 🟠 P1 | 2 horas | Pendiente | — |
+| 1.3 | OpenRouter check credits | 🟠 P1 | 1 hora | Pendiente | — |
+| 1.4 | Pausar/Reanudar debates | 🟠 P1 | 1 día | Pendiente | DB persistence |
+| 1.5 | Agentes personalizados API | 🟠 P1 | 4 horas | Pendiente | — |
+| 2.1 | Logs rotatorios | 🟡 P2 | 2 horas | Pendiente | — |
+| 2.2 | Health check inteligente | 🟡 P2 | 3 horas | Pendiente | — |
+| 2.3 | Panel admin web | 🟡 P2 | 2 días | Pendiente | — |
+| 2.4 | Tests automatizados | 🟡 P2 | 3 días | Pendiente | GitHub Actions |
+| 2.5 | Exportación resultados | 🟡 P2 | 1 día | Pendiente | — |
+| 3.1 | Más proveedores | 🟢 P3 | 4 horas cada uno | Pendiente | — |
+| 3.2 | WebSocket Worker | 🟢 P3 | 1 día | Pendiente | — |
+| 3.3 | Modo oscuro auto | 🟢 P3 | 30 min | Pendiente | — |
+| 3.4 | Notificaciones | 🟢 P3 | 1 día | Pendiente | — |
+| 3.5 | Estadísticas | 🟢 P3 | 2 días | Pendiente | — |
+| 3.6 | Comandos de voz | 🟢 P3 | 1 día | Pendiente | — |
+
+---
+
+## 🎯 Próximos Pasos Prioritarios (Orden Sugerido)
+
+1. **P0.1 - Timeout en debates con modelos grandes** (Crítico)
+   - Implementar WebSocket + polling para debates largos
+   - Timeout configurable por modelo en config.py
+   - Heartbeat del Worker para detectar generación congelada
+
+2. **P1.1 - HuggingFace Inference API Adapter** (Funcionalidad Core)
+   - Servicio gratuito con 30k req/mes
+   - Modelos: Phi-3-mini, Llama-3-8B-Instruct
+   - Sin necesidad de tarjeta de crédito
+
+3. **P1.4 - Pausar/Reanudar debates en ejecución** (Funcionalidad Core)
+   - Persistir estado después de cada turno
+   - Endpoints pause/resume
+   - Recuperar sesión al reiniciar servidor
+
+4. **P1.5 - Configuración de agentes personalizada desde API** (Funcionalidad Core)
+   - Permitir pasar agents: [...] en POST /debates/create
+   - Validar engines y API keys
+
+---
 
 ---
 
@@ -286,5 +346,7 @@ graph TD
 
 ---
 
-> **Próximo hito:** v2.3 — Adapter HuggingFace + Health check inteligente + Tests automatizados  
+> **Última actualización:** 14 Mayo 2026, 22:29 UTC+02:00
+> **Versión actual:** v2.3
+> **Próximo hito:** v2.4 — Timeout en debates + HuggingFace Adapter + Pausar/Reanudar debates
 > **Estimado:** 1-2 semanas de desarrollo

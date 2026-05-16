@@ -93,6 +93,34 @@ class OllamaClient:
                 logger.warning("ollama.ensure.pull_failed", model=model, error=str(e))
                 # Continuar de todas formas, Ollama puede cargar on-demand
 
+    async def warm_model(self, model: str, keep_alive: Optional[int] = None) -> bool:
+        """
+        Precarga un modelo en memoria sin generar contenido útil.
+        """
+        keep_alive_value = settings.OLLAMA_PRELOAD_KEEP_ALIVE if keep_alive is None else keep_alive
+        try:
+            logger.info("ollama.warm_model.start", model=model, keep_alive=keep_alive_value)
+            client = self.client
+            response = await client.post(
+                f"{self.base_url}/api/generate",
+                json={
+                    "model": model,
+                    "prompt": "",
+                    "stream": False,
+                    "keep_alive": keep_alive_value,
+                    "options": {"num_predict": 0},
+                },
+                timeout=30.0,
+            )
+            if response.status_code == 200:
+                logger.info("ollama.warm_model.success", model=model)
+                return True
+            logger.warning("ollama.warm_model.failed", model=model, status_code=response.status_code)
+            return False
+        except Exception as e:
+            logger.warning("ollama.warm_model.error", model=model, error=str(e))
+            return False
+
     async def unload_model(self, model: str) -> bool:
         """Descarga un modelo específico de la RAM del worker
         

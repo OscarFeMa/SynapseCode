@@ -6,10 +6,18 @@ Si Supabase falla, el sistema continúa sin interrupciones.
 
 import asyncio
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import structlog
 
 from backend.services.supabase_sync import get_supabase_service
+from backend.database.local_db import AsyncSessionLocal
+from backend.database.models import SupabaseSyncQueueItem
+from sqlalchemy import select, delete
+from backend.monitoring.prometheus import (
+    record_supabase_sync_failure,
+    record_supabase_sync_retry,
+    set_supabase_sync_queue_size,
+)
 
 logger = structlog.get_logger()
 
@@ -35,6 +43,7 @@ class HybridMemoryV2:
     async def start(self) -> None:
         """Inicia el worker de sincronización."""
         if self._enabled and self._task is None:
+            await self._rehydrate_pending_queue()
             self._task = asyncio.create_task(self._worker())
             logger.info("hybrid_memory_v2.started")
     
@@ -71,7 +80,17 @@ class HybridMemoryV2:
         
         try:
             data = self._build_data(session, session_id, mode)
-            await self._queue.put(('debate', data))
+            async with AsyncSessionLocal() as db_session:
+                db_session.add(
+                    SupabaseSyncQueueItem(
+                        kind="debate",
+                        debate_id=session_id,
+                        payload=data,
+                    )
+                )
+                await db_session.commit()
+            await self._queue.put(session_id)
+            await self._update_queue_gauge()
             self._stats['queued'] += 1
         except Exception as e:
             # Silencioso - no crítico
@@ -85,25 +104,29 @@ class HybridMemoryV2:
         while True:
             try:
                 # Esperar item con timeout para poder verificar cancellation
-                kind, data = await asyncio.wait_for(
+                _ = await asyncio.wait_for(
                     self._queue.get(),
                     timeout=30.0
                 )
                 
                 try:
-                    if kind == 'debate':
-                        await self.supabase.sync_debate(data)
-                        self._stats['synced'] += 1
-                        logger.debug("hybrid_memory_v2.synced",
-                                   session_id=data.get('id'))
+                    item = await self.dequeue_persistent_item()
+                    if item:
+                        processed = await self.process_persistent_item(item)
+                        if processed:
+                            self._stats['synced'] += 1
+                            logger.debug("hybrid_memory_v2.synced",
+                                       session_id=item.payload.get('id'))
+                        else:
+                            self._stats['failed'] += 1
                 except Exception as e:
                     # Silencioso - SQLite ya tiene los datos
-                    self._stats['failed'] += 1
                     logger.debug("hybrid_memory_v2.sync_failed",
-                               session_id=data.get('id'),
+                               session_id=getattr(item, "debate_id", None),
                                error=str(e))
                 finally:
                     self._queue.task_done()
+                    await self._update_queue_gauge()
                     
             except asyncio.TimeoutError:
                 # Normal, continuar loop
@@ -158,6 +181,80 @@ class HybridMemoryV2:
             'queue_size': self._queue.qsize(),
             **self._stats
         }
+
+    async def get_persistent_queue_size(self) -> int:
+        async with AsyncSessionLocal() as db_session:
+            result = await db_session.execute(
+                select(SupabaseSyncQueueItem).where(SupabaseSyncQueueItem.status == "pending")
+            )
+            return len(result.scalars().all())
+
+    async def dequeue_persistent_item(self) -> Optional[SupabaseSyncQueueItem]:
+        """Obtiene el próximo item elegible de la cola persistente."""
+        async with AsyncSessionLocal() as db_session:
+            result = await db_session.execute(
+                select(SupabaseSyncQueueItem)
+                .where(SupabaseSyncQueueItem.status == "pending")
+                .where(SupabaseSyncQueueItem.next_attempt_at <= datetime.now())
+                .order_by(SupabaseSyncQueueItem.created_at.asc())
+                .limit(1)
+            )
+            return result.scalar_one_or_none()
+
+    async def process_persistent_item(self, item: SupabaseSyncQueueItem) -> bool:
+        """Procesa un item persistente; lo elimina solo si Supabase confirma éxito."""
+        sync_result = {"synced": False, "error": "unsupported_kind"}
+        if item.kind == "debate":
+            sync_result = await self.supabase.sync_debate(item.payload)
+
+        async with AsyncSessionLocal() as db_session:
+            db_item = await db_session.get(SupabaseSyncQueueItem, item.id)
+            if not db_item:
+                return False
+
+            if sync_result.get("synced"):
+                await db_session.delete(db_item)
+                await db_session.commit()
+                return True
+
+            reason = str(sync_result.get("error") or sync_result.get("reason") or "unknown")
+            db_item.retry_count += 1
+            db_item.last_error = reason
+            db_item.next_attempt_at = datetime.now() + self._get_retry_delay(db_item.retry_count)
+            db_item.status = "pending"
+            await db_session.commit()
+            record_supabase_sync_failure(reason)
+            record_supabase_sync_retry(reason)
+            return False
+
+    def _get_retry_delay(self, retry_count: int) -> timedelta:
+        """Backoff escalonado simple para reintentos de sync."""
+        if retry_count <= 1:
+            return timedelta(seconds=5)
+        if retry_count == 2:
+            return timedelta(seconds=30)
+        if retry_count == 3:
+            return timedelta(minutes=5)
+        return timedelta(minutes=15)
+
+    async def _rehydrate_pending_queue(self) -> None:
+        """Vuelve a poner en cola en memoria los items pendientes persistidos."""
+        async with AsyncSessionLocal() as db_session:
+            result = await db_session.execute(
+                select(SupabaseSyncQueueItem)
+                .where(SupabaseSyncQueueItem.status == "pending")
+                .order_by(SupabaseSyncQueueItem.created_at.asc())
+            )
+            pending_items = result.scalars().all()
+
+        for item in pending_items:
+            await self._queue.put(item.debate_id)
+
+        await self._update_queue_gauge()
+
+    async def _update_queue_gauge(self) -> None:
+        size = await self.get_persistent_queue_size()
+        set_supabase_sync_queue_size(size)
 
 
 # Instancia global

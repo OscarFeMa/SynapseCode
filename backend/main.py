@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from typing import Dict, Any
 
 from fastapi import FastAPI, WebSocket
+from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
 from sqlalchemy import delete, select
@@ -31,11 +32,13 @@ from backend.api.routes.network import router as network_router
 from backend.api.routes.debate import router as debate_router
 from backend.api.routes.runs import router as runs_router
 from backend.api.routes.system import router as system_router
+from backend.api.routes.cache import router as cache_router
 from backend.network.discovery import node_discoverer
 from backend.network.heartbeat import HeartbeatManager
 from backend.network.tcp_handshake import TCPHandshake
 from backend.engine.task_manager import task_manager
 from backend.adapters.http_client_manager import HTTPClientManager
+from backend.monitoring.prometheus import render_prometheus_metrics
 
 # Configurar logging estructurado
 structlog.configure(
@@ -210,6 +213,7 @@ app.include_router(network_router)
 app.include_router(debate_router, prefix="/api/v1")
 app.include_router(runs_router, prefix="/api/v1")
 app.include_router(system_router, prefix="/api/v1")
+app.include_router(cache_router, prefix="/api/v1/cache")
 
 # Debug router (importación local para evitar imports circulares)
 from backend.api.routes.debug import router as debug_router
@@ -228,6 +232,15 @@ async def root():
         "health": "/health",
         "admin": "/admin"
     }
+
+
+@app.get("/metrics", include_in_schema=False)
+async def prometheus_metrics():
+    """Endpoint Prometheus para scraping."""
+    return PlainTextResponse(
+        content=render_prometheus_metrics(),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
 
 
 @app.get("/admin", include_in_schema=False)

@@ -376,8 +376,15 @@ _supabase_service: Optional[SupabaseSyncService] = None
 
 
 def get_supabase_service() -> SupabaseSyncService:
-    """Obtiene instancia singleton del servicio"""
+    """Obtiene instancia singleton del servicio. No crea instancia si no está habilitado."""
     global _supabase_service
     if _supabase_service is None:
-        _supabase_service = SupabaseSyncService()
+        # Crear instancia temporal solo para verificar si está habilitado
+        temp_service = SupabaseSyncService()
+        if not temp_service.enabled:
+            # No está habilitado, no crear instancia persistente
+            # Devolver la instancia temporal (que estará deshabilitada)
+            return temp_service
+        # Está habilitado, crear instancia persistente
+        _supabase_service = temp_service
     return _supabase_service

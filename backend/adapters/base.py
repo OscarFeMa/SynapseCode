@@ -6,11 +6,21 @@ Elimina duplicación de lógica SSE entre adaptadores.
 import asyncio
 import json
 import httpx
+import time
 import structlog
 from typing import Dict, Any, Optional, AsyncGenerator, List
 from abc import ABC, abstractmethod
 
 logger = structlog.get_logger()
+
+# Lazy init del semantic cache
+_semantic_cache = None
+def _get_semantic_cache():
+    global _semantic_cache
+    if _semantic_cache is None:
+        from backend.caching.semantic_cache import semantic_cache
+        _semantic_cache = semantic_cache
+    return _semantic_cache
 
 
 class BaseOpenAICompatibleClient(ABC):
@@ -68,9 +78,28 @@ class BaseOpenAICompatibleClient(ABC):
         stream: bool = True
     ) -> AsyncGenerator[str, None]:
         """
-        Chat completion con formato OpenAI.
+        Chat completion con formato OpenAI y caché semántica.
         Parsing SSE unificado para todos los adaptadores compatibles.
         """
+        # Convertir messages a prompt string para caché
+        prompt = json.dumps(messages)
+        
+        # Buscar en caché semántica (solo si no es streaming)
+        if not stream:
+            cache = _get_semantic_cache()
+            cached = await cache.get(
+                prompt=prompt,
+                model=model,
+                engine=self.base_url.split("://")[1].split(":")[0] if "://" in self.base_url else "local",
+                node="LOCAL" if "localhost" in self.base_url or "127.0.0.1" in self.base_url else "CLOUD",
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+            if cached:
+                logger.info("openai_base.cache_hit", model=model, similarity=cached.get("similarity"))
+                yield cached["response_text"]
+                return
+
         payload = {
             "model": model,
             "messages": messages,
@@ -84,6 +113,8 @@ class BaseOpenAICompatibleClient(ABC):
         client = self.client
         
         retry_delay = 2.0
+        start_time = time.time()
+        response_text = ""
         
         for attempt in range(self.max_retries + 1):
             try:
@@ -115,6 +146,7 @@ class BaseOpenAICompatibleClient(ABC):
                                     delta = choices[0].get("delta", {})
                                     content = delta.get("content")
                                     if content:
+                                        response_text += content
                                         yield content
                             except (json.JSONDecodeError, KeyError, IndexError):
                                 continue
@@ -137,6 +169,24 @@ class BaseOpenAICompatibleClient(ABC):
                     choices = data.get("choices", [])
                     if choices:
                         text = choices[0].get("message", {}).get("content", "")
+                        response_text = text
+                        
+                        # Guardar en caché
+                        latency_ms = int((time.time() - start_time) * 1000)
+                        cache = _get_semantic_cache()
+                        await cache.set(
+                            prompt=prompt,
+                            response_text=response_text,
+                            model=model,
+                            engine=self.base_url.split("://")[1].split(":")[0] if "://" in self.base_url else "local",
+                            node="LOCAL" if "localhost" in self.base_url or "127.0.0.1" in self.base_url else "CLOUD",
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            tokens_in=len(prompt),
+                            tokens_out=len(response_text),
+                            latency_ms=latency_ms
+                        )
+                        
                         yield text
                     return
             except Exception as e:

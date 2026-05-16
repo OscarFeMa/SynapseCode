@@ -4,6 +4,7 @@ Engine y sesión async SQLite con aiosqlite
 """
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from backend.database.models import Base
+from backend.database.migrations.sqlite_migrations import run_sqlite_migrations
 from backend.config import get_settings
 
 settings = get_settings()
@@ -38,6 +39,7 @@ async def init_db():
     """Inicializa la base de datos creando todas las tablas"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(run_sqlite_migrations)
 
 
 async def drop_db():

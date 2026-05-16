@@ -55,6 +55,7 @@ class LocalEngineManager:
         }
         self._health_cache_time: Optional[float] = None
         self._health_cache_duration = 30.0  # segundos
+        self._preload_tasks: Dict[str, asyncio.Task] = {}
         
     async def health_check(self, engine_type: EngineType) -> Dict[str, Any]:
         """Verifica salud de un motor específico"""
@@ -361,3 +362,27 @@ class LocalEngineManager:
         
         # Si todos fallaron
         raise RuntimeError(f"All local engines failed. Last error: {last_error}")
+
+    def schedule_ollama_preload(self, model: Optional[str]) -> None:
+        """Programa una precarga en segundo plano si no existe una ya activa para el modelo."""
+        if not model:
+            return
+
+        existing = self._preload_tasks.get(model)
+        if existing and not existing.done():
+            return
+
+        ollama_client = self.engines.get(EngineType.OLLAMA)
+        if not ollama_client:
+            return
+
+        async def preload() -> None:
+            try:
+                await ollama_client.warm_model(model)
+            except Exception as e:
+                logger.debug("local_engine.preload_failed", model=model, error=str(e))
+            finally:
+                self._preload_tasks.pop(model, None)
+
+        task = asyncio.create_task(preload())
+        self._preload_tasks[model] = task

@@ -6,7 +6,7 @@ import asyncio
 import json
 from typing import Dict, Set, Optional, Callable, Any
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, UTC
 import structlog
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -14,6 +14,10 @@ from fastapi import WebSocket, WebSocketDisconnect
 from backend.engine.task_manager import task_manager
 
 logger = structlog.get_logger()
+
+
+def utc_now_iso() -> str:
+    return datetime.now(UTC).isoformat()
 
 
 @dataclass
@@ -46,6 +50,9 @@ class WebSocketManager:
         self.event_callbacks: Dict[str, list] = {}
         # Referencias fuertes para evitar Garbage Collection de tareas asíncronas
         self.background_tasks: Set[asyncio.Task] = set()
+        # Buffer de token streaming por sesión/evento/rol
+        self.token_buffers: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        self.token_flush_delay_seconds: float = 0.05
         
     async def connect(self, websocket: WebSocket, session_id: str):
         """Acepta y registra nueva conexión WebSocket"""
@@ -69,7 +76,7 @@ class WebSocketManager:
             payload={
                 "message": "Connected to Synapse Council v2.0",
                 "session_id": session_id,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now_iso()
             },
             target=websocket
         )
@@ -100,10 +107,14 @@ class WebSocketManager:
         Envía evento a cliente(s).
         Si target es None, envía a todos los conectados a la sesión.
         """
+        if target is None and self._should_buffer_token_event(event_type, payload):
+            await self._buffer_token_event(session_id, event_type, payload)
+            return
+
         event = WebSocketEvent(
             type=event_type,
             session_id=session_id,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=utc_now_iso(),
             payload=payload
         )
         
@@ -137,6 +148,110 @@ class WebSocketManager:
                 # Limpiar conexiones fallidas
                 for conn in disconnected:
                     self.active_connections[session_id].discard(conn)
+
+    def _should_buffer_token_event(self, event_type: str, payload: Dict[str, Any]) -> bool:
+        return event_type.endswith("_token") and isinstance(payload.get("token"), str)
+
+    async def _buffer_token_event(self, session_id: str, event_type: str, payload: Dict[str, Any]) -> None:
+        role = str(payload.get("role", "default"))
+        session_buffers = self.token_buffers.setdefault(session_id, {})
+        buffer_key = f"{event_type}:{role}"
+        buffer_entry = session_buffers.get(buffer_key)
+
+        if buffer_entry is None:
+            buffer_entry = {
+                "event_type": event_type,
+                "role": role,
+                "token": "",
+                "token_count": 0,
+                "task": None,
+            }
+            session_buffers[buffer_key] = buffer_entry
+
+        buffer_entry["token"] += payload.get("token", "")
+        buffer_entry["token_count"] += 1
+
+        if buffer_entry["task"] is None or buffer_entry["task"].done():
+            async def delayed_flush():
+                try:
+                    await asyncio.sleep(self.token_flush_delay_seconds)
+                    await self.flush_session(session_id)
+                except Exception as e:
+                    logger.debug("websocket.token_flush_failed", session_id=session_id, error=str(e))
+
+            task = asyncio.create_task(delayed_flush())
+            self.background_tasks.add(task)
+            task.add_done_callback(self.background_tasks.discard)
+            buffer_entry["task"] = task
+
+    async def flush_session(self, session_id: str) -> None:
+        session_buffers = self.token_buffers.get(session_id, {})
+        if not session_buffers:
+            return
+
+        buffered_items = list(session_buffers.items())
+        self.token_buffers[session_id] = {}
+
+        for _, buffer_entry in buffered_items:
+            task = buffer_entry.get("task")
+            if task and not task.done():
+                task.cancel()
+
+            await self._send_raw_event(
+                session_id=session_id,
+                event_type=f"{buffer_entry['event_type']}_batch",
+                payload={
+                    "role": buffer_entry["role"],
+                    "token": buffer_entry["token"],
+                    "token_count": buffer_entry["token_count"],
+                },
+            )
+
+        if not self.token_buffers[session_id]:
+            del self.token_buffers[session_id]
+
+    async def _send_raw_event(
+        self,
+        session_id: str,
+        event_type: str,
+        payload: Dict[str, Any],
+        target: Optional[WebSocket] = None,
+    ) -> None:
+        event = WebSocketEvent(
+            type=event_type,
+            session_id=session_id,
+            timestamp=utc_now_iso(),
+            payload=payload
+        )
+
+        message = event.to_json()
+
+        if target:
+            try:
+                await target.send_text(message)
+            except Exception as e:
+                logger.warning(
+                    "websocket.send_failed",
+                    session_id=session_id,
+                    error=str(e)
+                )
+            return
+
+        if session_id in self.active_connections:
+            disconnected = []
+            for conn in self.active_connections[session_id]:
+                try:
+                    await conn.send_text(message)
+                except Exception as e:
+                    logger.warning(
+                        "websocket.broadcast_failed",
+                        session_id=session_id,
+                        error=str(e)
+                    )
+                    disconnected.append(conn)
+
+            for conn in disconnected:
+                self.active_connections[session_id].discard(conn)
     
     async def broadcast_to_all(self, event_type: str, payload: Dict[str, Any]):
         """Broadcast a TODAS las sesiones (uso con cautela)"""
@@ -212,9 +327,10 @@ async def handle_websocket(websocket: WebSocket, session_id: str):
                 msg_type = message.get("type", "unknown")
                 
                 if msg_type == "ping":
-                    await websocket.send_json({"type": "pong", "timestamp": datetime.utcnow().isoformat()})
+                    await websocket.send_json({"type": "pong", "timestamp": utc_now_iso()})
                 
                 elif msg_type == "get_status":
+                    await websocket_manager.flush_session(session_id)
                     stats = websocket_manager.get_session_stats(session_id)
                     await websocket.send_json({"type": "status", "data": stats})
                 
@@ -223,7 +339,7 @@ async def handle_websocket(websocket: WebSocket, session_id: str):
                     await websocket.send_json({
                         "type": "ack",
                         "received_type": msg_type,
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": utc_now_iso()
                     })
                     
             except json.JSONDecodeError:
@@ -237,4 +353,5 @@ async def handle_websocket(websocket: WebSocket, session_id: str):
     except Exception as e:
         logger.error("websocket.error", session_id=session_id, error=str(e))
     finally:
+        await websocket_manager.flush_session(session_id)
         websocket_manager.disconnect(websocket, session_id)
