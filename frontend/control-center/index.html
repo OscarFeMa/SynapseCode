@@ -248,7 +248,7 @@ const M_CACHE = {total_entries:1247,total_hits:834,hit_rate:66.9,enabled:true,si
 const M_TRIB = {maxIterations:3,cloudFallbackEnabled:true,roles:{defensor:{primary:{model:"llama3:8b",engine:"ollama"},fallbacks:[{model:"mistral:7b",engine:"ollama"}]},fiscal:{primary:{model:"gemini-2.5-flash",engine:"gemini"},fallbacks:[{model:"llama-3.3-70b",engine:"groq"}]},arbitro:{primary:{model:"deepseek-r1:7b",engine:"ollama"},fallbacks:[{model:"meta-llama/llama-3.1-70b",engine:"openrouter"}]}}};
 const M_METRICS = [{hour:"00",v:2},{hour:"02",v:1},{hour:"04",v:0},{hour:"06",v:3},{hour:"08",v:8},{hour:"10",v:12},{hour:"12",v:15},{hour:"14",v:18},{hour:"16",v:14},{hour:"18",v:10},{hour:"20",v:6},{hour:"22",v:3}];
 const M_USAGE = [{name:"llama3:8b",v:34,c:"#00FF88"},{name:"gemini-2.5-flash",v:25,c:"#8B5CF6"},{name:"qwen2.5:14b",v:22,c:"#22D3EE"},{name:"mistral:7b",v:28,c:"#F59E0B"},{name:"deepseek-r1:7b",v:19,c:"#EF4444"},{name:"groq-70b",v:15,c:"#EC4899"}];
-const M_WORKER = {ollama:{status:"running",port:11434},lm_studio:{status:"running",port:1234},jan:{status:"stopped",port:1337}};
+const M_WORKER = {worker_ip:"192.168.1.33",services:{ollama:{status:"running",port:11434},lm_studio:{status:"running",port:1234},jan:{status:"stopped",port:1337}}};
 const M_ANALYTICS = {dailySummary:{totalDebatesCompleted:142,totalDebatesFailed:3,totalTurnsExecuted:568,totalTokensGenerated:1200000,avgDebateDurationSeconds:180}};
 
 // ─── STATE ───
@@ -329,7 +329,7 @@ function topbar() {
     <div class="tabs">${tabs.map(t=>`<button class="tab ${S.tab===t.id?'active':''}" data-tab="${t.id}">${t.icon} ${t.l}</button>`).join('')}</div>
     <div class="status">
       <div class="live"><span class="dot"></span>LIVE</div>
-      <span class="badge ${S.wsOk?'':'err'}">${S.wsOk?'WS:OK':'WS:ERR'}</span>
+      ${!S.demo?`<span class="badge ${S.wsOk?'':'err'}">${S.wsOk?'WS:OK':'WS:ERR'}</span>`:''}
       <span class="demo-btn" data-demo>${S.demo?'🎮 DEMO':'📡 LIVE'}</span>
       <button class="settings-btn" data-settings>⚙</button>
     </div>
@@ -853,13 +853,20 @@ function sendChat() {
 fetchData();
 setInterval(() => { if(S.pollOn) fetchData(); }, S.interval);
 
-// WebSocket
-try {
-  const ws = new WebSocket(`ws://${BASE.replace('http://','')}/ws/debate/stream`);
-  ws.onopen = () => { S.wsOk=true; render(); };
-  ws.onclose = () => { S.wsOk=false; render(); };
-  ws.onmessage = e => { try { S.streamMsgs.push(JSON.parse(e.data)); S.streamId=S.streamId||'active'; render(); } catch(ex){} };
-} catch(e) { S.wsOk=false; }
+// WebSocket (solo si no es demo y backend disponible)
+let ws = null;
+function tryConnectWS() {
+  if(S.demo || ws) return;
+  try {
+    ws = new WebSocket(`ws://${BASE.replace('http://','')}/ws/debate/stream`);
+    ws.onopen = () => { S.wsOk=true; render(); };
+    ws.onclose = () => { S.wsOk=false; ws=null; render(); };
+    ws.onerror = () => { S.wsOk=false; ws=null; };
+    ws.onmessage = e => { try { S.streamMsgs.push(JSON.parse(e.data)); S.streamId=S.streamId||'active'; render(); } catch(ex){} };
+  } catch(e) { S.wsOk=false; }
+}
+// Intentar WS solo después de confirmar que el backend responde
+setTimeout(tryConnectWS, 2000);
 
 render();
 </script>
