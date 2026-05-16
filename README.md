@@ -135,6 +135,8 @@ create_debate_with_id()
 |--------|------|-------------|
 | `POST` | `/api/v1/debates/create` | Crear debate secuencial |
 | `POST` | `/api/v1/debates/create/iterative` | Debate iterativo avanzado |
+| `POST` | `/api/v1/debates/{id}/pause` | Pausar debate en ejecucion |
+| `POST` | `/api/v1/debates/{id}/resume` | Reanudar debate pausado |
 | `POST` | `/api/v1/debates/{id}/continue` | Continuar debate completado |
 | `GET` | `/api/v1/debates/{id}` | Estado completo del debate |
 | `GET` | `/api/v1/debates/{id}/status` | Estado resumido |
@@ -191,6 +193,7 @@ create_debate_with_id()
 
 | Versión | Fecha | Cambios principales |
 |---------|-------|-------------------|
+| **v2.5** | May 2026 | Pausar/Reanudar debates, migracion SQLite para pause fields |
 | **v2.4** | May 2026 | Continuación de debates, caché semántica, Data Warehouse, Prometheus, Tribunal fallback chains, Reductio Absurdum, tests fijos |
 | **v2.3** | May 2026 | Control Center web, exportación limpia, health check inteligente, fixes |
 | **v2.2** | May 2026 | APIs cloud (Groq, Gemini), Web Agent 10 sitios, Worker auto-launch, limpieza general |

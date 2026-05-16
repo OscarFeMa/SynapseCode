@@ -278,6 +278,45 @@ class TestAPIEndpoints:
         assert hasattr(controller, "_reconstruct_session_from_db")
         assert hasattr(controller, "_extract_agents_from_session")
 
+    def test_pause_debate_endpoint_exists(self):
+        from backend.api.routes.debate import router, DebatePauseRequest
+        pause_routes = [r for r in router.routes if hasattr(r, "path") and "/pause" in r.path]
+        assert len(pause_routes) >= 1, "POST /debates/{session_id}/pause not found"
+        post_routes = [r for r in pause_routes if hasattr(r, "methods") and "POST" in r.methods]
+        assert len(post_routes) >= 1, "POST method not found for pause endpoint"
+
+    def test_resume_debate_endpoint_exists(self):
+        from backend.api.routes.debate import router, DebateResumeResponse
+        resume_routes = [r for r in router.routes if hasattr(r, "path") and "/resume" in r.path]
+        assert len(resume_routes) >= 1, "POST /debates/{session_id}/resume not found"
+        post_routes = [r for r in resume_routes if hasattr(r, "methods") and "POST" in r.methods]
+        assert len(post_routes) >= 1, "POST method not found for resume endpoint"
+
+    def test_pause_debate_request_model(self):
+        from backend.api.routes.debate import DebatePauseRequest
+        req = DebatePauseRequest(reason="Server maintenance")
+        assert req.reason == "Server maintenance"
+
+    def test_pause_resume_controller_methods_exist(self):
+        from backend.engine.sequential_debate_controller import SequentialDebateController
+        controller = SequentialDebateController()
+        assert hasattr(controller, "pause_debate"), "pause_debate method not found"
+        assert hasattr(controller, "resume_debate"), "resume_debate method not found"
+
+    def test_debate_session_has_pause_fields(self):
+        from backend.engine.debate_models import DebateSession
+        session = DebateSession(id="test", topic="test", status="paused")
+        assert hasattr(session, "paused_at")
+        assert hasattr(session, "pause_reason")
+        session.paused_at = datetime.now()
+        session.pause_reason = "test reason"
+        assert session.pause_reason == "test reason"
+
+    def test_sequential_debate_model_has_pause_fields(self):
+        from backend.database.models import SequentialDebate
+        assert hasattr(SequentialDebate, "paused_at")
+        assert hasattr(SequentialDebate, "pause_reason")
+
 
 # ============================================================================
 # NIVEL 3: CACHE SEMANTICA
