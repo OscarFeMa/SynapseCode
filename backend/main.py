@@ -11,6 +11,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
+from pathlib import Path
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,27 +41,19 @@ from backend.engine.task_manager import task_manager
 from backend.adapters.http_client_manager import HTTPClientManager
 from backend.monitoring.prometheus import render_prometheus_metrics
 
-# Configurar logging estructurado
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.dev.ConsoleRenderer()  # Cambiado de JSONRenderer para ver en consola
-    ],
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    wrapper_class=structlog.stdlib.BoundLogger,
-    cache_logger_on_first_use=True,
-)
-
 logger = structlog.get_logger()
 settings = get_settings()
+
+# Configurar logging estructurado con archivos rotatorios
+from backend.logging_config import setup_logging
+setup_logging(
+    log_level=settings.LOG_LEVEL,
+    log_dir=Path(settings.LOG_DIR),
+    max_bytes=settings.LOG_MAX_BYTES,
+    backup_count=settings.LOG_BACKUP_COUNT,
+    console=True,
+    file_output=settings.LOG_TO_FILE,
+)
 
 # Instancia global de heartbeat manager
 heartbeat_manager: HeartbeatManager = None
