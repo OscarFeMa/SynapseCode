@@ -102,7 +102,7 @@ class NodeDiscoverer:
                 subnet_broadcast = f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}.255"
                 if subnet_broadcast not in addresses:
                     addresses.append(subnet_broadcast)
-        except:
+        except Exception:
             pass
 
         return addresses
@@ -122,7 +122,7 @@ class NodeDiscoverer:
             try:
                 # Timeout para no bloquear indefinidamente
                 sock.settimeout(1.0)
-            except:
+            except Exception:
                 pass
 
         broadcast_addrs = self._get_broadcast_addresses()

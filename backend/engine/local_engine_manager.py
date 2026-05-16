@@ -118,7 +118,7 @@ class LocalEngineManager:
                             if is_online:
                                 self.engine_failures[engine_type] = 0
                                 return result
-                    except:
+                    except Exception:
                         pass
             except ImportError:
                 # WorkerServiceManager no disponible, fallback a RDP wake

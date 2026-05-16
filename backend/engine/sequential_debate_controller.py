@@ -25,9 +25,21 @@ from backend.database.models import (
     SequentialDebateTurn,
 )
 from backend.engine.convergence import ConvergenceEvaluator
+from backend.engine.debate_models import (
+    AgentRole,
+    CruzamientoCritico,
+    DebateAgent,
+    DebateSession,
+    DebateTurn,
+    IteracionDebate,
+)
 from backend.engine.intervention_taxonomy import detect_intervention_type
 from backend.engine.local_engine_manager import EngineType, LocalEngineManager
 from backend.engine.quality_monitor import evaluate_response
+from backend.engine.reductio_absurdum import (
+    ComplacencyScan,
+    get_reductio_absurdum_engine,
+)
 from backend.engine.reputation_unified import reputation_service
 from backend.engine.task_manager import (
     TaskConfig,
@@ -74,20 +86,6 @@ def _get_supabase_service():
 # Directorio para transcripts
 TRANSCRIPTS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "debates")
 os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
-
-
-from backend.engine.debate_models import (
-    AgentRole,
-    CruzamientoCritico,
-    DebateAgent,
-    DebateSession,
-    DebateTurn,
-    IteracionDebate,
-)
-from backend.engine.reductio_absurdum import (
-    ComplacencyScan,
-    get_reductio_absurdum_engine,
-)
 
 
 class SequentialDebateController:
@@ -827,7 +825,7 @@ class SequentialDebateController:
                     if db_debate:
                         db_debate.status = "failed"
                         await db_session.commit()
-            except:
+            except Exception:
                 pass
             logger.error(
                 "sequential_debate.failed", session_id=session_id, error=str(e)
