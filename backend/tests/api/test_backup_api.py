@@ -1,8 +1,10 @@
 """
 API tests for backup endpoints
 """
-from backend.main import app
+
 from fastapi.testclient import TestClient
+
+from backend.main import app
 
 
 class TestBackupEndpoints:
@@ -10,6 +12,7 @@ class TestBackupEndpoints:
 
     def test_backup_status_endpoint(self, monkeypatch):
         from backend.api.routes import system as system_routes
+
         monkeypatch.setattr(system_routes.settings, "ADMIN_API_LOCALHOST_ONLY", False)
         client = TestClient(app)
         response = client.get("/api/v1/system/backup/status")
@@ -23,6 +26,7 @@ class TestBackupEndpoints:
 
     def test_backup_create_endpoint(self, monkeypatch):
         from backend.api.routes import system as system_routes
+
         monkeypatch.setattr(system_routes.settings, "ADMIN_API_LOCALHOST_ONLY", False)
         client = TestClient(app)
         response = client.post("/api/v1/system/backup/create")
@@ -32,6 +36,7 @@ class TestBackupEndpoints:
 
     def test_backup_list_endpoint(self, monkeypatch):
         from backend.api.routes import system as system_routes
+
         monkeypatch.setattr(system_routes.settings, "ADMIN_API_LOCALHOST_ONLY", False)
         client = TestClient(app)
         response = client.get("/api/v1/system/backup/list")

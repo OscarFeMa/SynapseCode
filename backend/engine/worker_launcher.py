@@ -3,10 +3,12 @@ WorkerServiceManager - Detección y lanzamiento remoto de servicios en Worker.
 Verifica: Ollama (:11434), LM Studio (:1234/:1235), Jan (:1337).
 Intenta lanzarlos vía WinRM, RDP + script, o alerta al usuario.
 """
+
 import asyncio
-import structlog
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+import structlog
 
 from backend.config import get_settings
 
@@ -17,6 +19,7 @@ settings = get_settings()
 @dataclass
 class WorkerService:
     """Representa un servicio en el Worker"""
+
     name: str
     port: int
     alt_ports: List[int] = field(default_factory=list)
@@ -52,12 +55,8 @@ SERVICES = {
         name="Jan",
         port=settings.WORKER_JAN_PORT,
         process_name="jan",
-        winrm_command=(
-            'start "" "C:\\Users\\maked\\AppData\\Local\\jan\\jan.exe"'
-        ),
-        rdp_script=(
-            'start "" "C:\\Users\\maked\\AppData\\Local\\jan\\jan.exe"'
-        ),
+        winrm_command=('start "" "C:\\Users\\maked\\AppData\\Local\\jan\\jan.exe"'),
+        rdp_script=('start "" "C:\\Users\\maked\\AppData\\Local\\jan\\jan.exe"'),
     ),
 }
 
@@ -70,7 +69,9 @@ class WorkerServiceManager:
 
     def __init__(self):
         self._worker_ip: Optional[str] = None
-        self._services: Dict[str, WorkerService] = {k: WorkerService(**v.__dict__) for k, v in SERVICES.items()}
+        self._services: Dict[str, WorkerService] = {
+            k: WorkerService(**v.__dict__) for k, v in SERVICES.items()
+        }
         self._check_cache: Dict[str, Dict[str, Any]] = {}
         self._cache_ttl = 15  # segundos
 
@@ -103,6 +104,7 @@ class WorkerServiceManager:
         """Verifica servicio vía HTTP health endpoint"""
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.get(f"{base_url}/models")
                 return resp.status_code == 200
@@ -112,14 +114,17 @@ class WorkerServiceManager:
     async def check_all_services(self) -> Dict[str, Dict[str, Any]]:
         """Verifica el estado de todos los servicios en el Worker"""
         import time
+
         now = time.time()
         if self._check_cache and (now - self._get_cache_time()) < self._cache_ttl:
             return self._check_cache
 
         host = await self.resolve_worker_ip()
         if not host:
-            return {name: {"status": "unknown", "error": "Worker IP no resuelta"}
-                    for name in self._services}
+            return {
+                name: {"status": "unknown", "error": "Worker IP no resuelta"}
+                for name in self._services
+            }
 
         results = {}
         for name, svc in self._services.items():
@@ -139,7 +144,11 @@ class WorkerServiceManager:
                 if await self.check_http_health(jan_url):
                     svc.is_running = True
                     svc.running_on_port = svc.port
-                    results[name] = {"status": "running", "port": svc.port, "via": "http_health"}
+                    results[name] = {
+                        "status": "running",
+                        "port": svc.port,
+                        "via": "http_health",
+                    }
                     continue
 
             # Check alternate ports
@@ -160,7 +169,7 @@ class WorkerServiceManager:
         return results
 
     def _get_cache_time(self) -> float:
-        return getattr(self, '_cache_timestamp', 0.0)
+        return getattr(self, "_cache_timestamp", 0.0)
 
     async def launch_service_winrm(self, service_name: str) -> Dict[str, Any]:
         """
@@ -177,6 +186,7 @@ class WorkerServiceManager:
 
         try:
             import subprocess
+
             ps_script = f"""
             $process = Get-Process -Name "{svc.process_name}" -ErrorAction SilentlyContinue
             if (-not $process) {{
@@ -187,19 +197,24 @@ class WorkerServiceManager:
             }}
             """
             cmd = [
-                "powershell", "-Command",
-                f"Invoke-Command -ComputerName {host} -ScriptBlock {{ {ps_script} }}"
+                "powershell",
+                "-Command",
+                f"Invoke-Command -ComputerName {host} -ScriptBlock {{ {ps_script} }}",
             ]
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=30
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode == 0:
-                logger.info("worker_launcher.winrm_success",
-                          service=service_name, output=result.stdout.strip())
+                logger.info(
+                    "worker_launcher.winrm_success",
+                    service=service_name,
+                    output=result.stdout.strip(),
+                )
                 return {"success": True, "output": result.stdout.strip()}
             else:
-                logger.warning("worker_launcher.winrm_failed",
-                             service=service_name, error=result.stderr.strip())
+                logger.warning(
+                    "worker_launcher.winrm_failed",
+                    service=service_name,
+                    error=result.stderr.strip(),
+                )
                 return {"success": False, "error": result.stderr.strip()}
         except subprocess.TimeoutExpired:
             return {"success": False, "error": "WinRM timeout"}
@@ -229,13 +244,17 @@ class WorkerServiceManager:
                 rate_limit_id=f"launch_{service_name}",
             )
 
-            logger.info("worker_launcher.rdp_launch_attempted",
-                      service=service_name, success=result.success)
+            logger.info(
+                "worker_launcher.rdp_launch_attempted",
+                service=service_name,
+                success=result.success,
+            )
             return {"success": result.success, "message": result.message}
 
         except Exception as e:
-            logger.error("worker_launcher.rdp_launch_failed",
-                       service=service_name, error=str(e))
+            logger.error(
+                "worker_launcher.rdp_launch_failed", service=service_name, error=str(e)
+            )
             return {"success": False, "error": str(e)}
 
     async def ensure_service_running(self, service_name: str) -> Dict[str, Any]:
@@ -261,9 +280,16 @@ class WorkerServiceManager:
         # 2. Intentar WinRM solo si el comando es ejecutable
         try:
             import subprocess
+
             result = subprocess.run(
-                ["powershell", "-Command", "Get-Item WSMan:\\localhost\\Client\\TrustedHosts"],
-                capture_output=True, text=True, timeout=5
+                [
+                    "powershell",
+                    "-Command",
+                    "Get-Item WSMan:\\localhost\\Client\\TrustedHosts",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 logger.info("worker_launcher.try_winrm", service=service_name)
@@ -271,7 +297,11 @@ class WorkerServiceManager:
                 await asyncio.sleep(3)
                 status = await self.check_all_services()
                 if status.get(service_name, {}).get("status") == "running":
-                    return {"success": True, "service": service_name, "action": "launched_via_winrm"}
+                    return {
+                        "success": True,
+                        "service": service_name,
+                        "action": "launched_via_winrm",
+                    }
         except Exception as e:
             logger.debug("worker_launcher.winrm_unavailable", error=str(e)[:60])
 
@@ -279,14 +309,17 @@ class WorkerServiceManager:
         if settings.RDP_ENABLED:
             logger.info("worker_launcher.try_rdp", service=service_name)
             try:
-                import asyncio
                 rdp_result = await asyncio.wait_for(
                     self.launch_service_rdp(service_name), timeout=10
                 )
                 await asyncio.sleep(3)
                 status = await self.check_all_services()
                 if status.get(service_name, {}).get("status") == "running":
-                    return {"success": True, "service": service_name, "action": "launched_via_rdp"}
+                    return {
+                        "success": True,
+                        "service": service_name,
+                        "action": "launched_via_rdp",
+                    }
             except asyncio.TimeoutError:
                 rdp_result = {"success": False, "error": "timeout"}
         else:
@@ -325,7 +358,11 @@ class WorkerServiceManager:
         for name, info in status.items():
             s = info.get("status", "unknown")
             port = info.get("port", "?")
-            icon = {"running": "RUNNING", "stopped": "STOPPED", "unknown": "UNKNOWN"}.get(s, "?")
+            icon = {
+                "running": "RUNNING",
+                "stopped": "STOPPED",
+                "unknown": "UNKNOWN",
+            }.get(s, "?")
             lines.append(f"  [{icon}] {name.capitalize()} (:{port})")
         return "\n".join(lines)
 

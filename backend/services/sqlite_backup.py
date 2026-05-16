@@ -2,17 +2,19 @@
 SynapseCode - SQLite Backup Service
 Automatic backup of SQLite database to Supabase Storage
 """
+
 import os
 import shutil
 import tempfile
-import httpx
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
+
+import httpx
 import structlog
 
+from backend.adapters.http_client_manager import ClientConfig, HTTPClientManager
 from backend.config import get_settings
-from backend.adapters.http_client_manager import HTTPClientManager, ClientConfig
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -38,7 +40,13 @@ class SQLiteBackupService:
             or not self.key
         )
         self.enabled = settings.SUPABASE_ENABLED and not is_placeholder
-        self.db_path = settings.DATABASE_URL.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "") if settings.DATABASE_URL else ""
+        self.db_path = (
+            settings.DATABASE_URL.replace("sqlite+aiosqlite:///", "").replace(
+                "sqlite:///", ""
+            )
+            if settings.DATABASE_URL
+            else ""
+        )
 
     def _get_storage_client(self) -> httpx.AsyncClient:
         """Obtiene cliente HTTP para Supabase Storage"""
@@ -48,7 +56,7 @@ class SQLiteBackupService:
                 "apikey": self.service_key,
                 "Authorization": f"Bearer {self.service_key}",
                 "Content-Type": "application/octet-stream",
-            }
+            },
         )
         return HTTPClientManager.get_client(self.SERVICE_NAME, config=config)
 
@@ -62,7 +70,7 @@ class SQLiteBackupService:
             # Listar buckets para verificar si existe
             response = await client.get(
                 f"{self.url}/storage/v1/bucket",
-                headers={"Authorization": f"Bearer {self.service_key}"}
+                headers={"Authorization": f"Bearer {self.service_key}"},
             )
 
             if response.status_code == 200:
@@ -82,18 +90,22 @@ class SQLiteBackupService:
                     headers={
                         "Authorization": f"Bearer {self.service_key}",
                         "Content-Type": "application/json",
-                    }
+                    },
                 )
 
                 if create_response.status_code in [200, 201]:
-                    logger.info("supabase_storage.bucket_created", bucket=self.BACKUP_BUCKET)
+                    logger.info(
+                        "supabase_storage.bucket_created", bucket=self.BACKUP_BUCKET
+                    )
                     return True
                 elif "already exists" in create_response.text.lower():
                     return True
                 else:
-                    logger.warning("supabase_storage.bucket_create_failed",
-                                  status=create_response.status_code,
-                                  error=create_response.text)
+                    logger.warning(
+                        "supabase_storage.bucket_create_failed",
+                        status=create_response.status_code,
+                        error=create_response.text,
+                    )
                     return False
 
             return False
@@ -113,7 +125,10 @@ class SQLiteBackupService:
             return {"success": False, "reason": "Supabase not enabled"}
 
         if not self.db_path or not Path(self.db_path).exists():
-            return {"success": False, "reason": f"Database file not found: {self.db_path}"}
+            return {
+                "success": False,
+                "reason": f"Database file not found: {self.db_path}",
+            }
 
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         backup_filename = f"synapse_{timestamp}.db"
@@ -128,7 +143,10 @@ class SQLiteBackupService:
             # Verificar que el bucket existe
             bucket_ready = await self._ensure_bucket_exists()
             if not bucket_ready:
-                return {"success": False, "reason": "Could not create/verify backup bucket"}
+                return {
+                    "success": False,
+                    "reason": "Could not create/verify backup bucket",
+                }
 
             # Subir a Supabase Storage
             client = self._get_storage_client()
@@ -142,14 +160,16 @@ class SQLiteBackupService:
                     "Authorization": f"Bearer {self.service_key}",
                     "Content-Type": "application/octet-stream",
                     "x-upsert": "true",
-                }
+                },
             )
 
             if upload_response.status_code in [200, 201]:
                 file_size = len(db_content)
-                logger.info("supabase_storage.backup_uploaded",
-                           filename=backup_filename,
-                           size_bytes=file_size)
+                logger.info(
+                    "supabase_storage.backup_uploaded",
+                    filename=backup_filename,
+                    size_bytes=file_size,
+                )
 
                 return {
                     "success": True,
@@ -160,9 +180,11 @@ class SQLiteBackupService:
                     "url": f"{self.url}/storage/v1/object/{self.BACKUP_BUCKET}/{backup_filename}",
                 }
             else:
-                logger.error("supabase_storage.upload_failed",
-                            status=upload_response.status_code,
-                            error=upload_response.text)
+                logger.error(
+                    "supabase_storage.upload_failed",
+                    status=upload_response.status_code,
+                    error=upload_response.text,
+                )
                 return {"success": False, "error": upload_response.text}
 
         except Exception as e:
@@ -202,7 +224,7 @@ class SQLiteBackupService:
                 headers={
                     "Authorization": f"Bearer {self.service_key}",
                     "Content-Type": "application/json",
-                }
+                },
             )
 
             if response.status_code == 200:
@@ -218,8 +240,7 @@ class SQLiteBackupService:
                     if f.get("name", "").endswith(".db")
                 ]
 
-            logger.warning("supabase_storage.list_failed",
-                          status=response.status_code)
+            logger.warning("supabase_storage.list_failed", status=response.status_code)
             return []
 
         except Exception as e:
@@ -243,7 +264,7 @@ class SQLiteBackupService:
             client = self._get_storage_client()
             response = await client.delete(
                 f"{self.url}/storage/v1/object/{self.BACKUP_BUCKET}/{filename}",
-                headers={"Authorization": f"Bearer {self.service_key}"}
+                headers={"Authorization": f"Bearer {self.service_key}"},
             )
 
             if response.status_code in [200, 204]:
@@ -282,9 +303,11 @@ class SQLiteBackupService:
                     tmp.write(response.content)
                     download_path = tmp.name
 
-                logger.info("supabase_storage.backup_downloaded",
-                           filename=filename,
-                           size_bytes=len(response.content))
+                logger.info(
+                    "supabase_storage.backup_downloaded",
+                    filename=filename,
+                    size_bytes=len(response.content),
+                )
 
                 return {
                     "success": True,

@@ -1,8 +1,10 @@
 """
 API tests for health and system endpoints
 """
-from backend.main import app
+
 from fastapi.testclient import TestClient
+
+from backend.main import app
 
 
 class TestHealthEndpoints:
@@ -56,6 +58,7 @@ class TestSystemEndpoints:
 
     def test_tribunal_config_endpoint_returns_effective_roles(self, monkeypatch):
         from backend.api.routes import system as system_routes
+
         monkeypatch.setattr(system_routes.settings, "ADMIN_API_LOCALHOST_ONLY", False)
         client = TestClient(app)
         response = client.get("/api/v1/system/tribunal/config")
@@ -73,6 +76,7 @@ class TestSystemEndpoints:
 
     def test_reductio_analytics_endpoint_exists(self, monkeypatch):
         from backend.api.routes import system as system_routes
+
         monkeypatch.setattr(system_routes.settings, "ADMIN_API_LOCALHOST_ONLY", False)
         client = TestClient(app)
         response = client.get("/api/v1/system/reductio/analytics")

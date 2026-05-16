@@ -1,7 +1,9 @@
 """
 Unit tests for WebSocket manager
 """
+
 from unittest.mock import MagicMock
+
 from backend.api.websocket import WebSocketManager
 
 

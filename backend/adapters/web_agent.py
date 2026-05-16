@@ -4,7 +4,9 @@ Cliente Playwright para IAs web gratuitas sin API
 Soporta: ChatGPT, Claude, Gemini, DeepSeek, Perplexity, Grok, Mistral, Meta AI, HuggingChat, You.com
 Usa playwright-stealth para evitar detección por Cloudflare y similares.
 """
-from typing import Dict, Any, Optional
+
+from typing import Any, Dict
+
 from backend.config import get_settings
 
 settings = get_settings()
@@ -148,10 +150,11 @@ class WebAgentClient:
         """Aplica evasiones de detección a la página (playwright-stealth)"""
         try:
             from playwright_stealth import stealth_async
+
             await stealth_async(page)
         except ImportError:
             pass  # playwright-stealth no instalado, continuar sin stealth
-    
+
     async def _launch_browser(self):
         """Lanza navegador persistente con configuraciones anti-detección"""
         from playwright.async_api import async_playwright
@@ -181,6 +184,7 @@ class WebAgentClient:
         # Usar Chrome del sistema si está configurado (aprovecha sesiones guardadas)
         if settings.WEB_AGENT_BROWSER == "chrome":
             import os as _os
+
             chrome_path = settings.WEB_AGENT_CHROME_PATH
             if _os.path.exists(chrome_path):
                 kwargs["executable_path"] = chrome_path
@@ -219,16 +223,26 @@ class WebAgentClient:
         page = await browser.new_page()
         try:
             await self._apply_stealth(page)
-            await page.goto(config["url"], timeout=self.timeout * 1000, wait_until="domcontentloaded")
-            await page.wait_for_timeout(2000)  # Esperar 2s para que carguen scripts anti-bot
-            await page.wait_for_selector(config["input_selector"], timeout=config["wait_for"])
+            await page.goto(
+                config["url"],
+                timeout=self.timeout * 1000,
+                wait_until="domcontentloaded",
+            )
+            await page.wait_for_timeout(
+                2000
+            )  # Esperar 2s para que carguen scripts anti-bot
+            await page.wait_for_selector(
+                config["input_selector"], timeout=config["wait_for"]
+            )
             await page.fill(config["input_selector"], prompt)
             await page.wait_for_timeout(500)
 
             if config.get("submit_selector"):
                 await page.click(config["submit_selector"])
 
-            await page.wait_for_selector(config["response_selector"], timeout=self.timeout * 1000)
+            await page.wait_for_selector(
+                config["response_selector"], timeout=self.timeout * 1000
+            )
             response = await page.inner_text(config["response_selector"])
             return response
         finally:

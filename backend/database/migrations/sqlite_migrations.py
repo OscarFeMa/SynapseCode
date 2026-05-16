@@ -5,9 +5,9 @@ SQLAlchemy's create_all() creates missing tables, but it intentionally does not
 alter existing tables. These migrations keep older local SQLite databases
 compatible with the current ORM models without dropping user data.
 """
+
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
-
 
 PROMPT_CACHE_TABLE = "prompt_response_cache"
 
@@ -15,8 +15,7 @@ PROMPT_CACHE_TABLE = "prompt_response_cache"
 def _table_exists(conn: Connection, table_name: str) -> bool:
     result = conn.execute(
         text(
-            "SELECT name FROM sqlite_master "
-            "WHERE type = 'table' AND name = :table_name"
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = :table_name"
         ),
         {"table_name": table_name},
     )
@@ -38,9 +37,7 @@ def _add_column_if_missing(
     if column_name in columns:
         return
 
-    conn.execute(
-        text(f"ALTER TABLE {table_name} ADD COLUMN {column_definition}")
-    )
+    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_definition}"))
     columns.add(column_name)
 
 

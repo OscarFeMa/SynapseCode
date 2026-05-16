@@ -2,14 +2,15 @@
 Synapse Council v2.0 - Prompts System
 System prompts para cada rol de agente
 """
+
 from typing import Dict, Optional
 
 
 class PromptBuilder:
     """Constructor de prompts para cada fase del debate"""
-    
+
     # ─── FASE 1: ANALISTAS ─────────────────────────────────────
-    
+
     ANALYST_LOCAL_A = """Eres {role_label}, un analista experto en razonamiento estructurado.
 Tu ángulo de análisis específico es: Viabilidad práctica, recursos necesarios, y riesgos de implementación técnica.
 
@@ -141,7 +142,7 @@ PREGUNTA A ANALIZAR:
 """
 
     # ─── FASE 2: CRÍTICOS ─────────────────────────────────────
-    
+
     CRITIC_LOCAL_A = """Eres {role_label}, un revisor crítico especializado en evaluación de razonamientos técnicos.
 
 MANDATO:
@@ -224,7 +225,7 @@ FORMATO DE RESPUESTA:
 """
 
     # ─── FASE 3: SÍNTESIS ─────────────────────────────────────
-    
+
     SYNTHESIS_LOCAL = """Eres {role_label}, un sintetizador experto en integración de perspectivas.
 
 OBJETIVO ORIGINAL: {query}
@@ -279,31 +280,29 @@ FORMATO DE RESPUESTA:
         query: str,
         role_label: str,
         max_tokens: int = 1000,
-        context: Optional[str] = None
+        context: Optional[str] = None,
     ) -> str:
         """Construye prompt para analistas"""
-        
+
         prompts = {
             "analyst_local_a": cls.ANALYST_LOCAL_A,
             "analyst_local_b": cls.ANALYST_LOCAL_B,
             "analyst_cloud_a": cls.ANALYST_CLOUD_A,
             "analyst_cloud_b": cls.ANALYST_CLOUD_B,
         }
-        
+
         template = prompts.get(agent_slot, cls.ANALYST_LOCAL_A)
-        
+
         prompt = template.format(
-            role_label=role_label,
-            query=query,
-            max_tokens=max_tokens
+            role_label=role_label, query=query, max_tokens=max_tokens
         )
-        
+
         # Agregar contexto de rondas previas si existe
         if context:
             prompt += f"\n\n## Contexto de Rondas Previas\n{context}\n"
-        
+
         return prompt
-    
+
     @classmethod
     def build_critic_prompt(
         cls,
@@ -311,26 +310,26 @@ FORMATO DE RESPUESTA:
         target_analysis: str,
         other_analyses: str,
         role_label: str,
-        max_tokens: int = 1500
+        max_tokens: int = 1500,
     ) -> str:
         """Construye prompt para críticos con contexto global"""
-        
+
         prompts = {
             "critic_local_a": cls.CRITIC_LOCAL_A,
             "critic_local_b": cls.CRITIC_LOCAL_B,
             "critic_cloud_a": cls.CRITIC_CLOUD_A,
             "critic_cloud_b": cls.CRITIC_CLOUD_B,
         }
-        
+
         template = prompts.get(agent_slot, cls.CRITIC_LOCAL_A)
-        
+
         return template.format(
             role_label=role_label,
             target_analysis=target_analysis,
             other_analyses=other_analyses,
-            max_tokens=max_tokens
+            max_tokens=max_tokens,
         )
-    
+
     @classmethod
     def build_synthesis_prompt(
         cls,
@@ -339,7 +338,7 @@ FORMATO DE RESPUESTA:
         analyses: Dict[str, str],
         critiques: Dict[str, str],
         max_tokens: int = 2000,
-        role_label: str = "Sintetizador"
+        role_label: str = "Sintetizador",
     ) -> str:
         """Construye prompt para síntesis de nodo incluyendo el objetivo original"""
 
@@ -349,15 +348,19 @@ FORMATO DE RESPUESTA:
             template = cls.SYNTHESIS_CLOUD
 
         # Formatear análisis y críticas
-        analyses_text = "\n\n".join([
-            f"### Análisis de {name}:\n{content}"
-            for name, content in analyses.items()
-        ])
+        analyses_text = "\n\n".join(
+            [
+                f"### Análisis de {name}:\n{content}"
+                for name, content in analyses.items()
+            ]
+        )
 
-        critiques_text = "\n\n".join([
-            f"### Crítica de {name}:\n{content}"
-            for name, content in critiques.items()
-        ])
+        critiques_text = "\n\n".join(
+            [
+                f"### Crítica de {name}:\n{content}"
+                for name, content in critiques.items()
+            ]
+        )
 
         return template.format(
             role_label=role_label,
@@ -366,7 +369,7 @@ FORMATO DE RESPUESTA:
             cloud_analyses=analyses_text if node == "CLOUD" else "",
             local_critiques=critiques_text if node == "CLOUD" else "",
             cloud_critiques=critiques_text if node == "LOCAL" else "",
-            max_tokens=max_tokens
+            max_tokens=max_tokens,
         )
 
     # ─── FASE 4: TRIBUNAL DE MAGISTRADOS ─────────────────────
@@ -550,27 +553,29 @@ FORMATO DE RESPUESTA:
         evidence_input: Optional[str] = None,
         risk_input: Optional[str] = None,
         iteration: int = 1,
-        max_tokens: int = 1500
+        max_tokens: int = 1500,
     ) -> str:
         """Construye prompt para magistrados del Tribunal"""
-        
+
         templates = {
             "evidence": cls.MAGISTRATE_EVIDENCE,
             "risk": cls.MAGISTRATE_RISK,
             "alignment": cls.MAGISTRATE_ALIGNMENT,
         }
-        
+
         template = templates.get(role, cls.MAGISTRATE_ALIGNMENT)
-        
+
         # Formatear inputs condicionales
         evidence_section = ""
         if evidence_input:
-            evidence_section = f"\n## Objeciones del Magistrado de Evidencias:\n{evidence_input}\n"
-        
+            evidence_section = (
+                f"\n## Objeciones del Magistrado de Evidencias:\n{evidence_input}\n"
+            )
+
         risk_section = ""
         if risk_input:
             risk_section = f"\n## Evaluación del Magistrado de Riesgos:\n{risk_input}\n"
-        
+
         return template.format(
             query=query,
             local_synthesis=local_synthesis,
@@ -578,12 +583,12 @@ FORMATO DE RESPUESTA:
             evidence_input=evidence_section,
             risk_input=risk_section,
             iteration=iteration,
-            max_tokens=max_tokens
+            max_tokens=max_tokens,
         )
-    
+
     # ─── FASE 2B: REDUCCIÓN AL ABSURDO ────────────────────────
     # (Ronda 2+ para eliminar sesgos de complacencia)
-    
+
     REDUCTIO_ABSURDUM_CHALLENGE = """# DESAFÍO LÓGICO: REDUCCIÓN AL ABSURDO
 
 Eres un **crítico lógico especializado en Reducción al Absurdo**.
@@ -637,15 +642,10 @@ Sé riguroso, específico y cita la contradicción exacta. Máximo 300 palabras.
 
     @classmethod
     def build_reductio_prompt(
-        cls,
-        proposition: str,
-        agent_name: str,
-        max_tokens: int = 300
+        cls, proposition: str, agent_name: str, max_tokens: int = 300
     ) -> str:
         """Construye prompt para fase de Reducción al Absurdo"""
-        
+
         return cls.REDUCTIO_ABSURDUM_CHALLENGE.format(
-            proposition=proposition,
-            agent_name=agent_name,
-            max_tokens=max_tokens
+            proposition=proposition, agent_name=agent_name, max_tokens=max_tokens
         )

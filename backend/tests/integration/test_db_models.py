@@ -1,13 +1,16 @@
 """
 Integration tests for database models and persistence
 """
+
 import asyncio
-import uuid
+
 from sqlalchemy import delete, select
-from backend.database.local_db import init_db, AsyncSessionLocal
+
+from backend.database.local_db import AsyncSessionLocal, init_db
 from backend.database.models import (
-    PromptResponseCache, ReductioAbsurdumProof,
-    SupabaseSyncQueueItem, SequentialDebate
+    PromptResponseCache,
+    ReductioAbsurdumProof,
+    SupabaseSyncQueueItem,
 )
 
 
@@ -107,7 +110,16 @@ class TestSupabaseSyncQueue:
     """Pruebas de la cola de sincronizacion con Supabase"""
 
     def test_sync_queue_model_fields(self):
-        fields = ["id", "kind", "debate_id", "payload", "status", "retry_count", "next_attempt_at", "created_at"]
+        fields = [
+            "id",
+            "kind",
+            "debate_id",
+            "payload",
+            "status",
+            "retry_count",
+            "next_attempt_at",
+            "created_at",
+        ]
         for field in fields:
             assert hasattr(SupabaseSyncQueueItem, field), f"Missing field: {field}"
 
@@ -181,11 +193,20 @@ class TestReductioProofModel:
 
     def test_reductio_proof_model_fields(self):
         fields = [
-            "debate_id", "iteration_number", "proposition", "extreme_case",
-            "contradiction", "is_valid", "confidence_score",
-            "questioning_agent", "challenged_agent", "consensus_areas",
-            "weak_assumptions", "unquestioned_premises",
-            "overall_complacency_risk", "recommendations"
+            "debate_id",
+            "iteration_number",
+            "proposition",
+            "extreme_case",
+            "contradiction",
+            "is_valid",
+            "confidence_score",
+            "questioning_agent",
+            "challenged_agent",
+            "consensus_areas",
+            "weak_assumptions",
+            "unquestioned_premises",
+            "overall_complacency_risk",
+            "recommendations",
         ]
         for field in fields:
             assert hasattr(ReductioAbsurdumProof, field), f"Missing field: {field}"

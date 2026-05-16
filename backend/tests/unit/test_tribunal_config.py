@@ -1,6 +1,7 @@
 """
 Unit tests for tribunal configuration
 """
+
 from backend.config import get_settings
 from backend.engine.tribunal_config import build_tribunal_config
 

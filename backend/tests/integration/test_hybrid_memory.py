@@ -1,13 +1,16 @@
 """
 Integration tests for hybrid memory and Supabase sync
 """
+
 import asyncio
-from sqlalchemy import select, delete
-from backend.database.local_db import init_db, AsyncSessionLocal
-from backend.memory.hybrid_memory_v2 import HybridMemoryV2, get_hybrid_memory_v2
+
+from sqlalchemy import delete, select
+
+from backend.database.local_db import AsyncSessionLocal, init_db
 from backend.database.models import SupabaseSyncQueueItem
-from backend.monitoring.prometheus import render_prometheus_metrics
 from backend.engine.debate_models import DebateSession
+from backend.memory.hybrid_memory_v2 import HybridMemoryV2
+from backend.monitoring.prometheus import render_prometheus_metrics
 
 
 class TestHybridMemory:
@@ -43,14 +46,18 @@ class TestHybridMemory:
 
             async with AsyncSessionLocal() as db_session:
                 result = await db_session.execute(
-                    select(SupabaseSyncQueueItem).where(SupabaseSyncQueueItem.debate_id == session.id)
+                    select(SupabaseSyncQueueItem).where(
+                        SupabaseSyncQueueItem.debate_id == session.id
+                    )
                 )
                 persisted = result.scalar_one()
                 assert persisted.status == "pending"
                 assert persisted.retry_count == 1
 
                 await db_session.execute(
-                    delete(SupabaseSyncQueueItem).where(SupabaseSyncQueueItem.debate_id == session.id)
+                    delete(SupabaseSyncQueueItem).where(
+                        SupabaseSyncQueueItem.debate_id == session.id
+                    )
                 )
                 await db_session.commit()
 
@@ -77,7 +84,9 @@ class TestHybridMemory:
 
             async with AsyncSessionLocal() as db_session:
                 await db_session.execute(
-                    delete(SupabaseSyncQueueItem).where(SupabaseSyncQueueItem.debate_id == "rehydrate-1")
+                    delete(SupabaseSyncQueueItem).where(
+                        SupabaseSyncQueueItem.debate_id == "rehydrate-1"
+                    )
                 )
                 await db_session.commit()
 
@@ -85,6 +94,7 @@ class TestHybridMemory:
 
     def test_hybrid_memory_has_enqueue_sync(self):
         from backend.memory.hybrid_memory_v2 import HybridMemoryV2
+
         mem = HybridMemoryV2()
         mem._enabled = True
         assert hasattr(mem, "enqueue_sync")

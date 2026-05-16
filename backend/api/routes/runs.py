@@ -2,20 +2,23 @@
 Synapse Council - Unified Runs API
 Read-only compatibility layer across classic sessions and sequential debates.
 """
-from typing import Any, Dict, List, Optional
+
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.routes.debate import debate_controller, ultra_controller
 from backend.database.local_db import get_session as get_db_session
 from backend.engine.session_manager import SessionManager
-from backend.api.routes.debate import debate_controller, ultra_controller
 
 router = APIRouter(prefix="/runs", tags=["Runs"])
 session_manager = SessionManager()
 
 
-def _normalize_sequential_summary(debate: Dict[str, Any], source: str = "database") -> Dict[str, Any]:
+def _normalize_sequential_summary(
+    debate: Dict[str, Any], source: str = "database"
+) -> Dict[str, Any]:
     return {
         "id": debate.get("id") or debate.get("session_id"),
         "type": "sequential_debate",
@@ -50,7 +53,9 @@ def _normalize_classic_summary(session: Dict[str, Any]) -> Dict[str, Any]:
 
 def _normalize_active_session(session: Any, run_type: str) -> Dict[str, Any]:
     turns = getattr(session, "turns", []) or []
-    completed_turns = [turn for turn in turns if getattr(turn, "status", None) == "completed"]
+    completed_turns = [
+        turn for turn in turns if getattr(turn, "status", None) == "completed"
+    ]
     return {
         "id": getattr(session, "id", None),
         "type": run_type,

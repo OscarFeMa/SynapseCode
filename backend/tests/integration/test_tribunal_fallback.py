@@ -1,11 +1,11 @@
 """
 Integration tests for tribunal fallback chains
 """
+
 import asyncio
+
 from backend.engine.agent_orchestrator import AgentResult
 from backend.engine.tribunal import TribunalCouncil
-from backend.engine.tribunal_config import build_tribunal_config
-from backend.config import get_settings
 
 
 class TestTribunalFallback:

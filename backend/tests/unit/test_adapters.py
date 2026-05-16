@@ -1,12 +1,12 @@
 """
 Unit tests for adapters (clients)
 """
-from backend.adapters.ollama import OllamaClient
-from backend.adapters.groq import GroqClient
+
 from backend.adapters.gemini import GeminiClient
-from backend.adapters.lm_studio import LMStudioClient
-from backend.adapters.web_agent import WebAgentClient
+from backend.adapters.groq import GroqClient
 from backend.adapters.http_client_manager import HTTPClientManager
+from backend.adapters.lm_studio import LMStudioClient
+from backend.adapters.ollama import OllamaClient
 from backend.adapters.openrouter import OpenRouterClient
 
 

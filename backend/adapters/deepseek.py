@@ -2,23 +2,27 @@
 Synapse Council v2.1 - DeepSeek Adapter
 Cliente async para DeepSeek API (OpenAI-compatible)
 """
+
 import json
+from typing import AsyncGenerator, Optional
+
 import httpx
-from typing import Dict, Any, Optional, AsyncGenerator
-from backend.config import get_settings
 import structlog
+
+from backend.config import get_settings
 
 settings = get_settings()
 logger = structlog.get_logger()
 
+
 class DeepSeekClient:
     """Cliente async para DeepSeek Cloud"""
-    
+
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or settings.DEEPSEEK_API_KEY
         self.base_url = f"{settings.DEEPSEEK_BASE_URL}/chat/completions"
         self._client: Optional[httpx.AsyncClient] = None
-        
+
     @property
     def client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -31,7 +35,7 @@ class DeepSeekClient:
         messages: list,
         temperature: float = 0.7,
         max_tokens: int = 2048,
-        stream: bool = True
+        stream: bool = True,
     ) -> AsyncGenerator[str, None]:
         """Genera respuesta usando DeepSeek API"""
         if not self.api_key:
@@ -42,36 +46,49 @@ class DeepSeekClient:
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
-            "stream": stream
+            "stream": stream,
         }
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
         try:
             if not stream:
-                response = await self.client.post(self.base_url, json=payload, headers=headers)
+                response = await self.client.post(
+                    self.base_url, json=payload, headers=headers
+                )
                 if response.status_code != 200:
-                    err = response.json().get("error", {}).get("message", f"HTTP {response.status_code}")
+                    err = (
+                        response.json()
+                        .get("error", {})
+                        .get("message", f"HTTP {response.status_code}")
+                    )
                     yield f"[Error DeepSeek: {err}]"
                     return
                 data = response.json()
                 yield data["choices"][0]["message"]["content"]
             else:
-                async with self.client.stream("POST", self.base_url, json=payload, headers=headers) as response:
+                async with self.client.stream(
+                    "POST", self.base_url, json=payload, headers=headers
+                ) as response:
                     if response.status_code != 200:
                         error_body = await response.aread()
                         try:
-                            err = json.loads(error_body).get("error", {}).get("message", f"HTTP {response.status_code}")
+                            err = (
+                                json.loads(error_body)
+                                .get("error", {})
+                                .get("message", f"HTTP {response.status_code}")
+                            )
                         except:
                             err = f"HTTP {response.status_code}: {error_body.decode()[:100]}"
                         yield f"[Error DeepSeek: {err}]"
                         return
                     async for line in response.aiter_lines():
                         if line.startswith("data: "):
-                            if "[DONE]" in line: break
+                            if "[DONE]" in line:
+                                break
                             try:
                                 data = json.loads(line[6:])
                                 delta = data["choices"][0]["delta"]

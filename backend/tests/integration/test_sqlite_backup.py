@@ -1,6 +1,7 @@
 """
 Integration tests for SQLite backup service
 """
+
 from backend.services.sqlite_backup import SQLiteBackupService, get_backup_service
 
 
