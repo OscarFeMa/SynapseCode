@@ -282,7 +282,7 @@ function toggleDemo() { S.demo=!S.demo; toast(S.demo?'Demo mode ON':'Live mode',
 async function fetchData() {
   if(S.demo) {
     S.health=M_HEALTH; S.debates=M_DEBATES; S.reps=M_REPS; S.cache=M_CACHE; S.trib=M_TRIB; S.analytics=M_ANALYTICS; S.worker=M_WORKER;
-    S.sysHealth={status:"healthy",worker_connected:true,worker_ip:"192.168.1.44",last_heartbeat:new Date().toISOString(),transfer_speed:125.4};
+    S.sysHealth={status:"healthy",worker_connected:true,worker_ip:null,last_heartbeat:new Date().toISOString(),transfer_speed:125.4};
     render(); return;
   }
   try {
@@ -380,7 +380,7 @@ function tabCommand() {
   // Worker services panel
   const workerServices = wSvc ? `
     <div class="panel">
-      <div class="panel-title">🖥️ Servicios Worker <span style="font-size:10px;color:var(--muted);margin-left:auto;font-family:var(--mono)">${wSvc.worker_ip||'192.168.1.44'}</span></div>
+      <div class="panel-title">🖥️ Servicios Worker <span style="font-size:10px;color:var(--muted);margin-left:auto;font-family:var(--mono)">${wSvc.worker_ip||'--'}</span></div>
       ${Object.entries(wSvc.services||{}).map(([svc,data])=>{
         const icons = {ollama:'🦙',lm_studio:'🎬',jan:'📦'};
         const labels = {ollama:'Ollama',lm_studio:'LM Studio',jan:'Jan'};
@@ -647,7 +647,7 @@ function tabModels() {
         </div>
       </div>`:`<div class="panel"><div class="empty"><div class="empty-i">🧬</div><div>Selecciona un modelo</div></div></div>`}
       <div class="panel" style="margin-top:12"><div class="panel-title">🔧 Worker Services</div>
-        ${S.worker?`<div class="sn"><span>IP</span><span style="font-family:var(--mono)">${S.worker.worker_ip||'192.168.1.44'}</span></div>
+        ${S.worker?`<div class="sn"><span>IP</span><span style="font-family:var(--mono)">${S.worker.worker_ip||'--'}</span></div>
           ${Object.entries(S.worker.services||{}).map(([svc,data])=>`<div class="sn"><span>${svc}</span><div style="display:flex;align-items:center;gap:8px"><span class="sdot ${data.status==='running'?'ok':'err'}"></span><span style="font-family:var(--mono);font-size:10px">${data.status}</span><button class="dbtn btn-sm" data-launch-svc="${svc}">Launch</button></div></div>`).join('')}`:'<div class="sk" style="height:100px"></div>'}
       </div>
     </div>
