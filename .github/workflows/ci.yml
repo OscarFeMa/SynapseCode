@@ -153,4 +153,4 @@ jobs:
       - name: Verify build
         run: |
           ls -la dist/
-          python -c "import tarfile; t = tarfile.open([f for f in __import__('os').listdir('dist/') if f.endswith('.tar.gz')][0], 'r:gz'); print('Build OK:', len(t.getnames()), 'files')"
+          python -c "import tarfile, os, glob; f = glob.glob('dist/*.tar.gz')[0]; t = tarfile.open(f, 'r:gz'); print('Build OK:', len(t.getnames()), 'files')"
