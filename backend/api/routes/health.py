@@ -1,12 +1,13 @@
 """
 Synapse Council v2.0 - Health Routes
+Health check inteligente con diagnostico, uptime, last_error, suggested_fix
 """
 
 import asyncio
-from typing import Any, Dict
-
-import structlog
+import time
+from typing import Dict, Any
 from fastapi import APIRouter, HTTPException
+import structlog
 from sqlalchemy import text
 
 from backend.adapters.jan import JanClient
@@ -16,11 +17,14 @@ from backend.adapters.openrouter import OpenRouterClient
 from backend.adapters.web_agent import WebAgentClient
 from backend.config import get_settings
 from backend.database.local_db import engine
+from backend.api.health_tracker import health_tracker
 
 logger = structlog.get_logger()
 settings = get_settings()
 
 router = APIRouter()
+
+SERVER_START_TIME = time.time()
 
 
 async def check_database_health() -> Dict[str, Any]:
@@ -34,7 +38,8 @@ async def check_database_health() -> Dict[str, Any]:
 
 
 async def check_service_health(client_class, settings_prefix: str) -> Dict[str, Any]:
-    """Verifica el estado de un servicio de IA"""
+    """Verifica el estado de un servicio de IA con diagnostico mejorado"""
+    start = time.time()
     try:
         if settings_prefix == "ollama":
             client = OllamaClient(base_url=settings.worker_ollama_url)
@@ -44,10 +49,8 @@ async def check_service_health(client_class, settings_prefix: str) -> Dict[str, 
             client = JanClient(base_url=settings.worker_jan_url)
         elif settings_prefix == "openrouter":
             if not settings.OPENROUTER_ENABLED or not settings.OPENROUTER_API_KEY:
-                return {
-                    "status": "skipped",
-                    "reason": "OpenRouter is disabled or not configured",
-                }
+                health_tracker.record(settings_prefix, "skipped")
+                return {"status": "skipped", "reason": "OpenRouter is disabled or not configured"}
             client = OpenRouterClient(
                 api_key=settings.OPENROUTER_API_KEY,
                 base_url=settings.OPENROUTER_BASE_URL,
@@ -60,18 +63,21 @@ async def check_service_health(client_class, settings_prefix: str) -> Dict[str, 
             )
         elif settings_prefix == "huggingface":
             if not settings.HF_ENABLED or not settings.HF_TOKEN:
+                health_tracker.record(settings_prefix, "skipped")
                 return {"status": "skipped", "reason": "HF_TOKEN not configured"}
             from backend.adapters.huggingface import HuggingFaceClient
 
             client = HuggingFaceClient(api_key=settings.HF_TOKEN)
         elif settings_prefix == "groq":
             if not settings.GROQ_API_KEY:
+                health_tracker.record(settings_prefix, "skipped")
                 return {"status": "skipped", "reason": "GROQ_API_KEY not configured"}
             from backend.adapters.groq import GroqClient
 
             client = GroqClient(api_key=settings.GROQ_API_KEY)
         elif settings_prefix == "gemini":
             if not settings.GEMINI_API_KEY:
+                health_tracker.record(settings_prefix, "skipped")
                 return {"status": "skipped", "reason": "GEMINI_API_KEY not configured"}
             from backend.adapters.gemini import GeminiClient
 
@@ -80,11 +86,22 @@ async def check_service_health(client_class, settings_prefix: str) -> Dict[str, 
             return {"status": "unknown", "error": "Unknown service"}
 
         result = await client.health_check()
+        response_ms = (time.time() - start) * 1000
+        health_tracker.record(settings_prefix, result.get("status", "unknown"), response_ms=response_ms)
+        result["responseTimeMs"] = round(response_ms, 1)
+        result["suggestedFix"] = _get_suggested_fix(settings_prefix, "")
         return result
     except Exception as e:
         error_msg = str(e)
+        response_ms = (time.time() - start) * 1000
         suggested = _get_suggested_fix(settings_prefix, error_msg)
-        return {"status": "unavailable", "error": error_msg, "suggested_fix": suggested}
+        health_tracker.record(settings_prefix, "unavailable", error=error_msg, response_ms=response_ms)
+        return {
+            "status": "unavailable",
+            "error": error_msg,
+            "suggestedFix": suggested,
+            "responseTimeMs": round(response_ms, 1),
+        }
 
 
 def _get_suggested_fix(service: str, error: str) -> str:
@@ -175,6 +192,7 @@ async def collect_dependency_health() -> Dict[str, Any]:
         "node_role": settings.NODE_ROLE,
         "timestamp": asyncio.get_event_loop().time(),
         "check_duration_ms": elapsed_ms,
+        "serverUptimeSeconds": round(time.time() - SERVER_START_TIME, 1),
         "services": {
             "database": database_health
             if isinstance(database_health, dict)
@@ -196,10 +214,10 @@ async def collect_dependency_health() -> Dict[str, Any]:
             if isinstance(huggingface_health, dict)
             else {"status": "error", "error": str(huggingface_health)},
             "groq": groq_health if isinstance(groq_health, dict) else {"status": "error", "error": str(groq_health)},
-            "gemini": gemini_health
-            if isinstance(gemini_health, dict)
-            else {"status": "error", "error": str(gemini_health)},
+            "gemini": gemini_health if isinstance(gemini_health, dict) else {"status": "error", "error": str(gemini_health)},
         },
+        "history": health_tracker.get_all_states(),
+        "summary": health_tracker.get_summary(),
     }
 
     logger.info(
@@ -251,3 +269,13 @@ async def health_check() -> Dict[str, Any]:
     Para automatizaciones use /health/live o /health/ready.
     """
     return await collect_dependency_health()
+
+
+@router.get("/health/history")
+async def health_history() -> Dict[str, Any]:
+    """Historial de health checks con errores, uptime y tasas de fallo."""
+    return {
+        "serverUptimeSeconds": round(time.time() - SERVER_START_TIME, 1),
+        "summary": health_tracker.get_summary(),
+        "services": health_tracker.get_all_states(),
+    }

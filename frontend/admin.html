@@ -93,9 +93,10 @@
     <a onclick="showTab('debates')">📋 Debates</a>
     <a onclick="showTab('new-debate')">➕ Nuevo Debate</a>
     <a onclick="showTab('worker')">🤖 Worker</a>
-    <a onclick="showTab('reports')">📄 Reportes</a>
+    <a onclick="showTab('health')">🩺 Diagnóstico</a>
     <a onclick="showTab('logs')">📝 Logs</a>
     <a onclick="showTab('metrics')">📈 Métricas</a>
+    <a onclick="showTab('settings')">⚙️ Configuración</a>
   </nav>
 
   <div class="content">
@@ -185,6 +186,58 @@
       <pre id="metrics-detail" style="background:#1e293b;padding:16px;border-radius:8px;margin-top:12px;font-size:0.8rem"></pre>
     </div>
 
+    <!-- ─── DIAGNÓSTICO ──────────────────────── -->
+    <div id="tab-health" class="tab">
+      <h2 style="color:#f59e0b;margin-bottom:16px">🩺 Diagnóstico de Servicios</h2>
+      <div style="margin-bottom:12px">
+        <button class="btn btn-primary btn-sm" onclick="refreshHealthHistory()">🔄 Actualizar</button>
+        <span id="server-uptime" style="color:#64748b;margin-left:12px;font-size:0.85rem"></span>
+      </div>
+      <table><thead><tr><th>Servicio</th><th>Estado</th><th>Último Error</th><th>Fallos Seguidos</th><th>Tasa Fallo</th><th>Uptime</th><th>Respuesta</th><th>Solución</th></tr></thead>
+      <tbody id="health-tbody"></tbody></table>
+      <div id="health-summary" style="margin-top:16px"></div>
+    </div>
+
+    <!-- ─── CONFIGURACIÓN ─────────────────────── -->
+    <div id="tab-settings" class="tab">
+      <h2 style="color:#f59e0b;margin-bottom:16px">⚙️ Configuración del Sistema</h2>
+      <div class="sub-tabs">
+        <button class="active" onclick="showSettingsSub('keys')">🔑 API Keys</button>
+        <button onclick="showSettingsSub('timeouts')">⏱️ Timeouts</button>
+        <button onclick="showSettingsSub('export')">📥 Exportar</button>
+      </div>
+      <div id="settings-keys">
+        <div class="grid" id="keys-grid"></div>
+        <div class="form-group" style="margin-top:16px">
+          <label>Actualizar API Key</label>
+          <select id="key-service" style="max-width:200px">
+            <option value="openrouter">OpenRouter</option>
+            <option value="groq">Groq</option>
+            <option value="gemini">Gemini</option>
+            <option value="huggingface">HuggingFace</option>
+          </select>
+          <input id="key-value" placeholder="Nueva API key..." style="max-width:400px">
+          <button class="btn btn-primary btn-sm" onclick="updateApiKey()" style="margin-left:8px">Actualizar</button>
+        </div>
+        <div id="key-result" style="margin-top:8px"></div>
+      </div>
+      <div id="settings-timeouts" style="display:none">
+        <table><thead><tr><th>Patrón Modelo</th><th>Timeout (s)</th></tr></thead>
+        <tbody id="timeouts-tbody"></tbody></table>
+      </div>
+      <div id="settings-export" style="display:none">
+        <h3 style="color:#f59e0b;margin-bottom:12px">Exportar Resultados</h3>
+        <div class="form-group">
+          <label>Session ID</label>
+          <input id="report-sid" placeholder="Pega el Session ID del debate">
+        </div>
+        <button class="btn btn-sm" style="background:#2563eb;color:white" onclick="exportReport('json')">📥 JSON</button>
+        <button class="btn btn-sm" style="background:#166534;color:white" onclick="exportReport('markdown')">📥 Markdown</button>
+        <button class="btn btn-sm" style="background:#854d0e;color:white" onclick="exportReport('pdf')">📥 PDF</button>
+        <div id="report-result" style="margin-top:12px"></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -205,8 +258,10 @@ function renderTab(name) {
   if (name === 'dashboard') refreshDashboard();
   if (name === 'debates') refreshDebates();
   if (name === 'worker') refreshWorker();
+  if (name === 'health') refreshHealthHistory();
   if (name === 'logs') renderLogs();
   if (name === 'metrics') refreshMetrics();
+  if (name === 'settings') refreshSettings();
 }
 
 function showDebateSub(name) {
@@ -419,10 +474,134 @@ async function refreshMetrics() {
     {title:'Promedio tokens/debate', val:completed.length ? Math.round(totalTokens/completed.length).toLocaleString() : 0, sub:'por debate'},
   ].map(c => `<div class="card"><h3>${c.title}</h3><div class="value">${c.val}</div><div class="sub">${c.sub}</div></div>`).join('');
   
-  // Top debates
   const top = [...completed].sort((a,b) => (b.total_tokens_out||0) - (a.total_tokens_out||0)).slice(0,5);
   document.getElementById('metrics-detail').textContent = 'TOP 5 DEBATES POR TOKENS:\n' +
     top.map((s,i) => `${i+1}. ${(s.topic||'').slice(0,60)} — ${(s.total_tokens_out||0).toLocaleString()} tokens`).join('\n');
+}
+
+// ─── DIAGNÓSTICO (P2.2) ──────────────────────
+async function refreshHealthHistory() {
+  const r = await api('GET', '/health/history');
+  if (r.status !== 200) {
+    document.getElementById('health-tbody').innerHTML = '<tr><td colspan="8" class="err">Sin datos</td></tr>';
+    return;
+  }
+  
+  const uptime = r.data.serverUptimeSeconds || 0;
+  document.getElementById('server-uptime').textContent = `⏱️ Servidor activo: ${formatUptime(uptime)}`;
+  
+  const summary = r.data.summary || {};
+  document.getElementById('health-summary').innerHTML = `
+    <div class="grid">
+      <div class="card"><h3>Servicios Totales</h3><div class="value">${summary.totalServices||0}</div></div>
+      <div class="card"><h3>Saludables</h3><div class="value" style="color:#86efac">${summary.healthyServices||0}</div></div>
+      <div class="card"><h3>Degradados</h3><div class="value" style="color:#fde68a">${summary.degradedServices||0}</div></div>
+      <div class="card"><h3>Estado General</h3><div class="value">${badge(summary.overallHealth||'unknown')}</div></div>
+    </div>`;
+  
+  const services = r.data.services || {};
+  const fixes = {
+    ollama: 'Verifica Ollama en Worker: ollama serve',
+    lm_studio: 'Activa Local Inference Server en LM Studio',
+    jan: 'Activa servidor API en Jan',
+    openrouter: 'Agrega crédito en openrouter.ai/settings/credits',
+    groq: 'Verifica GROQ_API_KEY en .env',
+    gemini: 'Verifica GEMINI_API_KEY en .env',
+    huggingface: 'Obtén token en huggingface.co/settings/tokens',
+    web_agent: 'Ejecuta: playwright install chromium',
+    database: 'Revisa la base de datos SQLite',
+  };
+  
+  document.getElementById('health-tbody').innerHTML = Object.entries(services).map(([name, s]) => {
+    const fix = fixes[name] || 'Revisa logs del servidor';
+    const errDisplay = s.lastError ? `<span title="${s.lastError}" style="color:#fca5a5;max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.lastError.slice(0,50)}...</span>` : '<span style="color:#64748b">—</span>';
+    return `<tr>
+      <td><strong>${name}</strong></td>
+      <td>${badge(s.status)}</td>
+      <td>${errDisplay}</td>
+      <td style="color:${s.consecutiveFailures > 2 ? '#fca5a5' : '#64748b'}">${s.consecutiveFailures||0}</td>
+      <td>${s.failureRate||0}%</td>
+      <td>${formatUptime(s.uptimeSeconds||0)}</td>
+      <td>${s.avgResponseMs||0}ms</td>
+      <td style="color:#94a3b8;font-size:0.75rem">${fix}</td>
+    </tr>`;
+  }).join('');
+}
+
+function formatUptime(seconds) {
+  if (seconds < 60) return Math.round(seconds) + 's';
+  if (seconds < 3600) return Math.round(seconds/60) + 'm';
+  if (seconds < 86400) return Math.round(seconds/3600) + 'h';
+  return Math.round(seconds/86400) + 'd';
+}
+
+// ─── CONFIGURACIÓN (P2.3) ─────────────────────
+async function refreshSettings() {
+  // API Keys status
+  const h = await api('GET', '/health');
+  if (h.status === 200) {
+    const svc = h.data.services || {};
+    const keys = [
+      {name:'OpenRouter', status:svc.openrouter?.status, configured: !!svc.openrouter && svc.openrouter.status !== 'skipped'},
+      {name:'Groq', status:svc.groq?.status, configured: !!svc.groq && svc.groq.status !== 'skipped'},
+      {name:'Gemini', status:svc.gemini?.status, configured: !!svc.gemini && svc.gemini.status !== 'skipped'},
+      {name:'HuggingFace', status:svc.huggingface?.status, configured: !!svc.huggingface && svc.huggingface.status !== 'skipped'},
+      {name:'DeepSeek', status:svc.deepseek?.status, configured: !!svc.deepseek && svc.deepseek.status !== 'skipped'},
+    ];
+    document.getElementById('keys-grid').innerHTML = keys.map(k =>
+      `<div class="card"><h3>${k.name}</h3><div class="value">${badge(k.status)}</div><div class="sub">${k.configured ? '✅ Configurada' : '❌ No configurada'}</div></div>`
+    ).join('');
+  }
+  
+  // Timeouts
+  const timeouts = {
+    "llama3.1:70b": 300, "llama3:70b": 300, "llama3.1:405b": 600,
+    "deepseek-r1:32b": 300, "deepseek-r1:70b": 600, "mistral-large": 180,
+    "mixtral:8x22b": 300, "qwen2.5:72b": 300, "qwen2.5:32b": 180,
+    "codellama:70b": 300, "nemotron": 300, "70b": 300, "405b": 600,
+    "ollama (default)": 600, "lm_studio (default)": 120, "openrouter (default)": 90,
+  };
+  document.getElementById('timeouts-tbody').innerHTML = Object.entries(timeouts).map(([p, t]) =>
+    `<tr><td><code>${p}</code></td><td>${t}s</td></tr>`
+  ).join('');
+}
+
+function showSettingsSub(name) {
+  document.querySelectorAll('#tab-settings .sub-tabs button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('settings-keys').style.display = name === 'keys' ? '' : 'none';
+  document.getElementById('settings-timeouts').style.display = name === 'timeouts' ? '' : 'none';
+  document.getElementById('settings-export').style.display = name === 'export' ? '' : 'none';
+}
+
+async function updateApiKey() {
+  const service = document.getElementById('key-service').value;
+  const value = document.getElementById('key-value').value.trim();
+  if (!value) { alert('Ingresa una API key'); return; }
+  
+  const r = await api('POST', `/api/v1/system/config/${service}/key`, { api_key: value });
+  const el = document.getElementById('key-result');
+  if (r.status === 200) {
+    el.innerHTML = '<span style="color:#86efac">✅ Key actualizada</span>';
+    document.getElementById('key-value').value = '';
+    refreshSettings();
+  } else {
+    el.innerHTML = `<span style="color:#fca5a5">❌ Error: ${JSON.stringify(r.data)}</span>`;
+  }
+}
+
+function exportReport(format) {
+  const sid = document.getElementById('report-sid').value.trim();
+  if (!sid) { alert('Ingresa un Session ID'); return; }
+  exportDirect(sid, format);
+}
+
+function exportDirect(sid, format) {
+  const map = {json:'export/json', md:'export/markdown', pdf:'export/pdf', markdown:'export/markdown'};
+  if (map[format]) {
+    window.open(`/api/v1/debates/${sid}/${map[format]}`, '_blank');
+    log('info',`Exportando ${format} de ${sid.slice(0,8)}`);
+  }
 }
 
 // ─── CLOCK & AUTO-REFRESH ──────────────────────

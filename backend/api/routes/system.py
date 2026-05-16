@@ -927,3 +927,28 @@ async def backup_status_endpoint():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class ApiKeyUpdateRequest(BaseModel):
+    api_key: str
+
+
+@router.post("/config/{service}/key",
+             dependencies=[Depends(require_admin_access)])
+async def update_api_key(service: str, req: ApiKeyUpdateRequest):
+    """Actualiza una API key en tiempo de ejecución."""
+    valid_services = {
+        "openrouter": "OPENROUTER_API_KEY",
+        "groq": "GROQ_API_KEY",
+        "gemini": "GEMINI_API_KEY",
+        "huggingface": "HF_TOKEN",
+        "deepseek": "DEEPSEEK_API_KEY",
+    }
+    if service not in valid_services:
+        raise HTTPException(status_code=400, detail=f"Servicio no valido: {service}. Opciones: {list(valid_services.keys())}")
+
+    env_var = valid_services[service]
+    setattr(settings, env_var, req.api_key)
+
+    logger.info("system.api_key_updated", service=service, env_var=env_var)
+    return {"success": True, "service": service, "message": f"API key para {service} actualizada"}
