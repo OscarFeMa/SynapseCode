@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "synapse-council"
+version = "2.8.0"
+description = "Plataforma de razonamiento colectivo hibrido con Tribunal de Magistrados"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = [
+    "fastapi==0.110.0",
+    "uvicorn[standard]==0.27.0",
+    "python-multipart==0.0.22",
+    "sqlalchemy[asyncio]==2.0.27",
+    "aiosqlite==0.19.0",
+    "alembic==1.13.1",
+    "pydantic==2.6.1",
+    "pydantic-settings==2.1.0",
+    "python-dotenv==1.0.0",
+    "httpx>=0.25.2",
+    "httpx-sse==0.4.0",
+    "websockets==12.0",
+    "playwright==1.41.0",
+    "supabase>=2.3.1",
+    "structlog==24.1.0",
+    "uuid6==2024.1.12",
+    "tenacity==8.2.3",
+    "huggingface-hub>=0.24.0",
+    "psutil>=5.9.0",
+    "numpy>=1.24.0",
+    "sentence-transformers>=2.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=4.1.0",
+    "black==26.3.1",
+    "isort==5.13.0",
+    "mypy==1.8.0",
+    "ruff>=0.4.0",
+    "bandit>=1.7.0",
+    "safety>=3.0.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
