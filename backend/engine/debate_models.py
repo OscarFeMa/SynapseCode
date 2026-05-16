@@ -79,9 +79,11 @@ class DebateSession:
     turns: List[DebateTurn] = field(default_factory=list)
     iterations: List[IteracionDebate] = field(default_factory=list)
     context_history: List[Dict[str, Any]] = field(default_factory=list)
-    status: str = "created"  # created, running, completed, failed
+    status: str = "created"  # created, running, paused, completed, failed
     created_at: datetime = field(default_factory=datetime.now)
     completed_at: Optional[datetime] = None
+    paused_at: Optional[datetime] = None
+    pause_reason: Optional[str] = None
     final_verdict: Optional[str] = None
     
     # Campos para Tribunal y Convergence (v2.1)

@@ -96,6 +96,20 @@ class DebateContinueRequest(BaseModel):
     continuation_prompt: Optional[str] = None
 
 
+class DebatePauseRequest(BaseModel):
+    """Request para pausar un debate"""
+    reason: Optional[str] = None
+
+
+class DebateResumeResponse(BaseModel):
+    session_id: str
+    topic: str
+    status: str
+    turns_completed: int
+    paused_at: Optional[datetime] = None
+    pause_reason: Optional[str] = None
+
+
 class DebateTranscriptResponse(BaseModel):
     transcript: str
     source: str
@@ -463,6 +477,76 @@ async def continue_debate(
         "mode": "continuation",
         "total_turns": existing_turns + (request.max_additional_turns or len(agents) if agents else 4),
         "features": ["continuation", "context_persistence"]
+    }
+
+
+@router.post("/{session_id}/pause", response_model=DebateResumeResponse)
+async def pause_debate(session_id: str, request: DebatePauseRequest = DebatePauseRequest()):
+    """
+    Pausa un debate en ejecucion.
+    El debate se puede reanudar con POST /debates/{id}/resume.
+    """
+    session = debate_controller.get_session(session_id)
+    if not session:
+        debate_data = await debate_controller.get_debate_from_db(session_id)
+        if not debate_data:
+            raise HTTPException(status_code=404, detail="Debate not found")
+        if debate_data.get("status") != "running":
+            raise HTTPException(status_code=400, detail="Debate must be running to pause")
+    
+    if session and session.status != "running":
+        raise HTTPException(status_code=400, detail="Debate must be running to pause")
+    
+    result = await debate_controller.pause_debate(session_id, reason=request.reason)
+    if not result:
+        raise HTTPException(status_code=400, detail="Failed to pause debate")
+    
+    return {
+        "session_id": session_id,
+        "topic": result.topic,
+        "status": "paused",
+        "turns_completed": len(result.turns),
+        "paused_at": result.paused_at,
+        "pause_reason": result.pause_reason,
+    }
+
+
+@router.post("/{session_id}/resume", status_code=202, response_model=DebateCreateResponse)
+async def resume_debate(session_id: str, background_tasks: BackgroundTasks):
+    """
+    Reanuda un debate pausado desde donde se quedo.
+    Ejecuta los turnos restantes y completa el debate.
+    """
+    session = debate_controller.get_session(session_id)
+    if not session:
+        debate_data = await debate_controller.get_debate_from_db(session_id)
+        if not debate_data:
+            raise HTTPException(status_code=404, detail="Debate not found")
+        if debate_data.get("status") != "paused":
+            raise HTTPException(status_code=400, detail="Debate must be paused to resume")
+    
+    if session and session.status != "paused":
+        raise HTTPException(status_code=400, detail="Debate must be paused to resume")
+    
+    async def run_resume():
+        result = await debate_controller.resume_debate(
+            session_id=session_id,
+            on_turn_start=lambda turn: print(f"[Resume] Turn {turn.turn_number}: {turn.agent.name}"),
+            on_turn_complete=lambda turn: print(f"[Resume] Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"),
+        )
+        if result:
+            print(f"[Resume] Debate {session_id} resumed and completed with {len(result.turns)} total turns")
+
+    background_tasks.add_task(run_resume)
+    
+    existing_turns = len(session.turns) if session else 0
+    return {
+        "session_id": session_id,
+        "topic": session.topic if session else "unknown",
+        "status": "accepted",
+        "mode": "resume",
+        "total_turns": existing_turns,
+        "features": ["resume", "context_persistence"]
     }
 
 

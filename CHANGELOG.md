@@ -7,6 +7,30 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ---
 
+## [2.5.0] - 2026-05-16
+
+### 🚀 Añadido (Added)
+
+#### Pausar/Reanudar Debates
+- **`POST /api/v1/debates/{id}/pause`**: Pausa un debate en ejecucion
+- **`POST /api/v1/debates/{id}/resume`**: Reanuda un debate pausado desde donde se quedo
+- **Motivo de pausa**: Campo `reason` opcional para documentar por que se pauso
+- **Persistencia en DB**: Estado `paused`, `paused_at`, `pause_reason` guardados en SQLite
+- **Migration automatica**: `paused_at` y `pause_reason` añadidos a `sequential_debates`
+- **Flujo completo**: crear → pausar → reanudar → continuar → exportar
+
+### 🔧 Mejoras Tecnicas
+
+- **SQLite migration**: `run_sqlite_migrations` ahora añade columnas `paused_at` y `pause_reason`
+- **DebateSession**: Nuevos campos `paused_at` y `pause_reason` en modelo de datos
+- **SequentialDebate**: Status `paused` añadido al ciclo de vida del debate
+
+### 🐛 Corregido (Fixed)
+
+- **Tests**: 2 tests fallaban por columnas faltantes en DB local — migracion añadida
+
+---
+
 ## [2.4.0] - 2026-05-16
 
 ### 🚀 Añadido (Added)

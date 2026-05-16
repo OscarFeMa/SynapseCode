@@ -291,7 +291,7 @@ class SequentialDebate(Base):
         String(20), 
         nullable=False, 
         default="created"
-    )  # created|running|completed|failed
+    )  # created|running|paused|completed|failed
     total_turns: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -299,6 +299,8 @@ class SequentialDebate(Base):
     final_verdict: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     structured_report: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     transcript_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    paused_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    pause_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, 
         nullable=False, 

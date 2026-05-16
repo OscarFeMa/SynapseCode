@@ -91,9 +91,31 @@ def _migrate_prompt_response_cache(conn: Connection) -> None:
     )
 
 
+def _migrate_sequential_debates(conn: Connection) -> None:
+    if not _table_exists(conn, "sequential_debates"):
+        return
+
+    columns = _get_table_columns(conn, "sequential_debates")
+    _add_column_if_missing(
+        conn,
+        "sequential_debates",
+        columns,
+        "paused_at",
+        "paused_at DATETIME",
+    )
+    _add_column_if_missing(
+        conn,
+        "sequential_debates",
+        columns,
+        "pause_reason",
+        "pause_reason TEXT",
+    )
+
+
 def run_sqlite_migrations(conn: Connection) -> None:
     """Run local SQLite migrations against an existing synchronous connection."""
     if conn.dialect.name != "sqlite":
         return
 
     _migrate_prompt_response_cache(conn)
+    _migrate_sequential_debates(conn)
