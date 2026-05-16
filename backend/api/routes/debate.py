@@ -89,6 +89,13 @@ class DebateCreateResponse(BaseModel):
     features: Optional[List[str]] = None
 
 
+class DebateContinueRequest(BaseModel):
+    """Request para continuar un debate existente"""
+    agents: Optional[List[Dict[str, Any]]] = None
+    max_additional_turns: Optional[int] = None
+    continuation_prompt: Optional[str] = None
+
+
 class DebateTranscriptResponse(BaseModel):
     transcript: str
     source: str
@@ -392,6 +399,70 @@ async def create_debate(request: DebateRequest, background_tasks: BackgroundTask
         "status": "accepted", 
         "mode": request.mode,
         "total_turns": len(agents)
+    }
+
+
+@router.post("/{session_id}/continue", status_code=202, response_model=DebateCreateResponse)
+async def continue_debate(
+    session_id: str,
+    request: DebateContinueRequest,
+    background_tasks: BackgroundTasks,
+):
+    """
+    Continua un debate completado con nuevos turnos.
+    Reutiliza el contexto acumulado y permite anadir instrucciones especificas.
+    """
+    session = debate_controller.get_session(session_id)
+    if not session:
+        debate_data = await debate_controller.get_debate_from_db(session_id)
+        if not debate_data:
+            raise HTTPException(status_code=404, detail="Debate not found")
+        if debate_data.get("status") not in ("completed", "failed"):
+            raise HTTPException(status_code=400, detail="Debate must be completed or failed to continue")
+    
+    if session and session.status not in ("completed", "failed"):
+        raise HTTPException(status_code=400, detail="Debate must be completed or failed to continue")
+    
+    agents = None
+    if request.agents:
+        agents = []
+        for agent_data in request.agents:
+            agent = DebateAgent(
+                id=agent_data.get("id", f"agent_{len(agents)}"),
+                name=agent_data.get("name", "Agent"),
+                role=AgentRole(agent_data.get("role", "analyst")),
+                node=agent_data.get("node", "LOCAL"),
+                engine=agent_data.get("engine", "ollama"),
+                model=agent_data.get("model", "llama3.2:latest"),
+                provider=agent_data.get("provider", "meta"),
+                system_prompt=agent_data.get("system_prompt", ""),
+                temperature=agent_data.get("temperature", 0.7),
+                max_tokens=agent_data.get("max_tokens", 500)
+            )
+            agents.append(agent)
+    
+    async def run_continuation():
+        result = await debate_controller.continue_debate(
+            session_id=session_id,
+            agents_config=agents,
+            max_additional_turns=request.max_additional_turns,
+            continuation_prompt=request.continuation_prompt,
+            on_turn_start=lambda turn: print(f"[Continue] Turn {turn.turn_number}: {turn.agent.name}"),
+            on_turn_complete=lambda turn: print(f"[Continue] Completed: {turn.tokens_out} tokens in {turn.latency_ms}ms"),
+        )
+        if result:
+            print(f"[Continue] Debate {session_id} continued with {len(result.turns)} total turns")
+
+    background_tasks.add_task(run_continuation)
+    
+    existing_turns = len(session.turns) if session else 0
+    return {
+        "session_id": session_id,
+        "topic": session.topic if session else "unknown",
+        "status": "accepted",
+        "mode": "continuation",
+        "total_turns": existing_turns + (request.max_additional_turns or len(agents) if agents else 4),
+        "features": ["continuation", "context_persistence"]
     }
 
 

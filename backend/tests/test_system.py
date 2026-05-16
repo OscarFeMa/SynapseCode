@@ -987,3 +987,27 @@ class TestAPIEndpoints:
                 await db_session.commit()
 
         asyncio.run(scenario())
+
+    def test_continue_debate_endpoint_exists(self):
+        from backend.api.routes.debate import router, DebateContinueRequest
+        continue_routes = [r for r in router.routes if hasattr(r, "path") and "/continue" in r.path]
+        assert len(continue_routes) >= 1, "POST /debates/{session_id}/continue not found"
+        post_routes = [r for r in continue_routes if hasattr(r, "methods") and "POST" in r.methods]
+        assert len(post_routes) >= 1, "POST method not found for continue endpoint"
+
+    def test_continue_debate_request_model(self):
+        from backend.api.routes.debate import DebateContinueRequest
+        req = DebateContinueRequest(
+            max_additional_turns=2,
+            continuation_prompt="Profundiza en el punto X"
+        )
+        assert req.max_additional_turns == 2
+        assert req.continuation_prompt == "Profundiza en el punto X"
+        assert req.agents is None
+
+    def test_continue_debate_controller_method_exists(self):
+        from backend.engine.sequential_debate_controller import SequentialDebateController
+        controller = SequentialDebateController()
+        assert hasattr(controller, "continue_debate"), "continue_debate method not found"
+        assert hasattr(controller, "_reconstruct_session_from_db"), "_reconstruct_session_from_db method not found"
+        assert hasattr(controller, "_extract_agents_from_session"), "_extract_agents_from_session method not found"

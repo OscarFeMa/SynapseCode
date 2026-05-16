@@ -1,4 +1,4 @@
-# 🧠 Synapse Code v2.3
+# 🧠 Synapse Code v2.4
 
 Plataforma de **razonamiento colectivo híbrido** que orquesta múltiples modelos de IA en un debate estructurado por roles, con veredicto soberano del **Tribunal de Magistrados**.
 
@@ -9,16 +9,21 @@ Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (MakederPC) ejecut
 ## 🎯 Características Principales
 
 - **Arquitectura Híbrida**: Master (orquestación) + Worker (Ollama, LM Studio, Jan)
-- **Tribunal de Magistrados**: 3 roles especializados con Protocolo de Consenso Forzado
+- **Tribunal de Magistrados**: 3 roles especializados con Protocolo de Consenso Forzado y fallback chains configurables
+- **Reducción al Absurdo**: Eliminación de sesgos de complacencia via técnica lógica
 - **Sistema de Reputación EMA**: Métricas dinámicas por modelo y rol (TSA, IID, PVT)
+- **Caché Semántica**: Respuestas cacheadas por similitud de embeddings (-40% latencia)
+- **Data Warehouse**: Agregaciones automáticas para análisis histórico de debates
+- **Prometheus Metrics**: Observabilidad con `/metrics` endpoint
 - **Múltiples Motores**: Ollama, LM Studio, Jan, Groq, Gemini, OpenRouter, DeepSeek
 - **Web Agent**: 10 sitios de IA vía Playwright con stealth anti-detección
 - **Debates Iterativos**: Multi-agente con cruzamientos críticos y consenso
-- **Streaming en Tiempo Real**: WebSocket con tokens en vivo
-- **Memoria Híbrida**: SQLite local + Supabase sync
+- **Continuación de Debates**: `POST /debates/{id}/continue` para añadir rondas
+- **Streaming en Tiempo Real**: WebSocket con token buffering optimizado
+- **Memoria Híbrida**: SQLite local + Supabase sync con queue persistente
 - **Auto-Recuperación**: WorkerServiceManager lanza servicios caídos automáticamente
 - **Control Center Web**: Panel completo en /admin con dashboard, debates, métricas
-- **Exportación**: JSON, Markdown, PDF de cualquier debate
+- **Exportación**: JSON estructurado, Markdown, PDF de cualquier debate
 
 ---
 
@@ -125,33 +130,60 @@ create_debate_with_id()
 
 ## 🌐 Endpoints API
 
+### Debates
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `POST` | `/api/v1/debates/create` | Crear debate secuencial |
+| `POST` | `/api/v1/debates/create/iterative` | Debate iterativo avanzado |
+| `POST` | `/api/v1/debates/{id}/continue` | Continuar debate completado |
+| `GET` | `/api/v1/debates/{id}` | Estado completo del debate |
+| `GET` | `/api/v1/debates/{id}/status` | Estado resumido |
+| `GET` | `/api/v1/debates/{id}/report` | Informe estructurado JSON |
+| `GET` | `/api/v1/debates/{id}/transcript` | Transcripción completa |
+| `GET` | `/api/v1/debates/{id}/export/json` | Exportar JSON estructurado |
+| `GET` | `/api/v1/debates/{id}/export/markdown` | Exportar Markdown |
+| `GET` | `/api/v1/debates/{id}/export/pdf` | Exportar HTML imprimible |
+| `GET` | `/api/v1/debates/list` | Lista debates activos |
+| `GET` | `/api/v1/debates/history/list` | Historial completo desde DB |
+| `GET` | `/api/v1/debates/reputation` | Reputaciones de modelos |
+| `DELETE` | `/api/v1/debates/{id}` | Eliminar sesión |
+
+### Sistema
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | `GET` | `/health` | Health check completo |
 | `GET` | `/health/live` | Liveness check |
 | `GET` | `/health/ready` | Readiness check |
-| `POST` | `/api/v1/debates/create` | Crear debate secuencial |
-| `POST` | `/api/v1/debates/create/iterative` | Debate iterativo |
-| `GET` | `/api/v1/debates/{id}/status` | Estado del debate |
-| `GET` | `/api/v1/debates/{id}/report` | Informe estructurado |
-| `GET` | `/api/v1/debates/{id}/transcript` | Transcripción |
-| `POST` | `/api/v1/system/chat/direct` | Chat directo (groq, gemini, ollama...) |
+| `GET` | `/metrics` | Prometheus metrics |
+| `GET` | `/api/v1/system/analytics` | Resumen del Data Warehouse |
+| `GET` | `/api/v1/system/tribunal-config` | Configuración del Tribunal |
+| `POST` | `/api/v1/system/chat/direct` | Chat directo con cualquier modelo |
 | `GET` | `/api/v1/system/worker/services` | Estado servicios Worker |
 | `POST` | `/api/v1/system/worker/services/launch` | Lanzar servicio en Worker |
+| `POST` | `/api/v1/system/worker/wake` | Wake-on-LAN del Worker |
 | `GET` | `/api/v1/system/rdp-status` | Estado RDP |
+
+### Caché
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/api/v1/cache/stats` | Estadísticas de caché |
+| `POST` | `/api/v1/cache/invalidate` | Invalidar caché |
+| `POST` | `/api/v1/cache/cleanup` | Limpiar entradas expiradas |
 
 ---
 
 ## 📊 Servicios Verificados en /health
 
 - ✅ **Base de datos SQLite** — Persistencia local
-- ✅ **Ollama** — 12 modelos open-source (Worker)
+- ✅ **Ollama** — 12+ modelos open-source (Worker)
 - ✅ **LM Studio** — 4 modelos GGUF (Worker)
 - ✅ **Groq** — Inferencia ultrarrápida cloud
 - ✅ **Gemini** — Google 2.5 Flash
 - ✅ **Web Agent** — Playwright con 10 sitios IA
 - ✅ **Task Manager** — Background tasks con retry
-- ✅ **Memoria Híbrida** — Sync a Supabase
+- ✅ **Memoria Híbrida** — Sync a Supabase con queue persistente
+- ✅ **Caché Semántica** — Embeddings + similitud coseno
+- ✅ **Prometheus** — Métricas en `/metrics`
 
 ---
 
@@ -159,6 +191,7 @@ create_debate_with_id()
 
 | Versión | Fecha | Cambios principales |
 |---------|-------|-------------------|
+| **v2.4** | May 2026 | Continuación de debates, caché semántica, Data Warehouse, Prometheus, Tribunal fallback chains, Reductio Absurdum, tests fijos |
 | **v2.3** | May 2026 | Control Center web, exportación limpia, health check inteligente, fixes |
 | **v2.2** | May 2026 | APIs cloud (Groq, Gemini), Web Agent 10 sitios, Worker auto-launch, limpieza general |
 | **v2.1** | Apr 2026 | Debates iterativos, liberación RAM, maratón 10 debates |
