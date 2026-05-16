@@ -22,6 +22,7 @@ from backend.database.local_db import AsyncSessionLocal
 from backend.engine.prompts import PromptBuilder
 from backend.database.models import AgentCall
 from backend.config import get_settings
+from backend.engine.reductio_absurdum import get_reductio_absurdum_engine
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -100,6 +101,7 @@ class TribunalCouncil:
     def __init__(self):
         self.orchestrator = AgentOrchestrator()
         self.prompt_builder = PromptBuilder()
+        self.reductio_engine = get_reductio_absurdum_engine()  # Motor de Reducción al Absurdo
     
     async def issue_verdict(
         self,
@@ -282,6 +284,23 @@ class TribunalCouncil:
                 })
             
             # ═════════════════════════════════════════════════════
+            # FASE ADICIONAL: AUTO-CUESTIONAMIENTO (Ronda 2)
+            # Magistrados se desafían a sí mismos usando Reducción al Absurdo
+            # ═════════════════════════════════════════════════════
+            if iteration == 2:
+                logger.info("tribunal.self_challenge_phase",
+                           session_id=session_id,
+                           iteration=iteration)
+                
+                # Cada magistrado se auto-cuestiona su veredicto
+                await self._run_magistrate_self_challenge(
+                    session_id=session_id,
+                    opinions_history=opinions_history,
+                    iteration=iteration,
+                    on_event=on_event
+                )
+            
+            # ═════════════════════════════════════════════════════
             # PASO 3: ¿Hay consenso?
             # ═════════════════════════════════════════════════════
             
@@ -377,6 +396,89 @@ Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} itera
             alignment_score=final_alignment.score,
             dissent_areas=dissent_areas
         )
+    
+    async def _run_magistrate_self_challenge(
+        self,
+        session_id: str,
+        opinions_history: Dict[str, list],
+        iteration: int,
+        on_event: Optional[Callable[[str, Any], None]] = None
+    ):
+        """
+        FASE DE AUTO-CUESTIONAMIENTO (Ronda 2 del Tribunal)
+        
+        Cada magistrado se desafía a sí mismo usando Reducción al Absurdo
+        para eliminar sesgos y complacencia inherentes a su rol.
+        
+        Objetivos:
+        - Desafiar conclusiones demasiado rápidas
+        - Identificar supuestos no validados
+        - Refinar veredictos llevándolos al límite
+        """
+        
+        try:
+            logger.info("tribunal.self_challenge_start",
+                       session_id=session_id,
+                       magistrates_count=3)
+            
+            for role in ["evidence", "risk", "alignment"]:
+                if not opinions_history.get(role):
+                    continue
+                
+                current_opinion = opinions_history[role][-1]
+                
+                # Generar prompt de auto-cuestionamiento
+                self_challenge_prompt = self.reductio_engine.generate_tribunal_self_challenge_prompt(
+                    magistrate_verdict=current_opinion.response,
+                    magistrate_role=role
+                )
+                
+                logger.info("tribunal.magistrate_self_challenge",
+                           session_id=session_id,
+                           role=role,
+                           iteration=iteration)
+                
+                # Ejecutar auto-cuestionamiento con el mismo modelo
+                config = self.MAGISTRATES[role]
+                
+                try:
+                    async with AsyncSessionLocal() as session:
+                        challenge_result = await self.orchestrator.call_agent(
+                            session_id=session_id,
+                            round_id=session_id,
+                            round_number=iteration,
+                            phase="TRIBUNAL_SELF_CHALLENGE",
+                            config=config,
+                            system_prompt="",
+                            user_prompt=self_challenge_prompt,
+                            db_session=session,
+                            on_token=lambda t: on_event("tribunal_self_challenge_token", {
+                                "role": role, "token": t
+                            }) if on_event else None
+                        )
+                    
+                    if on_event:
+                        on_event("tribunal_self_challenge_complete", {
+                            "role": role,
+                            "status": challenge_result.status,
+                            "found_weakness": "debilidad" in challenge_result.response.lower() or "falla" in challenge_result.response.lower()
+                        })
+                    
+                    logger.info("tribunal.self_challenge_complete",
+                               session_id=session_id,
+                               role=role,
+                               response_preview=challenge_result.response[:100])
+                    
+                except Exception as e:
+                    logger.warning("tribunal.self_challenge_failed",
+                                  session_id=session_id,
+                                  role=role,
+                                  error=str(e))
+        
+        except Exception as e:
+            logger.error("tribunal.self_challenge_phase_failed",
+                        session_id=session_id,
+                        error=str(e))
     
     def _has_blocking_objection(self, response: str) -> bool:
         """

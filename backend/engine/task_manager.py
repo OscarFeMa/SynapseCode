@@ -519,7 +519,12 @@ async def submit_supabase_sync(
     sync_service,
     debate_data: dict
 ) -> str:
-    """Helper para sincronización con Supabase"""
+    """Helper para sincronización con Supabase. No-op si no está habilitado."""
+    # Verificar si el servicio está habilitado antes de intentar el sync
+    if not sync_service.enabled:
+        logger.debug("supabase_sync.disabled_skip", debate_id=debate_data.get("id"))
+        return "skipped"
+    
     return await task_manager.submit(
         lambda: sync_service.sync_debate(debate_data),
         context="supabase_sync",

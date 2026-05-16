@@ -23,6 +23,15 @@ from backend.config import get_settings
 settings = get_settings()
 logger = structlog.get_logger()
 
+# Lazy init del warehouse manager
+_warehouse_manager = None
+def _get_warehouse_manager():
+    global _warehouse_manager
+    if _warehouse_manager is None:
+        from backend.database.warehouse import warehouse_manager
+        _warehouse_manager = warehouse_manager
+    return _warehouse_manager
+
 # Pool de hilos para operaciones CPU intensivas
 thread_pool = ThreadPoolExecutor(max_workers=4)
 
@@ -307,6 +316,15 @@ class SessionManager:
             
             # ─── ÚNICO COMMIT FINAL ───
             await db_session.commit()
+            
+            # Trigger del Data Warehouse
+            try:
+                warehouse_mgr = _get_warehouse_manager()
+                await warehouse_mgr.process_session(session_id)
+            except Exception as e:
+                logger.warning("session.warehouse_failed",
+                             session_id=session_id,
+                             error=str(e))
             
             if on_event:
                 on_event("session_completed", {

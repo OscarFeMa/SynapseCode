@@ -8,6 +8,7 @@ from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import structlog
+from backend.monitoring.prometheus import observe_http_request
 
 logger = structlog.get_logger()
 
@@ -32,7 +33,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._cleanup_interval: float = 300.0  # Limpiar IPs inactivas cada 5 min
 
         # Rutas exentas de rate limiting
-        self._exempt_prefixes = ("/health", "/docs", "/openapi", "/redoc", "/ws", "/api/v1/health")
+        self._exempt_prefixes = ("/health", "/docs", "/openapi", "/redoc", "/ws", "/api/v1/health", "/metrics")
     
     async def dispatch(self, request: Request, call_next):
         # Skip rate limiting for exempt paths or OPTIONS (CORS preflight)
@@ -184,6 +185,12 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 status_code=response.status_code,
                 duration_ms=round(duration * 1000, 2),
             )
+            observe_http_request(
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code,
+                duration_seconds=duration,
+            )
             
             return response
             
@@ -196,5 +203,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 path=request.url.path,
                 error=str(e),
                 duration_ms=round(duration * 1000, 2),
+            )
+            observe_http_request(
+                method=request.method,
+                path=request.url.path,
+                status_code=500,
+                duration_seconds=duration,
             )
             raise
