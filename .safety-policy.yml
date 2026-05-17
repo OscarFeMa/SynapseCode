@@ -1,0 +1,6 @@
+security:
+  ignore-vulnerabilities:
+    70612:
+      reason: "urllib3 - known issue, not exploitable in our usage"
+    70613:
+      reason: "urllib3 - known issue, not exploitable in our usage"
