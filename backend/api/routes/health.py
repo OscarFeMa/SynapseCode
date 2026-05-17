@@ -250,4 +250,34 @@ async def health_check() -> Dict[str, Any]:
     Health check completo mantenido por compatibilidad.
     Para automatizaciones use /health/live o /health/ready.
     """
-    return await collect_dependency_health()
+    result = await collect_dependency_health()
+
+    # Add worker connection info
+    worker_connected = False
+    worker_ip = None
+    try:
+        from backend.main import heartbeat_manager
+
+        if heartbeat_manager:
+            worker_connected = heartbeat_manager.is_alive()
+            worker_ip = heartbeat_manager.get_peer_ip()
+    except Exception:
+        pass
+
+    if not worker_connected:
+        try:
+            from backend.engine.worker_launcher import worker_service_manager
+
+            worker_service_manager._check_cache = {}
+            services = await worker_service_manager.check_all_services()
+            running_count = sum(1 for s in services.values() if s.get("status") == "running")
+            if running_count > 0:
+                worker_connected = True
+                worker_ip = worker_service_manager._worker_ip or settings.get_worker_host()
+        except Exception:
+            pass
+
+    result["worker_connected"] = worker_connected
+    result["worker_ip"] = worker_ip
+
+    return result

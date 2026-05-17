@@ -3,6 +3,7 @@ Debug Routes - Endpoints de diagnóstico del sistema.
 Sin impacto en funcionalidad principal.
 """
 
+import importlib
 import time
 from typing import Any, Dict
 
@@ -10,23 +11,72 @@ import structlog
 from fastapi import APIRouter
 
 logger = structlog.get_logger()
-router = APIRouter(prefix="/api/v1/debug")
+router = APIRouter(prefix="/debug")
 
 
-@router.get("/system")
-async def system_debug() -> Dict[str, Any]:
+@router.get("/imports")
+async def debug_imports() -> Dict[str, Any]:
+    """
+    Verifica que los módulos principales del sistema se pueden importar.
+    """
+    modules = [
+        "backend.config",
+        "backend.database.local_db",
+        "backend.engine.sequential_debate_controller",
+        "backend.engine.ultra_debate_controller",
+        "backend.engine.tribunal",
+        "backend.engine.agent_orchestrator",
+        "backend.adapters.groq",
+        "backend.adapters.gemini",
+        "backend.adapters.openrouter",
+        "backend.adapters.deepseek",
+        "backend.adapters.ollama",
+        "backend.adapters.lm_studio",
+        "backend.adapters.jan",
+        "backend.adapters.web_agent",
+        "backend.adapters.huggingface",
+        "backend.adapters.http_client_manager",
+        "backend.engine.quality_monitor",
+        "backend.engine.convergence",
+        "backend.engine.reductio_absurdum",
+        "backend.memory.hybrid_memory_v2",
+        "backend.caching.semantic_cache",
+        "backend.network.discovery",
+        "backend.network.heartbeat",
+        "backend.monitoring.prometheus",
+    ]
+
+    results = {}
+    all_ok = True
+    for mod in modules:
+        try:
+            importlib.import_module(mod)
+            results[mod] = "ok"
+        except Exception as e:
+            results[mod] = f"error: {str(e)[:80]}"
+            all_ok = False
+
+    return {
+        "status": "ok" if all_ok else "degraded",
+        "modules": results,
+        "total": len(modules),
+        "ok": sum(1 for v in results.values() if v == "ok"),
+        "failed": sum(1 for v in results.values() if v != "ok"),
+    }
+
+
+@router.get("/services")
+async def debug_services() -> Dict[str, Any]:
     """
     Estado de circuit breakers y motores.
     Útil para diagnóstico de problemas sin revisar logs.
     """
     try:
-        # Importar localmente para evitar circular imports
         from backend.engine.local_engine_manager import EngineType, LocalEngineManager
 
         lm = LocalEngineManager()
         current_time = time.time()
 
-        # Construir estado de circuit breakers
         circuit_breakers = {}
         for engine_type in EngineType:
             broken_until = lm.circuit_broken_until.get(engine_type, 0)
@@ -39,7 +89,6 @@ async def system_debug() -> Dict[str, Any]:
                 "failure_count": lm.engine_failures.get(engine_type, 0),
             }
 
-        # Construir estado de salud
         engine_health = {k.value: v for k, v in lm.engine_health.items()}
 
         return {
@@ -50,43 +99,12 @@ async def system_debug() -> Dict[str, Any]:
         }
 
     except Exception as e:
-        logger.error("debug.system_error", error=str(e))
+        logger.error("debug.services_error", error=str(e))
         return {
             "status": "error",
             "error": str(e),
             "message": "Failed to retrieve system debug info",
         }
-
-
-@router.get("/health-detailed")
-async def health_detailed() -> Dict[str, Any]:
-    """
-    Health check detallado con información adicional.
-    """
-    try:
-        from sqlalchemy import text
-
-        from backend.database.local_db import engine as db_engine
-
-        # Check database
-        db_status = "unknown"
-        try:
-            with db_engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-                db_status = "ok"
-        except Exception as db_error:
-            db_status = f"error: {str(db_error)}"
-
-        return {
-            "status": "ok" if db_status == "ok" else "degraded",
-            "components": {
-                "database": db_status,
-            },
-            "timestamp": int(time.time()),
-        }
-
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
 
 
 @router.get("/config")
@@ -108,5 +126,35 @@ async def debug_config() -> Dict[str, Any]:
                 "reputation_enabled": getattr(settings, "AGENT_REPUTATION_ENABLED", False),
             },
         }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@router.get("/health-detailed")
+async def health_detailed() -> Dict[str, Any]:
+    """
+    Health check detallado con información adicional.
+    """
+    try:
+        from sqlalchemy import text
+
+        from backend.database.local_db import engine as db_engine
+
+        db_status = "unknown"
+        try:
+            with db_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+                db_status = "ok"
+        except Exception as db_error:
+            db_status = f"error: {str(db_error)}"
+
+        return {
+            "status": "ok" if db_status == "ok" else "degraded",
+            "components": {
+                "database": db_status,
+            },
+            "timestamp": int(time.time()),
+        }
+
     except Exception as e:
         return {"status": "error", "error": str(e)}

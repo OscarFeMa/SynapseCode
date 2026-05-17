@@ -63,3 +63,7 @@ test_results.xml
 test_comprehensive_results.xml
 test_full_results.xml
 data/debates/*.md
+
+# Sensitive files
+*.rdp
+synapse_workers.json

@@ -35,6 +35,7 @@ class UltraDebateController:
         self.orchestrator = AgentOrchestrator()
         self.tribunal = TribunalCouncil()
         self.active_sessions: Dict[str, DebateSession] = {}
+        self.stages: list = []
 
     async def create_ultra_debate(self, topic: str) -> str:
         """Inicia un debate de ultra-alta densidad con ID autogenerado"""
