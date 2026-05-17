@@ -60,6 +60,7 @@ class LocalEngineManager:
         self._health_cache_time: float | None = None
         self._health_cache_duration = 30.0  # segundos
         self._preload_tasks: dict[str, asyncio.Task] = {}
+        self._current_loaded_model: str | None = None  # Track loaded model for VRAM management
 
     async def health_check(self, engine_type: EngineType) -> dict[str, Any]:
         """Verifica salud de un motor específico"""
@@ -233,6 +234,9 @@ class LocalEngineManager:
 
         try:
             if engine_type == EngineType.OLLAMA:
+                # Unload previous model if different to avoid VRAM accumulation
+                await self._unload_model_if_needed(model)
+
                 # Ollama usa formato generate o chat
                 options = {"temperature": temperature}
                 if max_tokens:
@@ -277,6 +281,9 @@ class LocalEngineManager:
                     yield token
 
             logger.info("local_engine.completed", engine=engine_type.value, model=model)
+            # Track loaded model for VRAM management
+            if engine_type == EngineType.OLLAMA:
+                self._current_loaded_model = model
 
         except Exception as e:
             logger.error(
@@ -407,3 +414,24 @@ class LocalEngineManager:
 
         task = asyncio.create_task(preload())
         self._preload_tasks[model] = task
+
+    async def _unload_model_if_needed(self, next_model: str) -> None:
+        """
+        Descarga el modelo actual de Ollama antes de cargar el siguiente.
+        Evita acumulación de VRAM entre turnos.
+        Solo hace unload si el siguiente modelo es diferente al actual.
+        """
+        if self._current_loaded_model and self._current_loaded_model != next_model:
+            try:
+                ollama_client = self.engines.get(EngineType.OLLAMA)
+                if ollama_client:
+                    await ollama_client.unload_model(self._current_loaded_model)
+                    logger.info(
+                        "local_engine.unloaded_previous_model",
+                        previous=self._current_loaded_model,
+                        next=next_model,
+                    )
+            except Exception as e:
+                logger.warning("local_engine.unload_failed", model=self._current_loaded_model, error=str(e))
+            finally:
+                self._current_loaded_model = None

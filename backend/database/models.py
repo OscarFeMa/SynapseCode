@@ -355,6 +355,35 @@ class ReductioAbsurdumProof(Base):
     )
 
 
+class AbsurdumProof(Base):
+    """
+    Tabla: absurdum_proofs
+    Persistencia granular de pruebas de reducción al absurdo por turno de debate.
+    Permite auditoría de razonamiento y análisis de robustness por agente.
+    """
+
+    __tablename__ = "absurdum_proofs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    debate_id: Mapped[str] = mapped_column(ForeignKey("sequential_debates.id"), nullable=False)
+    iteration: Mapped[int] = mapped_column(Integer, nullable=False)
+    turn_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    agent_model: Mapped[str] = mapped_column(String(100), nullable=False)
+    agent_role: Mapped[str] = mapped_column(String(100), nullable=False)
+    original_proposition: Mapped[str] = mapped_column(Text, nullable=False)
+    extreme_case_applied: Mapped[str] = mapped_column(Text, nullable=False)
+    contradiction_found: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    refined_proposition: Mapped[str | None] = mapped_column(Text, nullable=True)
+    robustness_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+
+    __table_args__ = (
+        Index("idx_absurdum_debate", "debate_id"),
+        Index("idx_absurdum_model", "agent_model"),
+        Index("idx_absurdum_role", "agent_role"),
+    )
+
+
 class PromptResponseCache(Base):
     """
     Tabla: prompt_response_cache

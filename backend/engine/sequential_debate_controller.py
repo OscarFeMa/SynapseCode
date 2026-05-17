@@ -1300,33 +1300,14 @@ JSON:"""
                 response_text += token
 
             # Extraer JSON de la respuesta - manejar múltiples formatos
-            import re
-
-            # Intentar 1: Buscar JSON directo
-            json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
-
-            # Intento 2: Si hay ```json``` bloques, extraer el contenido
-            if not json_match:
-                json_match = re.search(r"```json\s*(\{.*?\})\s*```", response_text, re.DOTALL)
-
-            if json_match:
-                json_str = json_match.group(1) if json_match.lastindex else json_match.group(0)
-                try:
-                    report_data = json.loads(json_str)
-                    report_data["generated_by"] = "llama3:8b"
-                    logger.info(
-                        "sequential_debate.structured_report.parsed_successfully",
-                        session_id=session_id,
-                    )
-                    return report_data
-                except json.JSONDecodeError as je:
-                    logger.error(
-                        "sequential_debate.structured_report.json_parse_error",
-                        session_id=session_id,
-                        error=str(je),
-                        text_preview=json_str[:200],
-                    )
-                    return fallback_report
+            report_data = self._extract_json_from_llm_response(response_text)
+            if report_data:
+                report_data["generated_by"] = "llama3:8b"
+                logger.info(
+                    "sequential_debate.structured_report.parsed_successfully",
+                    session_id=session_id,
+                )
+                return report_data
 
             logger.warning(
                 "sequential_debate.structured_report.no_json_found",
@@ -1341,6 +1322,57 @@ JSON:"""
                 error=str(e),
             )
             return fallback_report
+
+    def _extract_json_from_llm_response(self, text: str) -> dict | None:
+        """
+        Extrae JSON de respuestas LLM que pueden contener:
+        - JSON puro
+        - JSON dentro de ```json ... ```
+        - JSON dentro de ``` ... ```
+        - JSON precedido por texto explicativo
+        """
+        import re
+
+        # Estrategia 1: JSON puro
+        text_stripped = text.strip()
+        if text_stripped.startswith("{") and text_stripped.endswith("}"):
+            try:
+                return json.loads(text_stripped)
+            except json.JSONDecodeError:
+                pass
+
+        # Estrategia 2: Bloque ```json ... ```
+        match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        # Estrategia 3: Bloque ``` ... ``` genérico
+        match = re.search(r"```\s*([\s\S]*?)\s*```", text)
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        # Estrategia 4: Encontrar el primer { ... } balanceado
+        brace_start = text.find("{")
+        if brace_start != -1:
+            depth = 0
+            for i, ch in enumerate(text[brace_start:], brace_start):
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        try:
+                            return json.loads(text[brace_start : i + 1])
+                        except json.JSONDecodeError:
+                            break
+
+        return None
 
     async def generate_structured_report_for_debate(self, session_id: str) -> dict[str, Any] | None:
         """

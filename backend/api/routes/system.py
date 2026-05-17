@@ -3,6 +3,7 @@ Synapse Council v3.0 - System API Routes
 Endpoints para configuración, métricas, chat directo y wake-on-RDP
 """
 
+import subprocess
 import time
 from datetime import datetime
 
@@ -15,6 +16,7 @@ from sqlalchemy import desc, func, select
 from backend.config import get_settings
 from backend.database.local_db import AsyncSessionLocal
 from backend.database.models import (
+    AbsurdumProof,
     DailyMetricsSnapshot,
     ModelPerformance,
     ReductioAbsurdumProof,
@@ -952,3 +954,99 @@ async def update_api_key(service: str, req: ApiKeyUpdateRequest):
 
     logger.info("system.api_key_updated", service=service, env_var=env_var)
     return {"success": True, "service": service, "message": f"API key para {service} actualizada"}
+
+
+@router.get("/worker/resources")
+async def get_worker_gpu_stats():
+    """
+    Consulta nvidia-smi en el Worker para obtener métricas GPU/RAM en tiempo real.
+    Útil para diagnosticar OOM antes de que ocurran.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=memory.used,memory.free,memory.total,temperature.gpu,utilization.gpu",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            parts = result.stdout.strip().split(", ")
+            if len(parts) >= 5:
+                used, free, total, temp, util = parts
+                return {
+                    "gpu_memory_used_mb": int(used),
+                    "gpu_memory_free_mb": int(free),
+                    "gpu_memory_total_mb": int(total),
+                    "gpu_temp_celsius": int(temp) if temp else None,
+                    "gpu_utilization_pct": int(float(util)) if util else None,
+                    "available": True,
+                }
+        return {"available": False, "error": f"nvidia-smi failed: {result.stderr.strip()[:200]}"}
+    except FileNotFoundError:
+        return {"available": False, "error": "nvidia-smi not found (no NVIDIA GPU or driver)"}
+    except subprocess.TimeoutExpired:
+        return {"available": False, "error": "nvidia-smi timed out"}
+    except Exception as e:
+        return {"available": False, "error": str(e)}
+
+
+@router.get("/debates/{debate_id}/absurdum-analysis")
+async def get_absurdum_analysis(debate_id: str):
+    """
+    Analisis de robustness por agente para un debate.
+    Retorna proposiciones que fallaron, refinamientos aplicados, y scores.
+    """
+    try:
+        async with AsyncSessionLocal() as db_session:
+            result = await db_session.execute(
+                select(AbsurdumProof).where(AbsurdumProof.debate_id == debate_id).order_by(AbsurdumProof.turn_number)
+            )
+            proofs = result.scalars().all()
+
+            if not proofs:
+                return {"debate_id": debate_id, "proofs": [], "summary": "No absurdum proofs found"}
+
+            by_agent: dict[str, dict] = {}
+            for p in proofs:
+                key = f"{p.agent_model} ({p.agent_role})"
+                if key not in by_agent:
+                    by_agent[key] = {
+                        "total_proofs": 0,
+                        "contradictions_found": 0,
+                        "avg_robustness": 0.0,
+                        "refinements": 0,
+                    }
+                by_agent[key]["total_proofs"] += 1
+                if p.contradiction_found:
+                    by_agent[key]["contradictions_found"] += 1
+                if p.refined_proposition:
+                    by_agent[key]["refinements"] += 1
+                if p.robustness_score is not None:
+                    current_avg = by_agent[key]["avg_robustness"]
+                    n = by_agent[key]["total_proofs"]
+                    by_agent[key]["avg_robustness"] = current_avg + (p.robustness_score - current_avg) / n
+
+            return {
+                "debate_id": debate_id,
+                "total_proofs": len(proofs),
+                "by_agent": by_agent,
+                "proofs": [
+                    {
+                        "turn_number": p.turn_number,
+                        "agent_model": p.agent_model,
+                        "agent_role": p.agent_role,
+                        "original_proposition": p.original_proposition[:200],
+                        "extreme_case_applied": p.extreme_case_applied[:200],
+                        "contradiction_found": p.contradiction_found,
+                        "refined_proposition": p.refined_proposition[:200] if p.refined_proposition else None,
+                        "robustness_score": p.robustness_score,
+                    }
+                    for p in proofs
+                ],
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

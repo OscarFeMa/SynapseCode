@@ -233,11 +233,17 @@ class OllamaClient:
         await self.ensure_model_loaded(model)
 
         # Siempre usar stream=True para asegurar consumo completo
+        # phi3:mini requiere contexto reducido (131072 ctx → 50GB RAM)
+        # Limitar a 4096 por defecto para evitar OOM en modelos con ctx grande
+        default_options = {"num_ctx": 4096}
+        if options:
+            default_options.update(options)
+
         payload = {
             "model": model,
             "prompt": prompt,
             "stream": True,
-            "options": options or {},
+            "options": default_options,
             "keep_alive": self.keep_alive,
         }
 

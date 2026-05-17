@@ -1263,3 +1263,64 @@ async def export_debate_pdf(session_id: str):
         media_type="text/html",
         headers={"Content-Disposition": f"inline; filename=debate_{session_id}.html"},
     )
+
+
+@router.get("/{session_id}/export/docx")
+async def export_debate_docx(session_id: str):
+    """Exporta el debate como documento Word (.docx) con portada, turnos y veredicto."""
+    from io import BytesIO
+
+    from docx import Document
+    from docx.shared import RGBColor
+
+    session = debate_controller.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Debate not found")
+
+    doc = Document()
+
+    # Portada
+    doc.add_heading("SynapseCode — Debate Report", level=0)
+    doc.add_paragraph(session.topic)
+    meta = doc.add_paragraph()
+    meta.add_run(
+        f"Date: {session.created_at.strftime('%d/%m/%Y %H:%M') if session.created_at else 'N/A'}\n"
+    ).bold = False
+    meta.add_run(f"Status: {session.status}\n")
+    meta.add_run(f"Turns: {len(session.turns)}")
+
+    doc.add_page_break()
+
+    # Turnos
+    doc.add_heading("Debate Turns", level=1)
+    for turn in session.turns:
+        if turn.status.startswith("completed"):
+            p = doc.add_heading(f"Turn {turn.turn_number}: {turn.agent.name}", level=2)
+            p.runs[0].font.color.rgb = RGBColor(0x25, 0x63, 0xEB)
+
+            info = doc.add_paragraph()
+            info.add_run("Role: ").bold = True
+            info.add_run(turn.agent.role.value)
+            info.add_run(" | Model: ").bold = True
+            info.add_run(turn.agent.model)
+            info.add_run(" | Tokens: ").bold = True
+            info.add_run(f"{turn.tokens_out}")
+
+            doc.add_paragraph(turn.response_received)
+
+    # Veredicto
+    if session.final_verdict:
+        doc.add_page_break()
+        doc.add_heading("Final Verdict", level=1)
+        doc.add_paragraph(session.final_verdict)
+
+    # Guardar en BytesIO
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename=debate_{session_id}.docx"},
+    )
