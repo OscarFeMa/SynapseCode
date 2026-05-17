@@ -139,7 +139,9 @@ def generate_professional_report(
                 for s in successful:
                     preview = s.get("response", "")[:200]
                     if preview:
-                        web_summary += f"<br><strong>{_escape_html(s.get('site_label', ''))}:</strong> {_escape_html(preview)}..."
+                        web_summary += (
+                            f"<br><strong>{_escape_html(s.get('site_label', ''))}:</strong> {_escape_html(preview)}..."
+                        )
         except Exception:
             web_summary = "Contexto web disponible"
 
@@ -556,7 +558,7 @@ def generate_professional_report(
                 <strong>Tema:</strong> {_escape_html(topic)}
             </p>
             <p style="margin-top: 0.5rem; color: var(--text-muted); position: relative;">
-                📅 {dt_created.strftime('%d/%m/%Y %H:%M')} → {dt_completed.strftime('%H:%M')} UTC
+                📅 {dt_created.strftime("%d/%m/%Y %H:%M")} → {dt_completed.strftime("%H:%M")} UTC
             </p>
         </div>
 
@@ -582,7 +584,7 @@ def generate_professional_report(
                 <div class="label">Consenso</div>
                 <div class="value">{consensus_level}<span class="unit">%</span></div>
                 <div class="consensus-bar">
-                    <div class="consensus-fill" style="width: {consensus_level}%; background: {'#10B981' if consensus_level >= 70 else '#F59E0B' if consensus_level >= 50 else '#EF4444'}"></div>
+                    <div class="consensus-fill" style="width: {consensus_level}%; background: {"#10B981" if consensus_level >= 70 else "#F59E0B" if consensus_level >= 50 else "#EF4444"}"></div>
                 </div>
             </div>
         </div>
@@ -592,7 +594,7 @@ def generate_professional_report(
             <h2 class="section-title">🌐 Contexto Web en Tiempo Real</h2>
             <div class="web-context">
                 <h4>Fuentes Consultadas</h4>
-                <p>{web_summary if web_summary else 'No se realizó búsqueda web para este debate.'}</p>
+                <p>{web_summary if web_summary else "No se realizó búsqueda web para este debate."}</p>
             </div>
         </div>
 
@@ -696,8 +698,10 @@ def generate_professional_report(
                 web_marker = "## Información Actualizada (Búsqueda Web)"
                 if web_marker in header_part:
                     web_start = header_part.index(web_marker)
-                    web_section = header_part[web_start:web_start + 300]
-                    header_part = header_part[:web_start] + web_section + "\\n... [contexto web truncado para legibilidad]"
+                    web_section = header_part[web_start : web_start + 300]
+                    header_part = (
+                        header_part[:web_start] + web_section + "\\n... [contexto web truncado para legibilidad]"
+                    )
                 prompt_display = header_part + "\\n\\n## Historial del Debate" + parts[1]
 
         html += f"""
@@ -770,7 +774,7 @@ def generate_professional_report(
     html += f"""
         <div class="footer">
             <p><strong>Synapse Council v2.0</strong> - Sistema de Debate Multi-Modelo con IA</p>
-            <p>Informe generado el {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Debate ID: {debate_data.get('id', 'N/A')}</p>
+            <p>Informe generado el {datetime.now().strftime("%d/%m/%Y %H:%M:%S")} | Debate ID: {debate_data.get("id", "N/A")}</p>
             <p style="margin-top: 0.5rem; font-size: 0.75rem;">
                 Powered by Ollama, DuckDuckGo Search, y Trafilatura
             </p>
@@ -980,11 +984,11 @@ def _generate_bar_chart_svg(labels: List[str], data: List[int], colors: List[str
         bar_height = (val / max_val) * (chart_height - padding_top - padding_bottom) if max_val > 0 else 0
         y = chart_height - padding_bottom - bar_height
         bars += f'<rect x="{x}" y="{y}" width="{bar_width}" height="{bar_height}" fill="{color}" rx="4"/>'
-        bars += f'<text x="{x + bar_width/2}" y="{y - 5}" text-anchor="middle" fill="#f1f5f9" font-size="11" font-weight="600">{val}</text>'
-        bars += f'<text x="{x + bar_width/2}" y="{chart_height - 10}" text-anchor="middle" fill="#94a3b8" font-size="9">{label[:15]}</text>'
+        bars += f'<text x="{x + bar_width / 2}" y="{y - 5}" text-anchor="middle" fill="#f1f5f9" font-size="11" font-weight="600">{val}</text>'
+        bars += f'<text x="{x + bar_width / 2}" y="{chart_height - 10}" text-anchor="middle" fill="#94a3b8" font-size="9">{label[:15]}</text>'
 
     return f"""<svg width="{chart_width}" height="{chart_height}" xmlns="http://www.w3.org/2000/svg">
-        <text x="{chart_width/2}" y="18" text-anchor="middle" fill="#f1f5f9" font-size="13" font-weight="600">{title}</text>
+        <text x="{chart_width / 2}" y="18" text-anchor="middle" fill="#f1f5f9" font-size="13" font-weight="600">{title}</text>
         {bars}
     </svg>"""
 
@@ -1004,11 +1008,19 @@ def _generate_line_chart_svg(labels: List[str], data: List[int], color: str, tit
     points = []
     for i, val in enumerate(data):
         x = padding_left + i * 80 + 30
-        y = chart_height - padding_bottom - (val / max_val) * (chart_height - padding_top - padding_bottom) if max_val > 0 else chart_height - padding_bottom
+        y = (
+            chart_height - padding_bottom - (val / max_val) * (chart_height - padding_top - padding_bottom)
+            if max_val > 0
+            else chart_height - padding_bottom
+        )
         points.append((x, y))
 
     line_path = " ".join(f"{x},{y}" for x, y in points)
-    area_path = f"{points[0][0]},{chart_height - padding_bottom} " + line_path + f" {points[-1][0]},{chart_height - padding_bottom}"
+    area_path = (
+        f"{points[0][0]},{chart_height - padding_bottom} "
+        + line_path
+        + f" {points[-1][0]},{chart_height - padding_bottom}"
+    )
 
     dots = ""
     labels_svg = ""
@@ -1018,7 +1030,7 @@ def _generate_line_chart_svg(labels: List[str], data: List[int], color: str, tit
         labels_svg += f'<text x="{x}" y="{chart_height - 10}" text-anchor="middle" fill="#94a3b8" font-size="9">{label[:15]}</text>'
 
     return f"""<svg width="{chart_width}" height="{chart_height}" xmlns="http://www.w3.org/2000/svg">
-        <text x="{chart_width/2}" y="18" text-anchor="middle" fill="#f1f5f9" font-size="13" font-weight="600">{title}</text>
+        <text x="{chart_width / 2}" y="18" text-anchor="middle" fill="#f1f5f9" font-size="13" font-weight="600">{title}</text>
         <polyline points="{area_path}" fill="rgba(139, 92, 246, 0.15)"/>
         <polyline points="{line_path}" fill="none" stroke="{color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
         {dots}
@@ -1045,18 +1057,22 @@ def _generate_bar_chart_svg_light(labels: List[str], data: List[int], colors: Li
         x = padding_left + i * (bar_width + gap)
         bar_height = (val / max_val) * (chart_height - padding_top - padding_bottom) if max_val > 0 else 0
         y = chart_height - padding_bottom - bar_height
-        bars += f'<rect x="{x}" y="{y}" width="{bar_width}" height="{bar_height}" fill="{color}" rx="3" opacity="0.85"/>'
-        bars += f'<text x="{x + bar_width/2}" y="{y - 5}" text-anchor="middle" fill="#1e293b" font-size="10" font-weight="600">{val}</text>'
-        bars += f'<text x="{x + bar_width/2}" y="{chart_height - 8}" text-anchor="middle" fill="#64748b" font-size="8">{label[:12]}</text>'
+        bars += (
+            f'<rect x="{x}" y="{y}" width="{bar_width}" height="{bar_height}" fill="{color}" rx="3" opacity="0.85"/>'
+        )
+        bars += f'<text x="{x + bar_width / 2}" y="{y - 5}" text-anchor="middle" fill="#1e293b" font-size="10" font-weight="600">{val}</text>'
+        bars += f'<text x="{x + bar_width / 2}" y="{chart_height - 8}" text-anchor="middle" fill="#64748b" font-size="8">{label[:12]}</text>'
 
     # Grid lines
     grid_lines = ""
     for i in range(5):
         y = padding_top + i * (chart_height - padding_top - padding_bottom) / 4
-        grid_lines += f'<line x1="{padding_left}" y1="{y}" x2="{chart_width - 10}" y2="{y}" stroke="#e2e8f0" stroke-width="0.5"/>'
+        grid_lines += (
+            f'<line x1="{padding_left}" y1="{y}" x2="{chart_width - 10}" y2="{y}" stroke="#e2e8f0" stroke-width="0.5"/>'
+        )
 
     return f"""<svg width="{chart_width}" height="{chart_height}" xmlns="http://www.w3.org/2000/svg">
-        <text x="{chart_width/2}" y="16" text-anchor="middle" fill="#1e3a5f" font-size="12" font-weight="700">{title}</text>
+        <text x="{chart_width / 2}" y="16" text-anchor="middle" fill="#1e3a5f" font-size="12" font-weight="700">{title}</text>
         {grid_lines}
         {bars}
     </svg>"""
@@ -1077,17 +1093,27 @@ def _generate_line_chart_svg_light(labels: List[str], data: List[int], color: st
     points = []
     for i, val in enumerate(data):
         x = padding_left + i * 80 + 30
-        y = chart_height - padding_bottom - (val / max_val) * (chart_height - padding_top - padding_bottom) if max_val > 0 else chart_height - padding_bottom
+        y = (
+            chart_height - padding_bottom - (val / max_val) * (chart_height - padding_top - padding_bottom)
+            if max_val > 0
+            else chart_height - padding_bottom
+        )
         points.append((x, y))
 
     line_path = " ".join(f"{x},{y}" for x, y in points)
-    area_path = f"{points[0][0]},{chart_height - padding_bottom} " + line_path + f" {points[-1][0]},{chart_height - padding_bottom}"
+    area_path = (
+        f"{points[0][0]},{chart_height - padding_bottom} "
+        + line_path
+        + f" {points[-1][0]},{chart_height - padding_bottom}"
+    )
 
     # Grid lines
     grid_lines = ""
     for i in range(5):
         y = padding_top + i * (chart_height - padding_top - padding_bottom) / 4
-        grid_lines += f'<line x1="{padding_left}" y1="{y}" x2="{chart_width - 10}" y2="{y}" stroke="#e2e8f0" stroke-width="0.5"/>'
+        grid_lines += (
+            f'<line x1="{padding_left}" y1="{y}" x2="{chart_width - 10}" y2="{y}" stroke="#e2e8f0" stroke-width="0.5"/>'
+        )
 
     dots = ""
     labels_svg = ""
@@ -1097,7 +1123,7 @@ def _generate_line_chart_svg_light(labels: List[str], data: List[int], color: st
         labels_svg += f'<text x="{x}" y="{chart_height - 8}" text-anchor="middle" fill="#64748b" font-size="8">{label[:12]}</text>'
 
     return f"""<svg width="{chart_width}" height="{chart_height}" xmlns="http://www.w3.org/2000/svg">
-        <text x="{chart_width/2}" y="16" text-anchor="middle" fill="#1e3a5f" font-size="12" font-weight="700">{title}</text>
+        <text x="{chart_width / 2}" y="16" text-anchor="middle" fill="#1e3a5f" font-size="12" font-weight="700">{title}</text>
         {grid_lines}
         <polyline points="{area_path}" fill="rgba(99, 102, 241, 0.1)"/>
         <polyline points="{line_path}" fill="none" stroke="{color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1162,12 +1188,8 @@ def generate_pdf_report(
             pass
 
     # Generate SVG charts (light theme)
-    tokens_chart = _generate_bar_chart_svg_light(
-        turn_labels, turn_tokens, turn_colors, "Tokens Generados por Agente"
-    )
-    latency_chart = _generate_line_chart_svg_light(
-        turn_labels, turn_latencies, "#6366f1", "Latencia por Agente (ms)"
-    )
+    tokens_chart = _generate_bar_chart_svg_light(turn_labels, turn_tokens, turn_colors, "Tokens Generados por Agente")
+    latency_chart = _generate_line_chart_svg_light(turn_labels, turn_latencies, "#6366f1", "Latencia por Agente (ms)")
 
     # Build turns HTML
     turns_html = ""
@@ -1189,7 +1211,7 @@ def generate_pdf_report(
                 web_marker = "## Información Actualizada (Búsqueda Web)"
                 if web_marker in header_part:
                     web_start = header_part.index(web_marker)
-                    web_section = header_part[web_start:web_start + 150]
+                    web_section = header_part[web_start : web_start + 150]
                     header_part = header_part[:web_start] + web_section + "\n\n[... contexto web resumido ...]\n"
                 prompt_display = header_part + "\n## Historial del Debate" + parts[1]
 
@@ -1200,7 +1222,7 @@ def generate_pdf_report(
         turns_html += f"""
         <div class="turn-card">
             <div class="turn-header" style="border-left: 4px solid {role_color};">
-                <span class="turn-number">Turno {t.get('turn_number', '?')}</span>
+                <span class="turn-number">Turno {t.get("turn_number", "?")}</span>
                 <span class="agent-name">{_escape_html(name)}</span>
                 <span class="agent-role" style="color: {role_color};">{role.upper()}</span>
                 <span class="agent-model">{_escape_html(model)}</span>
@@ -1221,14 +1243,18 @@ def generate_pdf_report(
     # Findings HTML
     findings_html = ""
     if key_findings:
-        findings_html = '<div class="section"><div class="section-title">Hallazgos Clave</div><ul class="findings-list">'
+        findings_html = (
+            '<div class="section"><div class="section-title">Hallazgos Clave</div><ul class="findings-list">'
+        )
         for finding in key_findings:
             findings_html += f'<li class="finding-item">{_escape_html(finding)}</li>'
         findings_html += "</ul></div>"
 
     risks_html = ""
     if risks:
-        risks_html = '<div class="section"><div class="section-title">Riesgos Identificados</div><ul class="risks-list">'
+        risks_html = (
+            '<div class="section"><div class="section-title">Riesgos Identificados</div><ul class="risks-list">'
+        )
         for risk in risks:
             risks_html += f'<li class="risk-item">{_escape_html(risk)}</li>'
         risks_html += "</ul></div>"
@@ -1552,7 +1578,7 @@ def generate_pdf_report(
         </div>
         <div class="report-meta" style="margin-top: 0.75rem;">
             <strong>Tema:</strong> {_escape_html(topic)}<br>
-            <strong>Fecha:</strong> {dt_created.strftime('%d/%m/%Y %H:%M')} UTC &mdash; {dt_completed.strftime('%H:%M')} UTC &nbsp;|&nbsp; <strong>Duracion:</strong> {_format_latency(int(duration * 1000))}
+            <strong>Fecha:</strong> {dt_created.strftime("%d/%m/%Y %H:%M")} UTC &mdash; {dt_completed.strftime("%H:%M")} UTC &nbsp;|&nbsp; <strong>Duracion:</strong> {_format_latency(int(duration * 1000))}
         </div>
     </div>
 
@@ -1600,7 +1626,7 @@ def generate_pdf_report(
 
     <div class="section">
         <div class="section-title">Veredicto Final del Tribunal</div>
-        <div class="verdict-box">{_escape_html(verdict) if verdict else 'Veredicto no disponible para este debate.'}</div>
+        <div class="verdict-box">{_escape_html(verdict) if verdict else "Veredicto no disponible para este debate."}</div>
     </div>
 
     {findings_html}
@@ -1608,7 +1634,7 @@ def generate_pdf_report(
 
     <div class="report-footer">
         <strong>Synapse Council v2.0</strong> &mdash; Sistema de Debate Multi-Modelo con IA<br>
-        Informe generado el {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} &nbsp;|&nbsp; Debate ID: {debate_data.get('id', 'N/A')}
+        Informe generado el {datetime.now().strftime("%d/%m/%Y %H:%M:%S")} &nbsp;|&nbsp; Debate ID: {debate_data.get("id", "N/A")}
     </div>
 </body>
 </html>"""

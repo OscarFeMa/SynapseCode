@@ -176,7 +176,12 @@ class OllamaClient:
 
     def _is_cuda_error(self, error_text: str) -> bool:
         """Detecta errores CUDA que requieren recuperación de GPU"""
-        cuda_indicators = ["cuda error", "cuda out of memory", "shared object initialization failed", "llama runner process has terminated"]
+        cuda_indicators = [
+            "cuda error",
+            "cuda out of memory",
+            "shared object initialization failed",
+            "llama runner process has terminated",
+        ]
         return any(indicator in error_text.lower() for indicator in cuda_indicators)
 
     async def _recover_from_cuda_error(self) -> bool:

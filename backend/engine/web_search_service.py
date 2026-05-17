@@ -227,9 +227,7 @@ class WebSearchService:
                 # Truncar respuesta para no sobrecargar el prompt
                 summary_parts.append(r.response[:2000])
         if failed:
-            summary_parts.append(
-                f"\nSitios no disponibles: {', '.join(r.site_label for r in failed)}"
-            )
+            summary_parts.append(f"\nSitios no disponibles: {', '.join(r.site_label for r in failed)}")
 
         web_context = WebContext(
             topic=topic,
