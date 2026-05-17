@@ -3,10 +3,16 @@ Synapse Council v2.0 - FastAPI Application
 Punto de entrada principal del backend
 """
 
+import asyncio
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+# Windows: Playwright requiere ProactorEventLoop para subprocess
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 import structlog
 from fastapi import FastAPI
