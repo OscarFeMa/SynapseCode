@@ -1,14 +1,14 @@
-# 🧠 SynapseCode v2.7
+# 🧠 SynapseCode v2.8
 
 Plataforma de **razonamiento colectivo híbrido** que orquesta múltiples modelos de IA en debates estructurados por roles, con veredicto del **Tribunal de Magistrados**.
 
-Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.33) ejecuta modelos locales.
+Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.43) ejecuta modelos locales.
 
 ---
 
 ## 🎯 Características Principales
 
-### Control Center v2.7
+### Control Center v2.8
 - **Panel Web Completo**: 6 pestañas — Command, Launcher, Metrics, Tribunal, Models, History
 - **Zero Dependencies**: Vanilla JS puro, sin build, sin node_modules
 - **Estado en Tiempo Real**: Polling automático cada 10s
@@ -16,6 +16,17 @@ Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.33) eje
 - **Monitor de Servicios**: Ollama, LM Studio, Jan con auto-lanzamiento
 - **Panel de Bases de Datos**: SQLite local + Supabase Cloud con sync status
 - **Diseño Neural Terminal**: Dark mode, grid de circuito, animaciones CSS
+
+### Búsqueda Web en Tiempo Real
+- **DuckDuckGo Search** (`ddgs`): Resultados reales sin API key
+- **Trafilatura**: Extracción de contenido completo de artículos
+- **Contexto web para debates**: Información actualizada inyectada en prompts
+- **Verificación factual del tribunal**: Datos reales para validar argumentos
+
+### Reportes Profesionales
+- **HTML interactivo**: Chart.js, tema oscuro, responsive
+- **PDF imprimible**: Gráficos SVG inline, tema claro
+- **Generación automática**: Post-debate, con métricas y veredicto
 
 ### Motor de Debate
 - **Debates Secuenciales**: Multi-modelo con roles (Analista, Crítico, Sintetizador, Validador)

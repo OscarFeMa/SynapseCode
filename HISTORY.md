@@ -8,6 +8,20 @@ Synapse Council es una plataforma de razonamiento colectivo híbrido que orquest
 
 ## 🗓️ Línea Temporal de Desarrollo
 
+### **Fase 8: Resiliencia, Reportes y Búsqueda Web (Completada - v2.8)**
+
+#### Mayo 17, 2026: Robustez del Sistema + Reportes Profesionales
+- ✅ **Búsqueda web real**: DuckDuckGo (`ddgs`) + Trafilatura reemplazan Wikipedia/HTTP
+- ✅ **Reportes HTML/PDF**: Generación automática con gráficos y métricas
+- ✅ **Fallback local**: Agentes locales fallan → fallback automático a llama3:8b
+- ✅ **Recuperación CUDA**: Detecta errores GPU, limpia memoria y reintenta
+- ✅ **Validación respuestas vacías**: 0 tokens ahora lanza error (antes silent fail)
+- ✅ **HTTP 500 en streaming**: Detectado y reportado correctamente
+- ✅ **warm_model retry**: 2 intentos con delay para errores transitorios
+- ✅ **llama3.2:latest → llama3:8b**: Corregido en toda la codebase
+- ✅ **CI/CD limpio**: 15 errores de linting + 4 archivos de formato corregidos
+- ✅ **Safety policy**: `.safety-policy.yml` para vulnerability checks
+
 ### **Fase 7: Cloud APIs y Web Agent (Completada - v2.2)**
 
 #### Mayo 2026: APIs Cloud Gratuitas + Worker Auto-Management

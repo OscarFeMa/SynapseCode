@@ -7,6 +7,52 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ---
 
+## [2.8.0] - 2026-05-17
+
+### 🚀 Añadido
+
+#### Búsqueda Web en Tiempo Real
+- **DuckDuckGo Search** (`ddgs`): Reemplaza Wikipedia/HTTP por búsquedas reales sin API key
+- **Trafilatura**: Extracción de contenido completo de artículos (no solo snippets)
+- **Contexto web para agentes**: Los debates reciben información actualizada del tema
+- **Tribunal con contexto web**: Verificación factual con datos reales
+
+#### Reportes Profesionales HTML/PDF
+- **HTML interactivo**: Tema oscuro, gráficos Chart.js, responsive
+- **PDF imprimible**: Tema claro, gráficos SVG inline, optimizado para impresión
+- **Generación automática**: Se generan al completar cada debate
+- **Métricas incluidas**: Tokens, latencia, calidad, consenso, veredicto
+
+#### Sistema de Fallback para Agentes Locales
+- **Fallback a llama3:8b**: Cuando un modelo local falla, usa automáticamente un modelo estable
+- **Validación de respuestas vacías**: Detecta 0 tokens como error (antes silencio)
+- **Paridad cloud/local**: Ahora ambos tipos de agente tienen fallback
+
+#### Recuperación Automática de Errores CUDA
+- **Detección de errores GPU**: CUDA OOM, shared object initialization failed, runner terminated
+- **Recovery automático**: Limpia memoria GPU y reintenta la generación
+- **Retry en warm_model**: 2 intentos con delay para HTTP 500 transitorios
+- **HTTP 500 en streaming**: Detecta y reporta errores durante generación (antes silenciosos)
+
+### 🔧 Mejoras Técnicas
+
+- **llama3.2:latest → llama3:8b**: Corregido en todos los archivos de configuración
+- **max_tokens aumentado**: 500 → 1000-1200 para respuestas más ricas
+- **Safety policy**: `.safety-policy.yml` para CI/CD con vulnerabilidades ignoradas justificadas
+- **Ruff linting**: 15 errores corregidos (F541, W291, W293, F841, F401, I001, F821)
+- **Ruff formatting**: 4 archivos formateados
+
+### 🐛 Fixes
+
+- **Respuestas vacías silent fail**: `_run_local_agent` ahora lanza RuntimeError si tokens_out == 0
+- **HTTP 500 no detectado**: Streaming generate ahora valida status_code antes de leer líneas
+- **Coroutine no awaited**: `_is_cuda_error` cambiado de async a sync
+- **Variable `query` indefinida**: Corregido a `query_ddg` en web_search_service
+- **Imports desordenados**: Reorganizados en report_generator y sequential_debate_controller
+- **Variables no usadas**: Eliminadas (provider, tokens_in, turn_num, web_context, AsyncSession)
+
+---
+
 ## [2.7.0] - 2026-05-16
 
 ### 🚀 Añadido
