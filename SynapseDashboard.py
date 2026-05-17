@@ -1,3 +1,8 @@
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  DEPRECADO — SynapseDashboard.py                            ║
+# ║  Reemplazado por Control Center Web: http://localhost:8000/admin ║
+# ║  Disponible desde v2.7. Será eliminado en v3.0.0            ║
+# ╚══════════════════════════════════════════════════════════════╝
 """
 Synapse Dashboard v2.2 - Modo standalone
 Usar SOLO para monitorear servidor ya iniciado.
