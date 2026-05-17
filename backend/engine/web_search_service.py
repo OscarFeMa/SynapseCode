@@ -154,7 +154,7 @@ class WebSearchService:
                 return WebSearchResult(
                     site=site,
                     site_label=site,
-                    query=query,
+                    query=query_ddg,
                     response="",
                     success=False,
                     error=f"Unknown site: {site}",

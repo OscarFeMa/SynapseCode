@@ -147,7 +147,7 @@ class DebateSession:
             web_ctx = WebContext.from_dict(self.web_context)
             if web_ctx.searches:
                 lines.append("## Información Actualizada (Búsqueda Web)")
-                lines.append(f"Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.")
+                lines.append("Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.")
                 lines.append("Úsalos como contexto adicional pero mantén tu pensamiento crítico.")
                 lines.append("")
                 for result in web_ctx.searches:

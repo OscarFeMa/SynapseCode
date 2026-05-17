@@ -255,14 +255,12 @@ class SequentialDebateController:
         )
 
         # Lanzar búsqueda web al inicio del debate (no bloqueante)
-        web_context = None
         if settings.WEB_AGENT_ENABLED:
             try:
                 logger.info("sequential_debate.web_search_starting", session_id=session_id)
                 web_search = get_web_search_service()
                 web_ctx = await web_search.search_for_debate(topic, timeout_per_site=90)
                 session.web_context = web_ctx.to_dict()
-                web_context = web_ctx
                 logger.info(
                     "sequential_debate.web_search_completed",
                     session_id=session_id,
@@ -788,10 +786,11 @@ class SequentialDebateController:
 
                         # Generar informe HTML profesional
                         try:
-                            from backend.engine.report_generator import save_report, save_pdf_report
+                            from sqlalchemy import select
+
+                            from backend.engine.report_generator import save_pdf_report, save_report
 
                             # Preparar datos de turnos desde la DB
-                            from sqlalchemy import select
 
                             turns_result = await db_session.execute(
                                 select(SequentialDebateTurn)

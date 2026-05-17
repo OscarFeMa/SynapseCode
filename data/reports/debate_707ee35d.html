@@ -1,0 +1,2125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synapse Council - Debate Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #1e3a5f;
+            --primary-light: #2d5a8e;
+            --accent: #3B82F6;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --bg: #0f172a;
+            --bg-card: #1e293b;
+            --bg-card-hover: #334155;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            padding: 3rem 2rem;
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        .header .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            position: relative;
+        }
+
+        .header .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-top: 1rem;
+            position: relative;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--border);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .stat-card .label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .stat-card .unit {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-left: 0.25rem;
+        }
+
+        /* Section */
+        .section {
+            background: var(--bg-card);
+            border-radius: 0.75rem;
+            border: 1px solid var(--border);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Web Context */
+        .web-context {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .web-context h4 {
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Turn Cards */
+        .turn-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+
+        .turn-card:hover {
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .turn-header {
+            padding: 1.25rem 1.5rem;
+            background: linear-gradient(90deg, var(--bg-card-hover) 0%, var(--bg-card) 100%);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .turn-header .agent-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .turn-header .agent-icon {
+            font-size: 1.5rem;
+        }
+
+        .turn-header .agent-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .turn-header .agent-role {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .turn-header .metrics {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .turn-header .metric {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .turn-body {
+            padding: 1.5rem;
+        }
+
+        .turn-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .turn-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .turn-section h5 {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .prompt-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .response-box {
+            background: rgba(16, 185, 129, 0.05);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+        }
+
+        .chart-container h4 {
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            color: var(--text-muted);
+        }
+
+        /* Scoring Table */
+        .scoring-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .scoring-table th {
+            background: var(--bg-card-hover);
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            border-bottom: 2px solid var(--border);
+        }
+
+        .scoring-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .scoring-table tr:hover {
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .quality-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Verdict */
+        .verdict-box {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            font-size: 1.05rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Consensus Bar */
+        .consensus-bar {
+            height: 8px;
+            background: var(--border);
+            border-radius: 9999px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .consensus-fill {
+            height: 100%;
+            border-radius: 9999px;
+            transition: width 0.5s ease;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            border-top: 1px solid var(--border);
+            margin-top: 2rem;
+        }
+
+        /* Print styles */
+        @media print {
+            body { background: white; color: black; }
+            .header { background: #1e3a5f !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .section, .stat-card, .turn-card, .chart-container { 
+                background: white; 
+                border: 1px solid #ddd;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .header h1 { font-size: 1.75rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🏛️ Synapse Council</h1>
+            <div class="subtitle">Informe de Debate Multi-Modelo con IA</div>
+            <div class="badge">✅ COMPLETED</div>
+            <p style="margin-top: 1rem; font-size: 1.25rem; position: relative;">
+                <strong>Tema:</strong> Deberia la humanidad priorizar la integracion de interfaces cerebro-computadora (Neuralink, BCI) como proximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA
+            </p>
+            <p style="margin-top: 0.5rem; color: var(--text-muted); position: relative;">
+                📅 17/05/2026 11:22 → 13:42 UTC
+            </p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="label">Turnos</div>
+                <div class="value">9<span class="unit">agentes</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Tokens Generados</div>
+                <div class="value">5.0k<span class="unit">out</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Tokens Consumidos</div>
+                <div class="value">20.1k<span class="unit">in</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Duración Total</div>
+                <div class="value">8346.9s</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Consenso</div>
+                <div class="value">60<span class="unit">%</span></div>
+                <div class="consensus-bar">
+                    <div class="consensus-fill" style="width: 60%; background: #F59E0B"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Web Context -->
+        <div class="section">
+            <h2 class="section-title">🌐 Contexto Web en Tiempo Real</h2>
+            <div class="web-context">
+                <h4>Fuentes Consultadas</h4>
+                <p>✅ 1 fuente(s) consultada(s) exitosamente<br><strong>DuckDuckGo Search:</strong> **Cómo desarrollar interfaces cerebro-computadora de manera responsable**
+Las interfaces cerebro-computadora pueden transformar el tratamiento de enfermedades neurológicas, pero exigen materiales avan...</p>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="section">
+            <h2 class="section-title">📊 Métricas de Rendimiento</h2>
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h4>Tokens Generados por Agente</h4>
+                    <canvas id="tokensChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h4>Latencia por Agente (ms)</h4>
+                    <canvas id="latencyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scoring Table -->
+        <div class="section">
+            <h2 class="section-title">🏆 Puntuación de Agentes</h2>
+            <table class="scoring-table">
+                <thead>
+                    <tr>
+                        <th>Agente</th>
+                        <th>Rol</th>
+                        <th>Modelo</th>
+                        <th>Tokens Out</th>
+                        <th>Latencia</th>
+                        <th>Calidad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>🔍 Analista Técnico</td>
+                        <td><span style="color: #3B82F6; font-weight: 600;">ANALYST</span></td>
+                        <td>llama3:8b</td>
+                        <td>735</td>
+                        <td>134.4s</td>
+                        <td><span class="quality-badge" style="background: #10B98120; color: #10B981;">Excelente (85%)</span></td>
+                    </tr>
+                    <tr>
+                        <td>⚡ Crítico Ético</td>
+                        <td><span style="color: #EF4444; font-weight: 600;">CRITIC</span></td>
+                        <td>mistral:7b</td>
+                        <td>1.0k</td>
+                        <td>190.5s</td>
+                        <td><span class="quality-badge" style="background: #10B98120; color: #10B981;">Excelente (85%)</span></td>
+                    </tr>
+                    <tr>
+                        <td>🔗 Filósofo</td>
+                        <td><span style="color: #10B981; font-weight: 600;">SYNTHESIZER</span></td>
+                        <td>deepseek-r1:7b</td>
+                        <td>1.4k</td>
+                        <td>256.2s</td>
+                        <td><span class="quality-badge" style="background: #10B98120; color: #10B981;">Excelente (85%)</span></td>
+                    </tr>
+                    <tr>
+                        <td>🔗 Sintetizador Social</td>
+                        <td><span style="color: #10B981; font-weight: 600;">SYNTHESIZER</span></td>
+                        <td>gemma:7b</td>
+                        <td>391</td>
+                        <td>105.4s</td>
+                        <td><span class="quality-badge" style="background: #10B98120; color: #10B981;">Excelente (85%)</span></td>
+                    </tr>
+                    <tr>
+                        <td>✨ Futurista</td>
+                        <td><span style="color: #8B5CF6; font-weight: 600;">REFINER</span></td>
+                        <td>qwen2.5:3b</td>
+                        <td>714</td>
+                        <td>64.5s</td>
+                        <td><span class="quality-badge" style="background: #10B98120; color: #10B981;">Excelente (85%)</span></td>
+                    </tr>
+                    <tr>
+                        <td>⚡ Escéptico</td>
+                        <td><span style="color: #EF4444; font-weight: 600;">CRITIC</span></td>
+                        <td>phi3:mini</td>
+                        <td>0</td>
+                        <td>648ms</td>
+                        <td><span class="quality-badge" style="background: #EF444420; color: #EF4444;">Baja (30%)</span></td>
+                    </tr>
+                    <tr>
+                        <td>🔍 Analista Evolutivo</td>
+                        <td><span style="color: #3B82F6; font-weight: 600;">ANALYST</span></td>
+                        <td>llama3.1:8b</td>
+                        <td>0</td>
+                        <td>2.1s</td>
+                        <td><span class="quality-badge" style="background: #EF444420; color: #EF4444;">Baja (30%)</span></td>
+                    </tr>
+                    <tr>
+                        <td>✨ Tecnólogo</td>
+                        <td><span style="color: #8B5CF6; font-weight: 600;">REFINER</span></td>
+                        <td>qwen2.5-coder:14b</td>
+                        <td>0</td>
+                        <td>644ms</td>
+                        <td><span class="quality-badge" style="background: #EF444420; color: #EF4444;">Baja (30%)</span></td>
+                    </tr>
+                    <tr>
+                        <td>🎯 Moderador</td>
+                        <td><span style="color: #F59E0B; font-weight: 600;">MODERATOR</span></td>
+                        <td>gemma3:4b</td>
+                        <td>605</td>
+                        <td>83.7s</td>
+                        <td><span class="quality-badge" style="background: #10B98120; color: #10B981;">Excelente (85%)</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Debate Turns -->
+        <div class="section">
+            <h2 class="section-title">💬 Desarrollo del Debate</h2>
+            <div class="turn-card">
+                <div class="turn-header">
+                    <div class="agent-info">
+                        <span class="agent-icon">🔍</span>
+                        <span class="agent-name">Analista Técnico</span>
+                        <span class="agent-role" style="background: #3B82F620; color: #3B82F6;">analyst</span>
+                    </div>
+                    <div class="metrics">
+                        <span class="metric">📝 735 tokens</span>
+                        <span class="metric">⏱️ 134.4s</span>
+                        <span class="metric">🤖 llama3:8b</span>
+                    </div>
+                </div>
+                <div class="turn-body">
+                    <div class="turn-section">
+                        <h5>📤 Prompt Enviado (2789 chars)</h5>
+                        <div class="prompt-box"># DEBATE SECUENCIAL: Deberia la humanidad priorizar la integracion de interfaces cerebro-computadora (Neuralink, BCI) como proximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA
+
+## Tu Rol
+Eres: Analista Técnico
+Rol: analyst
+Modelo: llama3:8b (meta)
+
+## Información Actualizada (Búsqueda Web)
+Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.
+Úsalos como contexto adicional pero mantén tu pensamiento crítico.
+
+### DuckDuckGo Search
+**Cómo desarrollar interfaces cerebro-computadora de manera responsable**
+Las interfa\n... [contexto web truncado para legibilidad]\n\n## Historial del Debate
+
+============================================================
+
+## Tu Tarea
+
+Analiza el tema desde una perspectiva técnica profunda. Examina la viabilidad, arquitectura y limitaciones de las interfaces cerebro-computadora. Responde en español, máximo 600 palabras.</div>
+                    </div>
+                    <div class="turn-section">
+                        <h5>📥 Respuesta (3169 chars)</h5>
+                        <div class="response-box">**Debate Secuencial: La Integración de Interfaces Cerebro-Computadora como Paso Evolutivo Obligatorio**
+
+Como Analista Técnico, me enfoco en analizar el tema desde una perspectiva técnica profunda, examinando la viabilidad, arquitectura y limitaciones de las interfaces cerebro-computadora. A continuación, presento mi argumentación a favor o en contra de la integración de estas interfaces como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA.
+
+**Viabilidad y Arquitectura**
+
+Las interfaces cerebro-computadora, como Neuralink y BCI (Brain-Computer Interface), han demostrado ser viables en términos técnicos. Estas tecnologías permiten la comunicación entre el cerebro humano y las computadoras mediante señales eléctricas o neuromusculares. Sin embargo, es importante considerar que estas interfaces requieren de avances significativos en materiales avanzados, sistemas de IA y ética fundamental.
+
+La arquitectura actual de las interfaces cerebro-computadora se basa en la captación de señales cerebrales mediante electrodos o neuroimágenes. Estas señales son luego procesadas por algoritmos de aprendizaje automático para interpretar el pensamiento, deseo o intención del usuario. Aunque existen limitaciones técnicas y éticas, las interfaces cerebro-computadora han demostrado ser efectivas en aplicaciones como la comunicación asistiva, el tratamiento de enfermedades neurológicas y la mejora de la calidad de vida.
+
+**Limitaciones**
+
+A pesar del progreso tecnológico, existen limitaciones importantes que debemos considerar al evaluar la viabilidad de las interfaces cerebro-computadora como paso evolutivo obligatorio:
+
+1. **Ética**: La integración de interfaces cerebro-computadora plantea preocupaciones éticas sobre la privacidad, la seguridad y el control sobre la información cerebral.
+2. **Viabilidad**: La captura y procesamiento de señales cerebrales son complejos y requieren de avances significativos en materiales avanzados y sistemas de IA.
+3. **Interferencia**: Las interfaces cerebro-computadora pueden interferir con las funciones cerebrales normales, lo que puede afectar la salud mental y física del usuario.
+
+**Conclusiones**
+
+En mi opinión, la integración de interfaces cerebro-computadora como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA no es tan sencillo. Aunque estas tecnologías ofrecen beneficios significativos en términos de calidad de vida y tratamiento de enfermedades neurológicas, también plantean preocupaciones éticas y limitaciones técnicas.
+
+En lugar de priorizar la integración de interfaces cerebro-computadora como paso evolutivo obligatorio, creo que es más importante enfocarnos en desarrollar tecnologías que respeten y protejan la privacidad y la seguridad del usuario. Además, debemos invertir en investigación y desarrollo para superar las limitaciones técnicas y éticas asociadas a estas interfaces.
+
+En resumen, aunque las interfaces cerebro-computadora ofrecen beneficios significativos, su integración como próximo paso evolutivo obligatorio requiere un enfoque más amplio que considere tanto las ventajas como las desventajas.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="turn-card">
+                <div class="turn-header">
+                    <div class="agent-info">
+                        <span class="agent-icon">⚡</span>
+                        <span class="agent-name">Crítico Ético</span>
+                        <span class="agent-role" style="background: #EF444420; color: #EF4444;">critic</span>
+                    </div>
+                    <div class="metrics">
+                        <span class="metric">📝 1.0k tokens</span>
+                        <span class="metric">⏱️ 190.5s</span>
+                        <span class="metric">🤖 mistral:7b</span>
+                    </div>
+                </div>
+                <div class="turn-body">
+                    <div class="turn-section">
+                        <h5>📤 Prompt Enviado (6025 chars)</h5>
+                        <div class="prompt-box"># DEBATE SECUENCIAL: Deberia la humanidad priorizar la integracion de interfaces cerebro-computadora (Neuralink, BCI) como proximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA
+
+## Tu Rol
+Eres: Crítico Ético
+Rol: critic
+Modelo: mistral:7b (mistral)
+
+## Información Actualizada (Búsqueda Web)
+Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.
+Úsalos como contexto adicional pero mantén tu pensamiento crítico.
+
+### DuckDuckGo Search
+**Cómo desarrollar interfaces cerebro-computadora de manera responsable**
+Las interfa\n... [contexto web truncado para legibilidad]\n\n## Historial del Debate
+
+### Turno 1: Analista Técnico (analyst)
+**Modelo:** llama3:8b (meta)
+
+**Debate Secuencial: La Integración de Interfaces Cerebro-Computadora como Paso Evolutivo Obligatorio**
+
+Como Analista Técnico, me enfoco en analizar el tema desde una perspectiva técnica profunda, examinando la viabilidad, arquitectura y limitaciones de las interfaces cerebro-computadora. A continuación, presento mi argumentación a favor o en contra de la integración de estas interfaces como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA.
+
+**Viabilidad y Arquitectura**
+
+Las interfaces cerebro-computadora, como Neuralink y BCI (Brain-Computer Interface), han demostrado ser viables en términos técnicos. Estas tecnologías permiten la comunicación entre el cerebro humano y las computadoras mediante señales eléctricas o neuromusculares. Sin embargo, es importante considerar que estas interfaces requieren de avances significativos en materiales avanzados, sistemas de IA y ética fundamental.
+
+La arquitectura actual de las interfaces cerebro-computadora se basa en la captación de señales cerebrales mediante electrodos o neuroimágenes. Estas señales son luego procesadas por algoritmos de aprendizaje automático para interpretar el pensamiento, deseo o intención del usuario. Aunque existen limitaciones técnicas y éticas, las interfaces cerebro-computadora han demostrado ser efectivas en aplicaciones como la comunicación asistiva, el tratamiento de enfermedades neurológicas y la mejora de la calidad de vida.
+
+**Limitaciones**
+
+A pesar del progreso tecnológico, existen limitaciones importantes que debemos considerar al evaluar la viabilidad de las interfaces cerebro-computadora como paso evolutivo obligatorio:
+
+1. **Ética**: La integración de interfaces cerebro-computadora plantea preocupaciones éticas sobre la privacidad, la seguridad y el control sobre la información cerebral.
+2. **Viabilidad**: La captura y procesamiento de señales cerebrales son complejos y requieren de avances significativos en materiales avanzados y sistemas de IA.
+3. **Interferencia**: Las interfaces cerebro-computadora pueden interferir con las funciones cerebrales normales, lo que puede afectar la salud mental y física del usuario.
+
+**Conclusiones**
+
+En mi opinión, la integración de interfaces cerebro-computadora como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA no es tan sencillo. Aunque estas tecnologías ofrecen beneficios significativos en términos de calidad de vida y tratamiento de enfermedades neurológicas, también plantean preocupaciones éticas y limitaciones técnicas.
+
+En lugar de priorizar la integración de interfaces cerebro-computadora como paso evolutivo obligatorio, creo que es más importante enfocarnos en desarrollar tecnologías que respeten y protejan la privacidad y la seguridad del usuario. Además, debemos invertir en investigación y desarrollo para superar las limitaciones técnicas y éticas asociadas a estas interfaces.
+
+En resumen, aunque las interfaces cerebro-computadora ofrecen beneficios significativos, su integración como próximo paso evolutivo obligatorio requiere un enfoque más amplio que considere tanto las ventajas como las desventajas.
+
+============================================================
+
+## Tu Tarea
+
+Examina críticamente las implicaciones éticas y morales. Identifica riesgos, dilemas y consecuencias no previstas. Sé riguroso y provocador. Responde en español, máximo 600 palabras.</div>
+                    </div>
+                    <div class="turn-section">
+                        <h5>📥 Respuesta (3580 chars)</h5>
+                        <div class="response-box"> Como Crítico Ético, examino el tema de la integración de interfaces cerebro-computadora (ICC) desde una perspectiva ética profunda, evaluando las implicaciones éticas y morales de esta tecnología emergente.
+
+**Riesgos y Dilemas Éticos**
+
+La integración de ICCs plantea varios riesgos y dilemas éticos que son importantes considerar:
+
+1. **Privacidad**: La integración de ICCs permite la captura y procesamiento continuo de las señales cerebrales, lo que plantea preocupaciones acerca de la privacidad del usuario. Los riesgos incluyen el uso de esta información personal sin consentimiento, o la violación de la confidencialidad del usuario.
+2. **Autonomía**: La integración de ICCs podría limitar la autonomía humana al permitir que computadoras controlen una mayor cantidad de acciones y decisiones humanas. Esto plantea preguntas sobre el nivel adecuado de control humano sobre las computadoras, y cómo mantener la autonomía humana en un mundo cada vez más conectado.
+3. **Identidad**: La integración de ICCs podría cambiar la forma en que los humanos perciben su propia identidad. Por ejemplo, la capacidad de las computadoras para imitar el pensamiento humano plantea preguntas sobre lo que significa ser humano y cómo se define la autonomía humana.
+4. **Responsabilidad**: La integración de ICCs podría cambiar la forma en que se asigna la responsabilidad por las acciones humanas. Por ejemplo, si una computadora controla una acción que resulta en daño a un tercero, quién es responsable? El usuario, el diseñador de la ICC o la computadora misma?
+5. **Consecuencias no previstas**: La integración de ICCs podría tener consecuencias no previstas que son difíciles de anticipar o controlar. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+
+**Consecuencias No Previstas y Soluciones Éticas**
+
+La integración de ICCs podría tener consecuencias no previstas que son importantes considerar:
+
+1. **Control sobre la información**: La integración de ICCs plantea preocupaciones acerca del control humano sobre la información cerebral. Si las computadoras controlan más de las acciones y decisiones humanas, ¿quién tiene el control sobre la información que se captura y procesa?
+2. **Impacto en la sociedad**: La integración de ICCs podría cambiar la forma en que funciona la sociedad. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+3. **Impacto en la economía**: La integración de ICCs podría tener un impacto significativo en la economía. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desplazar trabajos humanos y aumentar la desempleo.
+4. **Educação ética**: Es importante que la educación sobre ICCs incluya componentes éticos que ayuden a los usuarios a comprender las implicaciones éticas de esta tecnología emergente. Esto puede incluir cursos de ética de la computación, discusiones en clases sobre los riesgos y dilemas éticos asociados con ICCs, y programas de educación comunitaria sobre cómo usar ICCs de manera responsable y ética.
+
+En resumen, la integración de ICCs plantea preocupaciones éticas y morales que son importantes considerar. Es importante desarrollar soluciones éticas que protejan la privacidad y la seguridad del usuario, mantienen la autonomía humana, promueven una educación ética sobre esta tecnología emergente, y minimizan los riesgos y dilemas éticos asociados con ICCs.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="turn-card">
+                <div class="turn-header">
+                    <div class="agent-info">
+                        <span class="agent-icon">🔗</span>
+                        <span class="agent-name">Filósofo</span>
+                        <span class="agent-role" style="background: #10B98120; color: #10B981;">synthesizer</span>
+                    </div>
+                    <div class="metrics">
+                        <span class="metric">📝 1.4k tokens</span>
+                        <span class="metric">⏱️ 256.2s</span>
+                        <span class="metric">🤖 deepseek-r1:7b</span>
+                    </div>
+                </div>
+                <div class="turn-body">
+                    <div class="turn-section">
+                        <h5>📤 Prompt Enviado (9680 chars)</h5>
+                        <div class="prompt-box"># DEBATE SECUENCIAL: Deberia la humanidad priorizar la integracion de interfaces cerebro-computadora (Neuralink, BCI) como proximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA
+
+## Tu Rol
+Eres: Filósofo
+Rol: synthesizer
+Modelo: deepseek-r1:7b (deepseek)
+
+## Información Actualizada (Búsqueda Web)
+Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.
+Úsalos como contexto adicional pero mantén tu pensamiento crítico.
+
+### DuckDuckGo Search
+**Cómo desarrollar interfaces cerebro-computadora de manera responsable**
+Las interfa\n... [contexto web truncado para legibilidad]\n\n## Historial del Debate
+
+### Turno 1: Analista Técnico (analyst)
+**Modelo:** llama3:8b (meta)
+
+**Debate Secuencial: La Integración de Interfaces Cerebro-Computadora como Paso Evolutivo Obligatorio**
+
+Como Analista Técnico, me enfoco en analizar el tema desde una perspectiva técnica profunda, examinando la viabilidad, arquitectura y limitaciones de las interfaces cerebro-computadora. A continuación, presento mi argumentación a favor o en contra de la integración de estas interfaces como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA.
+
+**Viabilidad y Arquitectura**
+
+Las interfaces cerebro-computadora, como Neuralink y BCI (Brain-Computer Interface), han demostrado ser viables en términos técnicos. Estas tecnologías permiten la comunicación entre el cerebro humano y las computadoras mediante señales eléctricas o neuromusculares. Sin embargo, es importante considerar que estas interfaces requieren de avances significativos en materiales avanzados, sistemas de IA y ética fundamental.
+
+La arquitectura actual de las interfaces cerebro-computadora se basa en la captación de señales cerebrales mediante electrodos o neuroimágenes. Estas señales son luego procesadas por algoritmos de aprendizaje automático para interpretar el pensamiento, deseo o intención del usuario. Aunque existen limitaciones técnicas y éticas, las interfaces cerebro-computadora han demostrado ser efectivas en aplicaciones como la comunicación asistiva, el tratamiento de enfermedades neurológicas y la mejora de la calidad de vida.
+
+**Limitaciones**
+
+A pesar del progreso tecnológico, existen limitaciones importantes que debemos considerar al evaluar la viabilidad de las interfaces cerebro-computadora como paso evolutivo obligatorio:
+
+1. **Ética**: La integración de interfaces cerebro-computadora plantea preocupaciones éticas sobre la privacidad, la seguridad y el control sobre la información cerebral.
+2. **Viabilidad**: La captura y procesamiento de señales cerebrales son complejos y requieren de avances significativos en materiales avanzados y sistemas de IA.
+3. **Interferencia**: Las interfaces cerebro-computadora pueden interferir con las funciones cerebrales normales, lo que puede afectar la salud mental y física del usuario.
+
+**Conclusiones**
+
+En mi opinión, la integración de interfaces cerebro-computadora como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA no es tan sencillo. Aunque estas tecnologías ofrecen beneficios significativos en términos de calidad de vida y tratamiento de enfermedades neurológicas, también plantean preocupaciones éticas y limitaciones técnicas.
+
+En lugar de priorizar la integración de interfaces cerebro-computadora como paso evolutivo obligatorio, creo que es más importante enfocarnos en desarrollar tecnologías que respeten y protejan la privacidad y la seguridad del usuario. Además, debemos invertir en investigación y desarrollo para superar las limitaciones técnicas y éticas asociadas a estas interfaces.
+
+En resumen, aunque las interfaces cerebro-computadora ofrecen beneficios significativos, su integración como próximo paso evolutivo obligatorio requiere un enfoque más amplio que considere tanto las ventajas como las desventajas.
+
+### Turno 2: Crítico Ético (critic)
+**Modelo:** mistral:7b (mistral)
+
+ Como Crítico Ético, examino el tema de la integración de interfaces cerebro-computadora (ICC) desde una perspectiva ética profunda, evaluando las implicaciones éticas y morales de esta tecnología emergente.
+
+**Riesgos y Dilemas Éticos**
+
+La integración de ICCs plantea varios riesgos y dilemas éticos que son importantes considerar:
+
+1. **Privacidad**: La integración de ICCs permite la captura y procesamiento continuo de las señales cerebrales, lo que plantea preocupaciones acerca de la privacidad del usuario. Los riesgos incluyen el uso de esta información personal sin consentimiento, o la violación de la confidencialidad del usuario.
+2. **Autonomía**: La integración de ICCs podría limitar la autonomía humana al permitir que computadoras controlen una mayor cantidad de acciones y decisiones humanas. Esto plantea preguntas sobre el nivel adecuado de control humano sobre las computadoras, y cómo mantener la autonomía humana en un mundo cada vez más conectado.
+3. **Identidad**: La integración de ICCs podría cambiar la forma en que los humanos perciben su propia identidad. Por ejemplo, la capacidad de las computadoras para imitar el pensamiento humano plantea preguntas sobre lo que significa ser humano y cómo se define la autonomía humana.
+4. **Responsabilidad**: La integración de ICCs podría cambiar la forma en que se asigna la responsabilidad por las acciones humanas. Por ejemplo, si una computadora controla una acción que resulta en daño a un tercero, quién es responsable? El usuario, el diseñador de la ICC o la computadora misma?
+5. **Consecuencias no previstas**: La integración de ICCs podría tener consecuencias no previstas que son difíciles de anticipar o controlar. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+
+**Consecuencias No Previstas y Soluciones Éticas**
+
+La integración de ICCs podría tener consecuencias no previstas que son importantes considerar:
+
+1. **Control sobre la información**: La integración de ICCs plantea preocupaciones acerca del control humano sobre la información cerebral. Si las computadoras controlan más de las acciones y decisiones humanas, ¿quién tiene el control sobre la información que se captura y procesa?
+2. **Impacto en la sociedad**: La integración de ICCs podría cambiar la forma en que funciona la sociedad. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+3. **Impacto en la economía**: La integración de ICCs podría tener un impacto significativo en la economía. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desplazar trabajos humanos y aumentar la desempleo.
+4. **Educação ética**: Es importante que la educación sobre ICCs incluya componentes éticos que ayuden a los usuarios a comprender las implicaciones éticas de esta tecnología emergente. Esto puede incluir cursos de ética de la computación, discusiones en clases sobre los riesgos y dilemas éticos asociados con ICCs, y programas de educación comunitaria sobre cómo usar ICCs de manera responsable y ética.
+
+En resumen, la integración de ICCs plantea preocupaciones éticas y morales que son importantes considerar. Es importante desarrollar soluciones éticas que protejan la privacidad y la seguridad del usuario, mantienen la autonomía humana, promueven una educación ética sobre esta tecnología emergente, y minimizan los riesgos y dilemas éticos asociados con ICCs.
+
+============================================================
+
+## Tu Tarea
+
+Aborda el tema desde la filosofía. Cuestiona qué significa ser humano, identidad, consciencia y libre albedrío. Usa razonamiento profundo. Responde en español, máximo 700 palabras.</div>
+                    </div>
+                    <div class="turn-section">
+                        <h5>📥 Respuesta (3799 chars)</h5>
+                        <div class="response-box">**Integración de Interfaces Cerebro-Computadora: Un Desafío Filosófico para la Noción de Ser Humano**
+
+El debate sobre la integración de interfaces cerebro-computadora (ICC) como paso evolutivo obligatorio enfrenta profundamente questiones filosóficas sobre la naturaleza humana, la identidad, la consciencia y la libertad albedrío. Para entender este conflicto, es necesario explorar cómo esta tecnología puede transformar fundamentalmente quién Somos.
+
+### Identidad Humana: Un Compromiso con lo Personal
+
+La identidad humana es un concepto complejo que incluye tanto las características físicas como las actuaciones y pensamientos que guían our comportamiento. Si las ICC permiten una controlación más precisa del cerebro, ¿cómo cambia nuestra identidad? Es posible que perjudiquemos nuestra capacidad de percibir nosotros mismos, de manera que dependamos de dispositivos que podríamos perder la personalidad auténtica. Por otro lado, estas herramientas podrían ofrecer una nueva forma de interactuar con el mundo, permitiendo una identidad más enriquecida y compleja.
+
+### Consciencia: Un Desafío para lo consciente
+
+La consciencia es la experiencia consciente de nosotros mismos, de nuestros pensamientos y sentimientos. Si las ICC nos permitem controlar nuestra mente con precisión, ¿cómo afecta esto a nuestra consciencia? Es posible que perjudiquemos nuestra capacidad de percibir y entender nosotros mismos, restringiendo nuestro acceso a una experiencia consciente más rica. En cambio, estas tecnologías podrían ampliar nuestra consciencia, ofreciéndonos herramientas para explorar nuestros pensamientos de manera más detallada.
+
+### Libertad albedrío: Un Requimiento de Control Humano
+
+La libertad albedrío es la capacidad de actuar sin thought, controlando nuestras acciones y decisiones con precisión. Si las ICC nos permiten una controlación más avanzada del cerebro, ¿cómo afecta esto a nuestra libertad albedrío? Es posible que perjudiquemos nuestra capacidad de reflexionar y controlar nuestras acciones, restringiendo nuestra libertad humana. En cambio, estas tecnologías podrían ofrecer una nueva forma de actuar, permitiendo una mayor controlación sobre nosotros mismos.
+
+### Responsabilidad Ética: Un Desafío por el Control Humano
+
+La responsabilidad ética es fundamental cuando se manejan tecnologías que afectan a humanos. Si las ICC nos permiten hacer decisions que afectan a otros seres humanos, quién es el responsable de estas decisiones? ¿El diseñador de las ICC, el usuario o la computadora misma? Este dilema ético plantea la necesidad de considerar el control humano sobre las inteligencias y la responsabilidad de las acciones que ejecutamos.
+
+### Evolución del Cerebro: Un Desafío para lo Evolutivo
+
+Además, es importante considerar cómo estas ICC pueden afectar el desarrollo evolutionario del cerebro humano. Si estas tecnologías promueven el desarrollo hiperactivo del cerebro, ¿cambiará drásticamente el desarrollo evolutionario del ser humano? Esto podría llevar a cambios en el desarrollo de las neuronas y la funcionalidad del cuerpo, lo que tendría implicationes profundas para nuestra identidad, consciencia y libertad albedrío.
+
+### Balancing Act: Potencial y Limitaciones
+
+Aunque las ICC ofrecen una gran cantidad de beneficios, también poseen limitaciones éticas, filosóficas e tecnológicas. Es fundamental equilibrar el potencial de estas tecnologías con consideraciones sobre la responsabilidad humana, la privacidad y la seguridad, así como sobre el bienestar de los seres humanos que las utilizan.
+
+### Conclusión
+
+La integración de interfaces cerebro-computadora como paso evolutivo obligatorio no es sencillo. Esta tecnología puede transformar fundamentalmente quién Somos, cómo percibimos nosotros mismos y nuestras acciones, y cómo actúamos en el</div>
+                    </div>
+                </div>
+            </div>
+            <div class="turn-card">
+                <div class="turn-header">
+                    <div class="agent-info">
+                        <span class="agent-icon">🔗</span>
+                        <span class="agent-name">Sintetizador Social</span>
+                        <span class="agent-role" style="background: #10B98120; color: #10B981;">synthesizer</span>
+                    </div>
+                    <div class="metrics">
+                        <span class="metric">📝 391 tokens</span>
+                        <span class="metric">⏱️ 105.4s</span>
+                        <span class="metric">🤖 gemma:7b</span>
+                    </div>
+                </div>
+                <div class="turn-body">
+                    <div class="turn-section">
+                        <h5>📤 Prompt Enviado (13559 chars)</h5>
+                        <div class="prompt-box"># DEBATE SECUENCIAL: Deberia la humanidad priorizar la integracion de interfaces cerebro-computadora (Neuralink, BCI) como proximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA
+
+## Tu Rol
+Eres: Sintetizador Social
+Rol: synthesizer
+Modelo: gemma:7b (google)
+
+## Información Actualizada (Búsqueda Web)
+Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.
+Úsalos como contexto adicional pero mantén tu pensamiento crítico.
+
+### DuckDuckGo Search
+**Cómo desarrollar interfaces cerebro-computadora de manera responsable**
+Las interfa\n... [contexto web truncado para legibilidad]\n\n## Historial del Debate
+
+### Turno 1: Analista Técnico (analyst)
+**Modelo:** llama3:8b (meta)
+
+**Debate Secuencial: La Integración de Interfaces Cerebro-Computadora como Paso Evolutivo Obligatorio**
+
+Como Analista Técnico, me enfoco en analizar el tema desde una perspectiva técnica profunda, examinando la viabilidad, arquitectura y limitaciones de las interfaces cerebro-computadora. A continuación, presento mi argumentación a favor o en contra de la integración de estas interfaces como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA.
+
+**Viabilidad y Arquitectura**
+
+Las interfaces cerebro-computadora, como Neuralink y BCI (Brain-Computer Interface), han demostrado ser viables en términos técnicos. Estas tecnologías permiten la comunicación entre el cerebro humano y las computadoras mediante señales eléctricas o neuromusculares. Sin embargo, es importante considerar que estas interfaces requieren de avances significativos en materiales avanzados, sistemas de IA y ética fundamental.
+
+La arquitectura actual de las interfaces cerebro-computadora se basa en la captación de señales cerebrales mediante electrodos o neuroimágenes. Estas señales son luego procesadas por algoritmos de aprendizaje automático para interpretar el pensamiento, deseo o intención del usuario. Aunque existen limitaciones técnicas y éticas, las interfaces cerebro-computadora han demostrado ser efectivas en aplicaciones como la comunicación asistiva, el tratamiento de enfermedades neurológicas y la mejora de la calidad de vida.
+
+**Limitaciones**
+
+A pesar del progreso tecnológico, existen limitaciones importantes que debemos considerar al evaluar la viabilidad de las interfaces cerebro-computadora como paso evolutivo obligatorio:
+
+1. **Ética**: La integración de interfaces cerebro-computadora plantea preocupaciones éticas sobre la privacidad, la seguridad y el control sobre la información cerebral.
+2. **Viabilidad**: La captura y procesamiento de señales cerebrales son complejos y requieren de avances significativos en materiales avanzados y sistemas de IA.
+3. **Interferencia**: Las interfaces cerebro-computadora pueden interferir con las funciones cerebrales normales, lo que puede afectar la salud mental y física del usuario.
+
+**Conclusiones**
+
+En mi opinión, la integración de interfaces cerebro-computadora como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA no es tan sencillo. Aunque estas tecnologías ofrecen beneficios significativos en términos de calidad de vida y tratamiento de enfermedades neurológicas, también plantean preocupaciones éticas y limitaciones técnicas.
+
+En lugar de priorizar la integración de interfaces cerebro-computadora como paso evolutivo obligatorio, creo que es más importante enfocarnos en desarrollar tecnologías que respeten y protejan la privacidad y la seguridad del usuario. Además, debemos invertir en investigación y desarrollo para superar las limitaciones técnicas y éticas asociadas a estas interfaces.
+
+En resumen, aunque las interfaces cerebro-computadora ofrecen beneficios significativos, su integración como próximo paso evolutivo obligatorio requiere un enfoque más amplio que considere tanto las ventajas como las desventajas.
+
+### Turno 2: Crítico Ético (critic)
+**Modelo:** mistral:7b (mistral)
+
+ Como Crítico Ético, examino el tema de la integración de interfaces cerebro-computadora (ICC) desde una perspectiva ética profunda, evaluando las implicaciones éticas y morales de esta tecnología emergente.
+
+**Riesgos y Dilemas Éticos**
+
+La integración de ICCs plantea varios riesgos y dilemas éticos que son importantes considerar:
+
+1. **Privacidad**: La integración de ICCs permite la captura y procesamiento continuo de las señales cerebrales, lo que plantea preocupaciones acerca de la privacidad del usuario. Los riesgos incluyen el uso de esta información personal sin consentimiento, o la violación de la confidencialidad del usuario.
+2. **Autonomía**: La integración de ICCs podría limitar la autonomía humana al permitir que computadoras controlen una mayor cantidad de acciones y decisiones humanas. Esto plantea preguntas sobre el nivel adecuado de control humano sobre las computadoras, y cómo mantener la autonomía humana en un mundo cada vez más conectado.
+3. **Identidad**: La integración de ICCs podría cambiar la forma en que los humanos perciben su propia identidad. Por ejemplo, la capacidad de las computadoras para imitar el pensamiento humano plantea preguntas sobre lo que significa ser humano y cómo se define la autonomía humana.
+4. **Responsabilidad**: La integración de ICCs podría cambiar la forma en que se asigna la responsabilidad por las acciones humanas. Por ejemplo, si una computadora controla una acción que resulta en daño a un tercero, quién es responsable? El usuario, el diseñador de la ICC o la computadora misma?
+5. **Consecuencias no previstas**: La integración de ICCs podría tener consecuencias no previstas que son difíciles de anticipar o controlar. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+
+**Consecuencias No Previstas y Soluciones Éticas**
+
+La integración de ICCs podría tener consecuencias no previstas que son importantes considerar:
+
+1. **Control sobre la información**: La integración de ICCs plantea preocupaciones acerca del control humano sobre la información cerebral. Si las computadoras controlan más de las acciones y decisiones humanas, ¿quién tiene el control sobre la información que se captura y procesa?
+2. **Impacto en la sociedad**: La integración de ICCs podría cambiar la forma en que funciona la sociedad. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+3. **Impacto en la economía**: La integración de ICCs podría tener un impacto significativo en la economía. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desplazar trabajos humanos y aumentar la desempleo.
+4. **Educação ética**: Es importante que la educación sobre ICCs incluya componentes éticos que ayuden a los usuarios a comprender las implicaciones éticas de esta tecnología emergente. Esto puede incluir cursos de ética de la computación, discusiones en clases sobre los riesgos y dilemas éticos asociados con ICCs, y programas de educación comunitaria sobre cómo usar ICCs de manera responsable y ética.
+
+En resumen, la integración de ICCs plantea preocupaciones éticas y morales que son importantes considerar. Es importante desarrollar soluciones éticas que protejan la privacidad y la seguridad del usuario, mantienen la autonomía humana, promueven una educación ética sobre esta tecnología emergente, y minimizan los riesgos y dilemas éticos asociados con ICCs.
+
+### Turno 3: Filósofo (synthesizer)
+**Modelo:** deepseek-r1:7b (deepseek)
+
+**Integración de Interfaces Cerebro-Computadora: Un Desafío Filosófico para la Noción de Ser Humano**
+
+El debate sobre la integración de interfaces cerebro-computadora (ICC) como paso evolutivo obligatorio enfrenta profundamente questiones filosóficas sobre la naturaleza humana, la identidad, la consciencia y la libertad albedrío. Para entender este conflicto, es necesario explorar cómo esta tecnología puede transformar fundamentalmente quién Somos.
+
+### Identidad Humana: Un Compromiso con lo Personal
+
+La identidad humana es un concepto complejo que incluye tanto las características físicas como las actuaciones y pensamientos que guían our comportamiento. Si las ICC permiten una controlación más precisa del cerebro, ¿cómo cambia nuestra identidad? Es posible que perjudiquemos nuestra capacidad de percibir nosotros mismos, de manera que dependamos de dispositivos que podríamos perder la personalidad auténtica. Por otro lado, estas herramientas podrían ofrecer una nueva forma de interactuar con el mundo, permitiendo una identidad más enriquecida y compleja.
+
+### Consciencia: Un Desafío para lo consciente
+
+La consciencia es la experiencia consciente de nosotros mismos, de nuestros pensamientos y sentimientos. Si las ICC nos permitem controlar nuestra mente con precisión, ¿cómo afecta esto a nuestra consciencia? Es posible que perjudiquemos nuestra capacidad de percibir y entender nosotros mismos, restringiendo nuestro acceso a una experiencia consciente más rica. En cambio, estas tecnologías podrían ampliar nuestra consciencia, ofreciéndonos herramientas para explorar nuestros pensamientos de manera más detallada.
+
+### Libertad albedrío: Un Requimiento de Control Humano
+
+La libertad albedrío es la capacidad de actuar sin thought, controlando nuestras acciones y decisiones con precisión. Si las ICC nos permiten una controlación más avanzada del cerebro, ¿cómo afecta esto a nuestra libertad albedrío? Es posible que perjudiquemos nuestra capacidad de reflexionar y controlar nuestras acciones, restringiendo nuestra libertad humana. En cambio, estas tecnologías podrían ofrecer una nueva forma de actuar, permitiendo una mayor controlación sobre nosotros mismos.
+
+### Responsabilidad Ética: Un Desafío por el Control Humano
+
+La responsabilidad ética es fundamental cuando se manejan tecnologías que afectan a humanos. Si las ICC nos permiten hacer decisions que afectan a otros seres humanos, quién es el responsable de estas decisiones? ¿El diseñador de las ICC, el usuario o la computadora misma? Este dilema ético plantea la necesidad de considerar el control humano sobre las inteligencias y la responsabilidad de las acciones que ejecutamos.
+
+### Evolución del Cerebro: Un Desafío para lo Evolutivo
+
+Además, es importante considerar cómo estas ICC pueden afectar el desarrollo evolutionario del cerebro humano. Si estas tecnologías promueven el desarrollo hiperactivo del cerebro, ¿cambiará drásticamente el desarrollo evolutionario del ser humano? Esto podría llevar a cambios en el desarrollo de las neuronas y la funcionalidad del cuerpo, lo que tendría implicationes profundas para nuestra identidad, consciencia y libertad albedrío.
+
+### Balancing Act: Potencial y Limitaciones
+
+Aunque las ICC ofrecen una gran cantidad de beneficios, también poseen limitaciones éticas, filosóficas e tecnológicas. Es fundamental equilibrar el potencial de estas tecnologías con consideraciones sobre la responsabilidad humana, la privacidad y la seguridad, así como sobre el bienestar de los seres humanos que las utilizan.
+
+### Conclusión
+
+La integración de interfaces cerebro-computadora como paso evolutivo obligatorio no es sencillo. Esta tecnología puede transformar fundamentalmente quién Somos, cómo percibimos nosotros mismos y nuestras acciones, y cómo actúamos en el
+
+============================================================
+
+## Tu Tarea
+
+Sintetiza los argumentos desde la perspectiva social. Analiza impacto en desigualdad, acceso, coerción social y estructura de la sociedad. Responde en español, máximo 500 palabras.</div>
+                    </div>
+                    <div class="turn-section">
+                        <h5>📥 Respuesta (1974 chars)</h5>
+                        <div class="response-box">## Impacto Social de la Integración de Interfaces Cerebro-Computadora
+
+La integración de interfaces cerebro-computadora (ICC) presenta un impacto potencial en la sociedad, con implicaciones tanto positivas como negativas en términos de desigualdad, acceso, coerción social y estructura social.
+
+**Desigualdad y Acceso**
+
+* Las ICC podrían aumentar la desigualdad al proporcionar una ventaja a quienes pueden permitirse pagar estas tecnologías.
+* Sin embargo, también pueden aumentar el acceso a información y oportunidades para quienes de otro modo serían excluidos.
+
+**Coerción Social**
+
+* Las ICC podrían utilizarse para controlar o manipular a las personas, lo que podría conducir a una disminución de la libertad individual.
+* Sin embargo, también pueden aumentar la responsabilidad social y el sentido de comunidad.
+
+**Estructura Social**
+
+* Las ICC podrían cambiar la estructura de la sociedad al permitir que las personas conecten y aprendan de nuevas maneras.
+* Sin embargo, también pueden conducir a la pérdida de trabajos y la necesidad de adaptarse a nuevas estructuras de empleo.
+
+**Consideraciones Éticas**
+
+* Es importante abordar las preocupaciones éticas relacionadas con la privacidad, la seguridad y la autonomía de las personas.
+* La regulación y el desarrollo responsable de las ICC son esenciales para garantizar que se aprovechen de sus beneficios y se mitiguen sus riesgos.
+
+**Necesidad de un Enfoque Holístico**
+
+* La integración de ICC debe considerarse en un contexto holístico que comprenda las necesidades y los valores de la sociedad.
+* Es importante lograr un equilibrio entre el progreso tecnológico y los valores humanos.
+
+**Conclusión**
+
+La integración de ICC es una tecnología con un gran potencial para transformar la sociedad, pero es importante abordar las cuestiones sociales y éticas de forma responsable y justa. Es necesario garantizar que los beneficios de las ICC se distribuyan de forma equitativa y que los riesgos sean mitigués.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="turn-card">
+                <div class="turn-header">
+                    <div class="agent-info">
+                        <span class="agent-icon">✨</span>
+                        <span class="agent-name">Futurista</span>
+                        <span class="agent-role" style="background: #8B5CF620; color: #8B5CF6;">refiner</span>
+                    </div>
+                    <div class="metrics">
+                        <span class="metric">📝 714 tokens</span>
+                        <span class="metric">⏱️ 64.5s</span>
+                        <span class="metric">🤖 qwen2.5:3b</span>
+                    </div>
+                </div>
+                <div class="turn-body">
+                    <div class="turn-section">
+                        <h5>📤 Prompt Enviado (15565 chars)</h5>
+                        <div class="prompt-box"># DEBATE SECUENCIAL: Deberia la humanidad priorizar la integracion de interfaces cerebro-computadora (Neuralink, BCI) como proximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA
+
+## Tu Rol
+Eres: Futurista
+Rol: refiner
+Modelo: qwen2.5:3b (alibaba)
+
+## Información Actualizada (Búsqueda Web)
+Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.
+Úsalos como contexto adicional pero mantén tu pensamiento crítico.
+
+### DuckDuckGo Search
+**Cómo desarrollar interfaces cerebro-computadora de manera responsable**
+Las interfa\n... [contexto web truncado para legibilidad]\n\n## Historial del Debate
+
+### Turno 1: Analista Técnico (analyst)
+**Modelo:** llama3:8b (meta)
+
+**Debate Secuencial: La Integración de Interfaces Cerebro-Computadora como Paso Evolutivo Obligatorio**
+
+Como Analista Técnico, me enfoco en analizar el tema desde una perspectiva técnica profunda, examinando la viabilidad, arquitectura y limitaciones de las interfaces cerebro-computadora. A continuación, presento mi argumentación a favor o en contra de la integración de estas interfaces como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA.
+
+**Viabilidad y Arquitectura**
+
+Las interfaces cerebro-computadora, como Neuralink y BCI (Brain-Computer Interface), han demostrado ser viables en términos técnicos. Estas tecnologías permiten la comunicación entre el cerebro humano y las computadoras mediante señales eléctricas o neuromusculares. Sin embargo, es importante considerar que estas interfaces requieren de avances significativos en materiales avanzados, sistemas de IA y ética fundamental.
+
+La arquitectura actual de las interfaces cerebro-computadora se basa en la captación de señales cerebrales mediante electrodos o neuroimágenes. Estas señales son luego procesadas por algoritmos de aprendizaje automático para interpretar el pensamiento, deseo o intención del usuario. Aunque existen limitaciones técnicas y éticas, las interfaces cerebro-computadora han demostrado ser efectivas en aplicaciones como la comunicación asistiva, el tratamiento de enfermedades neurológicas y la mejora de la calidad de vida.
+
+**Limitaciones**
+
+A pesar del progreso tecnológico, existen limitaciones importantes que debemos considerar al evaluar la viabilidad de las interfaces cerebro-computadora como paso evolutivo obligatorio:
+
+1. **Ética**: La integración de interfaces cerebro-computadora plantea preocupaciones éticas sobre la privacidad, la seguridad y el control sobre la información cerebral.
+2. **Viabilidad**: La captura y procesamiento de señales cerebrales son complejos y requieren de avances significativos en materiales avanzados y sistemas de IA.
+3. **Interferencia**: Las interfaces cerebro-computadora pueden interferir con las funciones cerebrales normales, lo que puede afectar la salud mental y física del usuario.
+
+**Conclusiones**
+
+En mi opinión, la integración de interfaces cerebro-computadora como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA no es tan sencillo. Aunque estas tecnologías ofrecen beneficios significativos en términos de calidad de vida y tratamiento de enfermedades neurológicas, también plantean preocupaciones éticas y limitaciones técnicas.
+
+En lugar de priorizar la integración de interfaces cerebro-computadora como paso evolutivo obligatorio, creo que es más importante enfocarnos en desarrollar tecnologías que respeten y protejan la privacidad y la seguridad del usuario. Además, debemos invertir en investigación y desarrollo para superar las limitaciones técnicas y éticas asociadas a estas interfaces.
+
+En resumen, aunque las interfaces cerebro-computadora ofrecen beneficios significativos, su integración como próximo paso evolutivo obligatorio requiere un enfoque más amplio que considere tanto las ventajas como las desventajas.
+
+### Turno 2: Crítico Ético (critic)
+**Modelo:** mistral:7b (mistral)
+
+ Como Crítico Ético, examino el tema de la integración de interfaces cerebro-computadora (ICC) desde una perspectiva ética profunda, evaluando las implicaciones éticas y morales de esta tecnología emergente.
+
+**Riesgos y Dilemas Éticos**
+
+La integración de ICCs plantea varios riesgos y dilemas éticos que son importantes considerar:
+
+1. **Privacidad**: La integración de ICCs permite la captura y procesamiento continuo de las señales cerebrales, lo que plantea preocupaciones acerca de la privacidad del usuario. Los riesgos incluyen el uso de esta información personal sin consentimiento, o la violación de la confidencialidad del usuario.
+2. **Autonomía**: La integración de ICCs podría limitar la autonomía humana al permitir que computadoras controlen una mayor cantidad de acciones y decisiones humanas. Esto plantea preguntas sobre el nivel adecuado de control humano sobre las computadoras, y cómo mantener la autonomía humana en un mundo cada vez más conectado.
+3. **Identidad**: La integración de ICCs podría cambiar la forma en que los humanos perciben su propia identidad. Por ejemplo, la capacidad de las computadoras para imitar el pensamiento humano plantea preguntas sobre lo que significa ser humano y cómo se define la autonomía humana.
+4. **Responsabilidad**: La integración de ICCs podría cambiar la forma en que se asigna la responsabilidad por las acciones humanas. Por ejemplo, si una computadora controla una acción que resulta en daño a un tercero, quién es responsable? El usuario, el diseñador de la ICC o la computadora misma?
+5. **Consecuencias no previstas**: La integración de ICCs podría tener consecuencias no previstas que son difíciles de anticipar o controlar. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+
+**Consecuencias No Previstas y Soluciones Éticas**
+
+La integración de ICCs podría tener consecuencias no previstas que son importantes considerar:
+
+1. **Control sobre la información**: La integración de ICCs plantea preocupaciones acerca del control humano sobre la información cerebral. Si las computadoras controlan más de las acciones y decisiones humanas, ¿quién tiene el control sobre la información que se captura y procesa?
+2. **Impacto en la sociedad**: La integración de ICCs podría cambiar la forma en que funciona la sociedad. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+3. **Impacto en la economía**: La integración de ICCs podría tener un impacto significativo en la economía. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desplazar trabajos humanos y aumentar la desempleo.
+4. **Educação ética**: Es importante que la educación sobre ICCs incluya componentes éticos que ayuden a los usuarios a comprender las implicaciones éticas de esta tecnología emergente. Esto puede incluir cursos de ética de la computación, discusiones en clases sobre los riesgos y dilemas éticos asociados con ICCs, y programas de educación comunitaria sobre cómo usar ICCs de manera responsable y ética.
+
+En resumen, la integración de ICCs plantea preocupaciones éticas y morales que son importantes considerar. Es importante desarrollar soluciones éticas que protejan la privacidad y la seguridad del usuario, mantienen la autonomía humana, promueven una educación ética sobre esta tecnología emergente, y minimizan los riesgos y dilemas éticos asociados con ICCs.
+
+### Turno 3: Filósofo (synthesizer)
+**Modelo:** deepseek-r1:7b (deepseek)
+
+**Integración de Interfaces Cerebro-Computadora: Un Desafío Filosófico para la Noción de Ser Humano**
+
+El debate sobre la integración de interfaces cerebro-computadora (ICC) como paso evolutivo obligatorio enfrenta profundamente questiones filosóficas sobre la naturaleza humana, la identidad, la consciencia y la libertad albedrío. Para entender este conflicto, es necesario explorar cómo esta tecnología puede transformar fundamentalmente quién Somos.
+
+### Identidad Humana: Un Compromiso con lo Personal
+
+La identidad humana es un concepto complejo que incluye tanto las características físicas como las actuaciones y pensamientos que guían our comportamiento. Si las ICC permiten una controlación más precisa del cerebro, ¿cómo cambia nuestra identidad? Es posible que perjudiquemos nuestra capacidad de percibir nosotros mismos, de manera que dependamos de dispositivos que podríamos perder la personalidad auténtica. Por otro lado, estas herramientas podrían ofrecer una nueva forma de interactuar con el mundo, permitiendo una identidad más enriquecida y compleja.
+
+### Consciencia: Un Desafío para lo consciente
+
+La consciencia es la experiencia consciente de nosotros mismos, de nuestros pensamientos y sentimientos. Si las ICC nos permitem controlar nuestra mente con precisión, ¿cómo afecta esto a nuestra consciencia? Es posible que perjudiquemos nuestra capacidad de percibir y entender nosotros mismos, restringiendo nuestro acceso a una experiencia consciente más rica. En cambio, estas tecnologías podrían ampliar nuestra consciencia, ofreciéndonos herramientas para explorar nuestros pensamientos de manera más detallada.
+
+### Libertad albedrío: Un Requimiento de Control Humano
+
+La libertad albedrío es la capacidad de actuar sin thought, controlando nuestras acciones y decisiones con precisión. Si las ICC nos permiten una controlación más avanzada del cerebro, ¿cómo afecta esto a nuestra libertad albedrío? Es posible que perjudiquemos nuestra capacidad de reflexionar y controlar nuestras acciones, restringiendo nuestra libertad humana. En cambio, estas tecnologías podrían ofrecer una nueva forma de actuar, permitiendo una mayor controlación sobre nosotros mismos.
+
+### Responsabilidad Ética: Un Desafío por el Control Humano
+
+La responsabilidad ética es fundamental cuando se manejan tecnologías que afectan a humanos. Si las ICC nos permiten hacer decisions que afectan a otros seres humanos, quién es el responsable de estas decisiones? ¿El diseñador de las ICC, el usuario o la computadora misma? Este dilema ético plantea la necesidad de considerar el control humano sobre las inteligencias y la responsabilidad de las acciones que ejecutamos.
+
+### Evolución del Cerebro: Un Desafío para lo Evolutivo
+
+Además, es importante considerar cómo estas ICC pueden afectar el desarrollo evolutionario del cerebro humano. Si estas tecnologías promueven el desarrollo hiperactivo del cerebro, ¿cambiará drásticamente el desarrollo evolutionario del ser humano? Esto podría llevar a cambios en el desarrollo de las neuronas y la funcionalidad del cuerpo, lo que tendría implicationes profundas para nuestra identidad, consciencia y libertad albedrío.
+
+### Balancing Act: Potencial y Limitaciones
+
+Aunque las ICC ofrecen una gran cantidad de beneficios, también poseen limitaciones éticas, filosóficas e tecnológicas. Es fundamental equilibrar el potencial de estas tecnologías con consideraciones sobre la responsabilidad humana, la privacidad y la seguridad, así como sobre el bienestar de los seres humanos que las utilizan.
+
+### Conclusión
+
+La integración de interfaces cerebro-computadora como paso evolutivo obligatorio no es sencillo. Esta tecnología puede transformar fundamentalmente quién Somos, cómo percibimos nosotros mismos y nuestras acciones, y cómo actúamos en el
+
+### Turno 4: Sintetizador Social (synthesizer)
+**Modelo:** gemma:7b (google)
+
+## Impacto Social de la Integración de Interfaces Cerebro-Computadora
+
+La integración de interfaces cerebro-computadora (ICC) presenta un impacto potencial en la sociedad, con implicaciones tanto positivas como negativas en términos de desigualdad, acceso, coerción social y estructura social.
+
+**Desigualdad y Acceso**
+
+* Las ICC podrían aumentar la desigualdad al proporcionar una ventaja a quienes pueden permitirse pagar estas tecnologías.
+* Sin embargo, también pueden aumentar el acceso a información y oportunidades para quienes de otro modo serían excluidos.
+
+**Coerción Social**
+
+* Las ICC podrían utilizarse para controlar o manipular a las personas, lo que podría conducir a una disminución de la libertad individual.
+* Sin embargo, también pueden aumentar la responsabilidad social y el sentido de comunidad.
+
+**Estructura Social**
+
+* Las ICC podrían cambiar la estructura de la sociedad al permitir que las personas conecten y aprendan de nuevas maneras.
+* Sin embargo, también pueden conducir a la pérdida de trabajos y la necesidad de adaptarse a nuevas estructuras de empleo.
+
+**Consideraciones Éticas**
+
+* Es importante abordar las preocupaciones éticas relacionadas con la privacidad, la seguridad y la autonomía de las personas.
+* La regulación y el desarrollo responsable de las ICC son esenciales para garantizar que se aprovechen de sus beneficios y se mitiguen sus riesgos.
+
+**Necesidad de un Enfoque Holístico**
+
+* La integración de ICC debe considerarse en un contexto holístico que comprenda las necesidades y los valores de la sociedad.
+* Es importante lograr un equilibrio entre el progreso tecnológico y los valores humanos.
+
+**Conclusión**
+
+La integración de ICC es una tecnología con un gran potencial para transformar la sociedad, pero es importante abordar las cuestiones sociales y éticas de forma responsable y justa. Es necesario garantizar que los beneficios de las ICC se distribuyan de forma equitativa y que los riesgos sean mitigués.
+
+============================================================
+
+## Tu Tarea
+
+Proyecta escenarios futuros a 10, 50 y 100 años. Considera ramificaciones evolutivas y existenciales. Responde en español, máximo 500 palabras.</div>
+                    </div>
+                    <div class="turn-section">
+                        <h5>📥 Respuesta (3156 chars)</h5>
+                        <div class="response-box">### Escenario Futuro: Interfaces Cerebro-Computadora Evolutivas y Existenciales
+
+#### Escenario Futuro a 10 Años:
+A los 10 años de la implementación inicial, las interfaces cerebro-computadoras (ICC) están siendo utilizadas ampliamente para mejorar la calidad de vida en áreas como el tratamiento del Parkinson o la parálisis. Estas tecnologías permiten una comunicación asistida y han logrado un mayor control sobre acciones simples y cotidianas. Aún no hay grandes preocupaciones éticas significativas, pero las leyes de privacidad y seguridad están siendo revisadas para adaptarse a estas nuevas tecnologías.
+
+#### Escenario Futuro a 50 Años:
+Con el avance tecnológico, la complejidad de las ICC ha aumentado, permitiendo una mayor integración entre el cerebro humano y las computadoras. Las interfaces ya no solo ayudan en funciones básicas sino que también están desarrollando un control más profundo sobre procesos cognitivos como la memoria, la concentración o la empatía. Esto plantea nuevas preocupaciones éticas relacionadas con la privacidad de los pensamientos y la identidad personal.
+
+El uso masivo de estas interfaces ha desempeñado un papel crucial en el desarrollo de nuevos sistemas educativos y terapéuticos. Sin embargo, también han emergido problemas sociales, como una disminución del contacto humano debido a las interacciones virtuales cada vez más complejas. La educación comienza a incluir cursos sobre ética digital para preparar al siguiente generación.
+
+#### Escenario Futuro a 100 Años:
+Después de un siglo desde la primera implementación, los roles de ICC han evolucionado hacia una profundización en el interior del cerebro humano. Las interfaces ya no solo permiten una comunicación más fluida entre el usuario y sus dispositivos sino que también están trabajando para mejorar significativamente procesos cognitivos críticos como la memoria autobiográfica, las habilidades de empatía y hasta incluso el control emocional.
+
+Los problemas éticos se han vuelto más complejos. La privacidad cerebral ya no es un concepto abstracto; en su lugar, los individuos pueden tener acceso a sus propios pensamientos sin saberlo, lo que plantea preguntas sobre la autenticidad y la identidad personal. Además, las preocupaciones sobre el control humano sobre sus propios cerebros han evolucionado hacia una discusión más intensa sobre la naturaleza misma de la consciencia humana.
+
+En este escenario, la sociedad ha desarrollado una comprensión cada vez mayor de cómo estas interfaces pueden influir en nuestras estructuras sociales y políticas. La educación y el debate ético se han vuelto esenciales para garantizar que estos avances tecnológicos no solo mejoren nuestra calidad de vida sino también respeten nuestras valores humanos.
+
+En conclusión, a medida que avanzamos hacia estas cifras futuras, debemos estar preparados para abordar los desafíos éticos y sociales de manera proactiva. Es esencial mantener un equilibrio entre el progreso tecnológico y los derechos fundamentales humanos, garantizando que las interfaces cerebro-computadoras sean usadas en beneficio de la sociedad y no solo como herramientas de poder o control.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="turn-card">
+                <div class="turn-header">
+                    <div class="agent-info">
+                        <span class="agent-icon">⚡</span>
+                        <span class="agent-name">Escéptico</span>
+                        <span class="agent-role" style="background: #EF444420; color: #EF4444;">critic</span>
+                    </div>
+                    <div class="metrics">
+                        <span class="metric">📝 0 tokens</span>
+                        <span class="metric">⏱️ 648ms</span>
+                        <span class="metric">🤖 phi3:mini</span>
+                    </div>
+                </div>
+                <div class="turn-body">
+                    <div class="turn-section">
+                        <h5>📤 Prompt Enviado (18805 chars)</h5>
+                        <div class="prompt-box"># DEBATE SECUENCIAL: Deberia la humanidad priorizar la integracion de interfaces cerebro-computadora (Neuralink, BCI) como proximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA
+
+## Tu Rol
+Eres: Escéptico
+Rol: critic
+Modelo: phi3:mini (microsoft)
+
+## Información Actualizada (Búsqueda Web)
+Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.
+Úsalos como contexto adicional pero mantén tu pensamiento crítico.
+
+### DuckDuckGo Search
+**Cómo desarrollar interfaces cerebro-computadora de manera responsable**
+Las interfa\n... [contexto web truncado para legibilidad]\n\n## Historial del Debate
+
+### Turno 1: Analista Técnico (analyst)
+**Modelo:** llama3:8b (meta)
+
+**Debate Secuencial: La Integración de Interfaces Cerebro-Computadora como Paso Evolutivo Obligatorio**
+
+Como Analista Técnico, me enfoco en analizar el tema desde una perspectiva técnica profunda, examinando la viabilidad, arquitectura y limitaciones de las interfaces cerebro-computadora. A continuación, presento mi argumentación a favor o en contra de la integración de estas interfaces como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA.
+
+**Viabilidad y Arquitectura**
+
+Las interfaces cerebro-computadora, como Neuralink y BCI (Brain-Computer Interface), han demostrado ser viables en términos técnicos. Estas tecnologías permiten la comunicación entre el cerebro humano y las computadoras mediante señales eléctricas o neuromusculares. Sin embargo, es importante considerar que estas interfaces requieren de avances significativos en materiales avanzados, sistemas de IA y ética fundamental.
+
+La arquitectura actual de las interfaces cerebro-computadora se basa en la captación de señales cerebrales mediante electrodos o neuroimágenes. Estas señales son luego procesadas por algoritmos de aprendizaje automático para interpretar el pensamiento, deseo o intención del usuario. Aunque existen limitaciones técnicas y éticas, las interfaces cerebro-computadora han demostrado ser efectivas en aplicaciones como la comunicación asistiva, el tratamiento de enfermedades neurológicas y la mejora de la calidad de vida.
+
+**Limitaciones**
+
+A pesar del progreso tecnológico, existen limitaciones importantes que debemos considerar al evaluar la viabilidad de las interfaces cerebro-computadora como paso evolutivo obligatorio:
+
+1. **Ética**: La integración de interfaces cerebro-computadora plantea preocupaciones éticas sobre la privacidad, la seguridad y el control sobre la información cerebral.
+2. **Viabilidad**: La captura y procesamiento de señales cerebrales son complejos y requieren de avances significativos en materiales avanzados y sistemas de IA.
+3. **Interferencia**: Las interfaces cerebro-computadora pueden interferir con las funciones cerebrales normales, lo que puede afectar la salud mental y física del usuario.
+
+**Conclusiones**
+
+En mi opinión, la integración de interfaces cerebro-computadora como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA no es tan sencillo. Aunque estas tecnologías ofrecen beneficios significativos en términos de calidad de vida y tratamiento de enfermedades neurológicas, también plantean preocupaciones éticas y limitaciones técnicas.
+
+En lugar de priorizar la integración de interfaces cerebro-computadora como paso evolutivo obligatorio, creo que es más importante enfocarnos en desarrollar tecnologías que respeten y protejan la privacidad y la seguridad del usuario. Además, debemos invertir en investigación y desarrollo para superar las limitaciones técnicas y éticas asociadas a estas interfaces.
+
+En resumen, aunque las interfaces cerebro-computadora ofrecen beneficios significativos, su integración como próximo paso evolutivo obligatorio requiere un enfoque más amplio que considere tanto las ventajas como las desventajas.
+
+### Turno 2: Crítico Ético (critic)
+**Modelo:** mistral:7b (mistral)
+
+ Como Crítico Ético, examino el tema de la integración de interfaces cerebro-computadora (ICC) desde una perspectiva ética profunda, evaluando las implicaciones éticas y morales de esta tecnología emergente.
+
+**Riesgos y Dilemas Éticos**
+
+La integración de ICCs plantea varios riesgos y dilemas éticos que son importantes considerar:
+
+1. **Privacidad**: La integración de ICCs permite la captura y procesamiento continuo de las señales cerebrales, lo que plantea preocupaciones acerca de la privacidad del usuario. Los riesgos incluyen el uso de esta información personal sin consentimiento, o la violación de la confidencialidad del usuario.
+2. **Autonomía**: La integración de ICCs podría limitar la autonomía humana al permitir que computadoras controlen una mayor cantidad de acciones y decisiones humanas. Esto plantea preguntas sobre el nivel adecuado de control humano sobre las computadoras, y cómo mantener la autonomía humana en un mundo cada vez más conectado.
+3. **Identidad**: La integración de ICCs podría cambiar la forma en que los humanos perciben su propia identidad. Por ejemplo, la capacidad de las computadoras para imitar el pensamiento humano plantea preguntas sobre lo que significa ser humano y cómo se define la autonomía humana.
+4. **Responsabilidad**: La integración de ICCs podría cambiar la forma en que se asigna la responsabilidad por las acciones humanas. Por ejemplo, si una computadora controla una acción que resulta en daño a un tercero, quién es responsable? El usuario, el diseñador de la ICC o la computadora misma?
+5. **Consecuencias no previstas**: La integración de ICCs podría tener consecuencias no previstas que son difíciles de anticipar o controlar. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+
+**Consecuencias No Previstas y Soluciones Éticas**
+
+La integración de ICCs podría tener consecuencias no previstas que son importantes considerar:
+
+1. **Control sobre la información**: La integración de ICCs plantea preocupaciones acerca del control humano sobre la información cerebral. Si las computadoras controlan más de las acciones y decisiones humanas, ¿quién tiene el control sobre la información que se captura y procesa?
+2. **Impacto en la sociedad**: La integración de ICCs podría cambiar la forma en que funciona la sociedad. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+3. **Impacto en la economía**: La integración de ICCs podría tener un impacto significativo en la economía. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desplazar trabajos humanos y aumentar la desempleo.
+4. **Educação ética**: Es importante que la educación sobre ICCs incluya componentes éticos que ayuden a los usuarios a comprender las implicaciones éticas de esta tecnología emergente. Esto puede incluir cursos de ética de la computación, discusiones en clases sobre los riesgos y dilemas éticos asociados con ICCs, y programas de educación comunitaria sobre cómo usar ICCs de manera responsable y ética.
+
+En resumen, la integración de ICCs plantea preocupaciones éticas y morales que son importantes considerar. Es importante desarrollar soluciones éticas que protejan la privacidad y la seguridad del usuario, mantienen la autonomía humana, promueven una educación ética sobre esta tecnología emergente, y minimizan los riesgos y dilemas éticos asociados con ICCs.
+
+### Turno 3: Filósofo (synthesizer)
+**Modelo:** deepseek-r1:7b (deepseek)
+
+**Integración de Interfaces Cerebro-Computadora: Un Desafío Filosófico para la Noción de Ser Humano**
+
+El debate sobre la integración de interfaces cerebro-computadora (ICC) como paso evolutivo obligatorio enfrenta profundamente questiones filosóficas sobre la naturaleza humana, la identidad, la consciencia y la libertad albedrío. Para entender este conflicto, es necesario explorar cómo esta tecnología puede transformar fundamentalmente quién Somos.
+
+### Identidad Humana: Un Compromiso con lo Personal
+
+La identidad humana es un concepto complejo que incluye tanto las características físicas como las actuaciones y pensamientos que guían our comportamiento. Si las ICC permiten una controlación más precisa del cerebro, ¿cómo cambia nuestra identidad? Es posible que perjudiquemos nuestra capacidad de percibir nosotros mismos, de manera que dependamos de dispositivos que podríamos perder la personalidad auténtica. Por otro lado, estas herramientas podrían ofrecer una nueva forma de interactuar con el mundo, permitiendo una identidad más enriquecida y compleja.
+
+### Consciencia: Un Desafío para lo consciente
+
+La consciencia es la experiencia consciente de nosotros mismos, de nuestros pensamientos y sentimientos. Si las ICC nos permitem controlar nuestra mente con precisión, ¿cómo afecta esto a nuestra consciencia? Es posible que perjudiquemos nuestra capacidad de percibir y entender nosotros mismos, restringiendo nuestro acceso a una experiencia consciente más rica. En cambio, estas tecnologías podrían ampliar nuestra consciencia, ofreciéndonos herramientas para explorar nuestros pensamientos de manera más detallada.
+
+### Libertad albedrío: Un Requimiento de Control Humano
+
+La libertad albedrío es la capacidad de actuar sin thought, controlando nuestras acciones y decisiones con precisión. Si las ICC nos permiten una controlación más avanzada del cerebro, ¿cómo afecta esto a nuestra libertad albedrío? Es posible que perjudiquemos nuestra capacidad de reflexionar y controlar nuestras acciones, restringiendo nuestra libertad humana. En cambio, estas tecnologías podrían ofrecer una nueva forma de actuar, permitiendo una mayor controlación sobre nosotros mismos.
+
+### Responsabilidad Ética: Un Desafío por el Control Humano
+
+La responsabilidad ética es fundamental cuando se manejan tecnologías que afectan a humanos. Si las ICC nos permiten hacer decisions que afectan a otros seres humanos, quién es el responsable de estas decisiones? ¿El diseñador de las ICC, el usuario o la computadora misma? Este dilema ético plantea la necesidad de considerar el control humano sobre las inteligencias y la responsabilidad de las acciones que ejecutamos.
+
+### Evolución del Cerebro: Un Desafío para lo Evolutivo
+
+Además, es importante considerar cómo estas ICC pueden afectar el desarrollo evolutionario del cerebro humano. Si estas tecnologías promueven el desarrollo hiperactivo del cerebro, ¿cambiará drásticamente el desarrollo evolutionario del ser humano? Esto podría llevar a cambios en el desarrollo de las neuronas y la funcionalidad del cuerpo, lo que tendría implicationes profundas para nuestra identidad, consciencia y libertad albedrío.
+
+### Balancing Act: Potencial y Limitaciones
+
+Aunque las ICC ofrecen una gran cantidad de beneficios, también poseen limitaciones éticas, filosóficas e tecnológicas. Es fundamental equilibrar el potencial de estas tecnologías con consideraciones sobre la responsabilidad humana, la privacidad y la seguridad, así como sobre el bienestar de los seres humanos que las utilizan.
+
+### Conclusión
+
+La integración de interfaces cerebro-computadora como paso evolutivo obligatorio no es sencillo. Esta tecnología puede transformar fundamentalmente quién Somos, cómo percibimos nosotros mismos y nuestras acciones, y cómo actúamos en el
+
+### Turno 4: Sintetizador Social (synthesizer)
+**Modelo:** gemma:7b (google)
+
+## Impacto Social de la Integración de Interfaces Cerebro-Computadora
+
+La integración de interfaces cerebro-computadora (ICC) presenta un impacto potencial en la sociedad, con implicaciones tanto positivas como negativas en términos de desigualdad, acceso, coerción social y estructura social.
+
+**Desigualdad y Acceso**
+
+* Las ICC podrían aumentar la desigualdad al proporcionar una ventaja a quienes pueden permitirse pagar estas tecnologías.
+* Sin embargo, también pueden aumentar el acceso a información y oportunidades para quienes de otro modo serían excluidos.
+
+**Coerción Social**
+
+* Las ICC podrían utilizarse para controlar o manipular a las personas, lo que podría conducir a una disminución de la libertad individual.
+* Sin embargo, también pueden aumentar la responsabilidad social y el sentido de comunidad.
+
+**Estructura Social**
+
+* Las ICC podrían cambiar la estructura de la sociedad al permitir que las personas conecten y aprendan de nuevas maneras.
+* Sin embargo, también pueden conducir a la pérdida de trabajos y la necesidad de adaptarse a nuevas estructuras de empleo.
+
+**Consideraciones Éticas**
+
+* Es importante abordar las preocupaciones éticas relacionadas con la privacidad, la seguridad y la autonomía de las personas.
+* La regulación y el desarrollo responsable de las ICC son esenciales para garantizar que se aprovechen de sus beneficios y se mitiguen sus riesgos.
+
+**Necesidad de un Enfoque Holístico**
+
+* La integración de ICC debe considerarse en un contexto holístico que comprenda las necesidades y los valores de la sociedad.
+* Es importante lograr un equilibrio entre el progreso tecnológico y los valores humanos.
+
+**Conclusión**
+
+La integración de ICC es una tecnología con un gran potencial para transformar la sociedad, pero es importante abordar las cuestiones sociales y éticas de forma responsable y justa. Es necesario garantizar que los beneficios de las ICC se distribuyan de forma equitativa y que los riesgos sean mitigués.
+
+### Turno 5: Futurista (refiner)
+**Modelo:** qwen2.5:3b (alibaba)
+
+### Escenario Futuro: Interfaces Cerebro-Computadora Evolutivas y Existenciales
+
+#### Escenario Futuro a 10 Años:
+A los 10 años de la implementación inicial, las interfaces cerebro-computadoras (ICC) están siendo utilizadas ampliamente para mejorar la calidad de vida en áreas como el tratamiento del Parkinson o la parálisis. Estas tecnologías permiten una comunicación asistida y han logrado un mayor control sobre acciones simples y cotidianas. Aún no hay grandes preocupaciones éticas significativas, pero las leyes de privacidad y seguridad están siendo revisadas para adaptarse a estas nuevas tecnologías.
+
+#### Escenario Futuro a 50 Años:
+Con el avance tecnológico, la complejidad de las ICC ha aumentado, permitiendo una mayor integración entre el cerebro humano y las computadoras. Las interfaces ya no solo ayudan en funciones básicas sino que también están desarrollando un control más profundo sobre procesos cognitivos como la memoria, la concentración o la empatía. Esto plantea nuevas preocupaciones éticas relacionadas con la privacidad de los pensamientos y la identidad personal.
+
+El uso masivo de estas interfaces ha desempeñado un papel crucial en el desarrollo de nuevos sistemas educativos y terapéuticos. Sin embargo, también han emergido problemas sociales, como una disminución del contacto humano debido a las interacciones virtuales cada vez más complejas. La educación comienza a incluir cursos sobre ética digital para preparar al siguiente generación.
+
+#### Escenario Futuro a 100 Años:
+Después de un siglo desde la primera implementación, los roles de ICC han evolucionado hacia una profundización en el interior del cerebro humano. Las interfaces ya no solo permiten una comunicación más fluida entre el usuario y sus dispositivos sino que también están trabajando para mejorar significativamente procesos cognitivos críticos como la memoria autobiográfica, las habilidades de empatía y hasta incluso el control emocional.
+
+Los problemas éticos se han vuelto más complejos. La privacidad cerebral ya no es un concepto abstracto; en su lugar, los individuos pueden tener acceso a sus propios pensamientos sin saberlo, lo que plantea preguntas sobre la autenticidad y la identidad personal. Además, las preocupaciones sobre el control humano sobre sus propios cerebros han evolucionado hacia una discusión más intensa sobre la naturaleza misma de la consciencia humana.
+
+En este escenario, la sociedad ha desarrollado una comprensión cada vez mayor de cómo estas interfaces pueden influir en nuestras estructuras sociales y políticas. La educación y el debate ético se han vuelto esenciales para garantizar que estos avances tecnológicos no solo mejoren nuestra calidad de vida sino también respeten nuestras valores humanos.
+
+En conclusión, a medida que avanzamos hacia estas cifras futuras, debemos estar preparados para abordar los desafíos éticos y sociales de manera proactiva. Es esencial mantener un equilibrio entre el progreso tecnológico y los derechos fundamentales humanos, garantizando que las interfaces cerebro-computadoras sean usadas en beneficio de la sociedad y no solo como herramientas de poder o control.
+
+============================================================
+
+## Tu Tarea
+
+Cuestiona cada premisa con escepticismo riguroso. Busca falacias, sobrepromesas tecnológicas y riesgos subestimados. Responde en español, máximo 400 palabras.</div>
+                    </div>
+                    <div class="turn-section">
+                        <h5>📥 Respuesta (0 chars)</h5>
+                        <div class="response-box"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="turn-card">
+                <div class="turn-header">
+                    <div class="agent-info">
+                        <span class="agent-icon">🔍</span>
+                        <span class="agent-name">Analista Evolutivo</span>
+                        <span class="agent-role" style="background: #3B82F620; color: #3B82F6;">analyst</span>
+                    </div>
+                    <div class="metrics">
+                        <span class="metric">📝 0 tokens</span>
+                        <span class="metric">⏱️ 2.1s</span>
+                        <span class="metric">🤖 llama3.1:8b</span>
+                    </div>
+                </div>
+                <div class="turn-body">
+                    <div class="turn-section">
+                        <h5>📤 Prompt Enviado (18803 chars)</h5>
+                        <div class="prompt-box"># DEBATE SECUENCIAL: Deberia la humanidad priorizar la integracion de interfaces cerebro-computadora (Neuralink, BCI) como proximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA
+
+## Tu Rol
+Eres: Analista Evolutivo
+Rol: analyst
+Modelo: llama3.1:8b (meta)
+
+## Información Actualizada (Búsqueda Web)
+Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.
+Úsalos como contexto adicional pero mantén tu pensamiento crítico.
+
+### DuckDuckGo Search
+**Cómo desarrollar interfaces cerebro-computadora de manera responsable**
+Las interfa\n... [contexto web truncado para legibilidad]\n\n## Historial del Debate
+
+### Turno 1: Analista Técnico (analyst)
+**Modelo:** llama3:8b (meta)
+
+**Debate Secuencial: La Integración de Interfaces Cerebro-Computadora como Paso Evolutivo Obligatorio**
+
+Como Analista Técnico, me enfoco en analizar el tema desde una perspectiva técnica profunda, examinando la viabilidad, arquitectura y limitaciones de las interfaces cerebro-computadora. A continuación, presento mi argumentación a favor o en contra de la integración de estas interfaces como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA.
+
+**Viabilidad y Arquitectura**
+
+Las interfaces cerebro-computadora, como Neuralink y BCI (Brain-Computer Interface), han demostrado ser viables en términos técnicos. Estas tecnologías permiten la comunicación entre el cerebro humano y las computadoras mediante señales eléctricas o neuromusculares. Sin embargo, es importante considerar que estas interfaces requieren de avances significativos en materiales avanzados, sistemas de IA y ética fundamental.
+
+La arquitectura actual de las interfaces cerebro-computadora se basa en la captación de señales cerebrales mediante electrodos o neuroimágenes. Estas señales son luego procesadas por algoritmos de aprendizaje automático para interpretar el pensamiento, deseo o intención del usuario. Aunque existen limitaciones técnicas y éticas, las interfaces cerebro-computadora han demostrado ser efectivas en aplicaciones como la comunicación asistiva, el tratamiento de enfermedades neurológicas y la mejora de la calidad de vida.
+
+**Limitaciones**
+
+A pesar del progreso tecnológico, existen limitaciones importantes que debemos considerar al evaluar la viabilidad de las interfaces cerebro-computadora como paso evolutivo obligatorio:
+
+1. **Ética**: La integración de interfaces cerebro-computadora plantea preocupaciones éticas sobre la privacidad, la seguridad y el control sobre la información cerebral.
+2. **Viabilidad**: La captura y procesamiento de señales cerebrales son complejos y requieren de avances significativos en materiales avanzados y sistemas de IA.
+3. **Interferencia**: Las interfaces cerebro-computadora pueden interferir con las funciones cerebrales normales, lo que puede afectar la salud mental y física del usuario.
+
+**Conclusiones**
+
+En mi opinión, la integración de interfaces cerebro-computadora como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA no es tan sencillo. Aunque estas tecnologías ofrecen beneficios significativos en términos de calidad de vida y tratamiento de enfermedades neurológicas, también plantean preocupaciones éticas y limitaciones técnicas.
+
+En lugar de priorizar la integración de interfaces cerebro-computadora como paso evolutivo obligatorio, creo que es más importante enfocarnos en desarrollar tecnologías que respeten y protejan la privacidad y la seguridad del usuario. Además, debemos invertir en investigación y desarrollo para superar las limitaciones técnicas y éticas asociadas a estas interfaces.
+
+En resumen, aunque las interfaces cerebro-computadora ofrecen beneficios significativos, su integración como próximo paso evolutivo obligatorio requiere un enfoque más amplio que considere tanto las ventajas como las desventajas.
+
+### Turno 2: Crítico Ético (critic)
+**Modelo:** mistral:7b (mistral)
+
+ Como Crítico Ético, examino el tema de la integración de interfaces cerebro-computadora (ICC) desde una perspectiva ética profunda, evaluando las implicaciones éticas y morales de esta tecnología emergente.
+
+**Riesgos y Dilemas Éticos**
+
+La integración de ICCs plantea varios riesgos y dilemas éticos que son importantes considerar:
+
+1. **Privacidad**: La integración de ICCs permite la captura y procesamiento continuo de las señales cerebrales, lo que plantea preocupaciones acerca de la privacidad del usuario. Los riesgos incluyen el uso de esta información personal sin consentimiento, o la violación de la confidencialidad del usuario.
+2. **Autonomía**: La integración de ICCs podría limitar la autonomía humana al permitir que computadoras controlen una mayor cantidad de acciones y decisiones humanas. Esto plantea preguntas sobre el nivel adecuado de control humano sobre las computadoras, y cómo mantener la autonomía humana en un mundo cada vez más conectado.
+3. **Identidad**: La integración de ICCs podría cambiar la forma en que los humanos perciben su propia identidad. Por ejemplo, la capacidad de las computadoras para imitar el pensamiento humano plantea preguntas sobre lo que significa ser humano y cómo se define la autonomía humana.
+4. **Responsabilidad**: La integración de ICCs podría cambiar la forma en que se asigna la responsabilidad por las acciones humanas. Por ejemplo, si una computadora controla una acción que resulta en daño a un tercero, quién es responsable? El usuario, el diseñador de la ICC o la computadora misma?
+5. **Consecuencias no previstas**: La integración de ICCs podría tener consecuencias no previstas que son difíciles de anticipar o controlar. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+
+**Consecuencias No Previstas y Soluciones Éticas**
+
+La integración de ICCs podría tener consecuencias no previstas que son importantes considerar:
+
+1. **Control sobre la información**: La integración de ICCs plantea preocupaciones acerca del control humano sobre la información cerebral. Si las computadoras controlan más de las acciones y decisiones humanas, ¿quién tiene el control sobre la información que se captura y procesa?
+2. **Impacto en la sociedad**: La integración de ICCs podría cambiar la forma en que funciona la sociedad. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+3. **Impacto en la economía**: La integración de ICCs podría tener un impacto significativo en la economía. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desplazar trabajos humanos y aumentar la desempleo.
+4. **Educação ética**: Es importante que la educación sobre ICCs incluya componentes éticos que ayuden a los usuarios a comprender las implicaciones éticas de esta tecnología emergente. Esto puede incluir cursos de ética de la computación, discusiones en clases sobre los riesgos y dilemas éticos asociados con ICCs, y programas de educación comunitaria sobre cómo usar ICCs de manera responsable y ética.
+
+En resumen, la integración de ICCs plantea preocupaciones éticas y morales que son importantes considerar. Es importante desarrollar soluciones éticas que protejan la privacidad y la seguridad del usuario, mantienen la autonomía humana, promueven una educación ética sobre esta tecnología emergente, y minimizan los riesgos y dilemas éticos asociados con ICCs.
+
+### Turno 3: Filósofo (synthesizer)
+**Modelo:** deepseek-r1:7b (deepseek)
+
+**Integración de Interfaces Cerebro-Computadora: Un Desafío Filosófico para la Noción de Ser Humano**
+
+El debate sobre la integración de interfaces cerebro-computadora (ICC) como paso evolutivo obligatorio enfrenta profundamente questiones filosóficas sobre la naturaleza humana, la identidad, la consciencia y la libertad albedrío. Para entender este conflicto, es necesario explorar cómo esta tecnología puede transformar fundamentalmente quién Somos.
+
+### Identidad Humana: Un Compromiso con lo Personal
+
+La identidad humana es un concepto complejo que incluye tanto las características físicas como las actuaciones y pensamientos que guían our comportamiento. Si las ICC permiten una controlación más precisa del cerebro, ¿cómo cambia nuestra identidad? Es posible que perjudiquemos nuestra capacidad de percibir nosotros mismos, de manera que dependamos de dispositivos que podríamos perder la personalidad auténtica. Por otro lado, estas herramientas podrían ofrecer una nueva forma de interactuar con el mundo, permitiendo una identidad más enriquecida y compleja.
+
+### Consciencia: Un Desafío para lo consciente
+
+La consciencia es la experiencia consciente de nosotros mismos, de nuestros pensamientos y sentimientos. Si las ICC nos permitem controlar nuestra mente con precisión, ¿cómo afecta esto a nuestra consciencia? Es posible que perjudiquemos nuestra capacidad de percibir y entender nosotros mismos, restringiendo nuestro acceso a una experiencia consciente más rica. En cambio, estas tecnologías podrían ampliar nuestra consciencia, ofreciéndonos herramientas para explorar nuestros pensamientos de manera más detallada.
+
+### Libertad albedrío: Un Requimiento de Control Humano
+
+La libertad albedrío es la capacidad de actuar sin thought, controlando nuestras acciones y decisiones con precisión. Si las ICC nos permiten una controlación más avanzada del cerebro, ¿cómo afecta esto a nuestra libertad albedrío? Es posible que perjudiquemos nuestra capacidad de reflexionar y controlar nuestras acciones, restringiendo nuestra libertad humana. En cambio, estas tecnologías podrían ofrecer una nueva forma de actuar, permitiendo una mayor controlación sobre nosotros mismos.
+
+### Responsabilidad Ética: Un Desafío por el Control Humano
+
+La responsabilidad ética es fundamental cuando se manejan tecnologías que afectan a humanos. Si las ICC nos permiten hacer decisions que afectan a otros seres humanos, quién es el responsable de estas decisiones? ¿El diseñador de las ICC, el usuario o la computadora misma? Este dilema ético plantea la necesidad de considerar el control humano sobre las inteligencias y la responsabilidad de las acciones que ejecutamos.
+
+### Evolución del Cerebro: Un Desafío para lo Evolutivo
+
+Además, es importante considerar cómo estas ICC pueden afectar el desarrollo evolutionario del cerebro humano. Si estas tecnologías promueven el desarrollo hiperactivo del cerebro, ¿cambiará drásticamente el desarrollo evolutionario del ser humano? Esto podría llevar a cambios en el desarrollo de las neuronas y la funcionalidad del cuerpo, lo que tendría implicationes profundas para nuestra identidad, consciencia y libertad albedrío.
+
+### Balancing Act: Potencial y Limitaciones
+
+Aunque las ICC ofrecen una gran cantidad de beneficios, también poseen limitaciones éticas, filosóficas e tecnológicas. Es fundamental equilibrar el potencial de estas tecnologías con consideraciones sobre la responsabilidad humana, la privacidad y la seguridad, así como sobre el bienestar de los seres humanos que las utilizan.
+
+### Conclusión
+
+La integración de interfaces cerebro-computadora como paso evolutivo obligatorio no es sencillo. Esta tecnología puede transformar fundamentalmente quién Somos, cómo percibimos nosotros mismos y nuestras acciones, y cómo actúamos en el
+
+### Turno 4: Sintetizador Social (synthesizer)
+**Modelo:** gemma:7b (google)
+
+## Impacto Social de la Integración de Interfaces Cerebro-Computadora
+
+La integración de interfaces cerebro-computadora (ICC) presenta un impacto potencial en la sociedad, con implicaciones tanto positivas como negativas en términos de desigualdad, acceso, coerción social y estructura social.
+
+**Desigualdad y Acceso**
+
+* Las ICC podrían aumentar la desigualdad al proporcionar una ventaja a quienes pueden permitirse pagar estas tecnologías.
+* Sin embargo, también pueden aumentar el acceso a información y oportunidades para quienes de otro modo serían excluidos.
+
+**Coerción Social**
+
+* Las ICC podrían utilizarse para controlar o manipular a las personas, lo que podría conducir a una disminución de la libertad individual.
+* Sin embargo, también pueden aumentar la responsabilidad social y el sentido de comunidad.
+
+**Estructura Social**
+
+* Las ICC podrían cambiar la estructura de la sociedad al permitir que las personas conecten y aprendan de nuevas maneras.
+* Sin embargo, también pueden conducir a la pérdida de trabajos y la necesidad de adaptarse a nuevas estructuras de empleo.
+
+**Consideraciones Éticas**
+
+* Es importante abordar las preocupaciones éticas relacionadas con la privacidad, la seguridad y la autonomía de las personas.
+* La regulación y el desarrollo responsable de las ICC son esenciales para garantizar que se aprovechen de sus beneficios y se mitiguen sus riesgos.
+
+**Necesidad de un Enfoque Holístico**
+
+* La integración de ICC debe considerarse en un contexto holístico que comprenda las necesidades y los valores de la sociedad.
+* Es importante lograr un equilibrio entre el progreso tecnológico y los valores humanos.
+
+**Conclusión**
+
+La integración de ICC es una tecnología con un gran potencial para transformar la sociedad, pero es importante abordar las cuestiones sociales y éticas de forma responsable y justa. Es necesario garantizar que los beneficios de las ICC se distribuyan de forma equitativa y que los riesgos sean mitigués.
+
+### Turno 5: Futurista (refiner)
+**Modelo:** qwen2.5:3b (alibaba)
+
+### Escenario Futuro: Interfaces Cerebro-Computadora Evolutivas y Existenciales
+
+#### Escenario Futuro a 10 Años:
+A los 10 años de la implementación inicial, las interfaces cerebro-computadoras (ICC) están siendo utilizadas ampliamente para mejorar la calidad de vida en áreas como el tratamiento del Parkinson o la parálisis. Estas tecnologías permiten una comunicación asistida y han logrado un mayor control sobre acciones simples y cotidianas. Aún no hay grandes preocupaciones éticas significativas, pero las leyes de privacidad y seguridad están siendo revisadas para adaptarse a estas nuevas tecnologías.
+
+#### Escenario Futuro a 50 Años:
+Con el avance tecnológico, la complejidad de las ICC ha aumentado, permitiendo una mayor integración entre el cerebro humano y las computadoras. Las interfaces ya no solo ayudan en funciones básicas sino que también están desarrollando un control más profundo sobre procesos cognitivos como la memoria, la concentración o la empatía. Esto plantea nuevas preocupaciones éticas relacionadas con la privacidad de los pensamientos y la identidad personal.
+
+El uso masivo de estas interfaces ha desempeñado un papel crucial en el desarrollo de nuevos sistemas educativos y terapéuticos. Sin embargo, también han emergido problemas sociales, como una disminución del contacto humano debido a las interacciones virtuales cada vez más complejas. La educación comienza a incluir cursos sobre ética digital para preparar al siguiente generación.
+
+#### Escenario Futuro a 100 Años:
+Después de un siglo desde la primera implementación, los roles de ICC han evolucionado hacia una profundización en el interior del cerebro humano. Las interfaces ya no solo permiten una comunicación más fluida entre el usuario y sus dispositivos sino que también están trabajando para mejorar significativamente procesos cognitivos críticos como la memoria autobiográfica, las habilidades de empatía y hasta incluso el control emocional.
+
+Los problemas éticos se han vuelto más complejos. La privacidad cerebral ya no es un concepto abstracto; en su lugar, los individuos pueden tener acceso a sus propios pensamientos sin saberlo, lo que plantea preguntas sobre la autenticidad y la identidad personal. Además, las preocupaciones sobre el control humano sobre sus propios cerebros han evolucionado hacia una discusión más intensa sobre la naturaleza misma de la consciencia humana.
+
+En este escenario, la sociedad ha desarrollado una comprensión cada vez mayor de cómo estas interfaces pueden influir en nuestras estructuras sociales y políticas. La educación y el debate ético se han vuelto esenciales para garantizar que estos avances tecnológicos no solo mejoren nuestra calidad de vida sino también respeten nuestras valores humanos.
+
+En conclusión, a medida que avanzamos hacia estas cifras futuras, debemos estar preparados para abordar los desafíos éticos y sociales de manera proactiva. Es esencial mantener un equilibrio entre el progreso tecnológico y los derechos fundamentales humanos, garantizando que las interfaces cerebro-computadoras sean usadas en beneficio de la sociedad y no solo como herramientas de poder o control.
+
+============================================================
+
+## Tu Tarea
+
+Analiza desde la biología evolutiva. Compara con saltos evolutivos previos, presión selectiva y adaptación. Responde en español, máximo 500 palabras.</div>
+                    </div>
+                    <div class="turn-section">
+                        <h5>📥 Respuesta (0 chars)</h5>
+                        <div class="response-box"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="turn-card">
+                <div class="turn-header">
+                    <div class="agent-info">
+                        <span class="agent-icon">✨</span>
+                        <span class="agent-name">Tecnólogo</span>
+                        <span class="agent-role" style="background: #8B5CF620; color: #8B5CF6;">refiner</span>
+                    </div>
+                    <div class="metrics">
+                        <span class="metric">📝 0 tokens</span>
+                        <span class="metric">⏱️ 644ms</span>
+                        <span class="metric">🤖 qwen2.5-coder:14b</span>
+                    </div>
+                </div>
+                <div class="turn-body">
+                    <div class="turn-section">
+                        <h5>📤 Prompt Enviado (18819 chars)</h5>
+                        <div class="prompt-box"># DEBATE SECUENCIAL: Deberia la humanidad priorizar la integracion de interfaces cerebro-computadora (Neuralink, BCI) como proximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA
+
+## Tu Rol
+Eres: Tecnólogo
+Rol: refiner
+Modelo: qwen2.5-coder:14b (alibaba)
+
+## Información Actualizada (Búsqueda Web)
+Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.
+Úsalos como contexto adicional pero mantén tu pensamiento crítico.
+
+### DuckDuckGo Search
+**Cómo desarrollar interfaces cerebro-computadora de manera responsable**
+Las interfa\n... [contexto web truncado para legibilidad]\n\n## Historial del Debate
+
+### Turno 1: Analista Técnico (analyst)
+**Modelo:** llama3:8b (meta)
+
+**Debate Secuencial: La Integración de Interfaces Cerebro-Computadora como Paso Evolutivo Obligatorio**
+
+Como Analista Técnico, me enfoco en analizar el tema desde una perspectiva técnica profunda, examinando la viabilidad, arquitectura y limitaciones de las interfaces cerebro-computadora. A continuación, presento mi argumentación a favor o en contra de la integración de estas interfaces como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA.
+
+**Viabilidad y Arquitectura**
+
+Las interfaces cerebro-computadora, como Neuralink y BCI (Brain-Computer Interface), han demostrado ser viables en términos técnicos. Estas tecnologías permiten la comunicación entre el cerebro humano y las computadoras mediante señales eléctricas o neuromusculares. Sin embargo, es importante considerar que estas interfaces requieren de avances significativos en materiales avanzados, sistemas de IA y ética fundamental.
+
+La arquitectura actual de las interfaces cerebro-computadora se basa en la captación de señales cerebrales mediante electrodos o neuroimágenes. Estas señales son luego procesadas por algoritmos de aprendizaje automático para interpretar el pensamiento, deseo o intención del usuario. Aunque existen limitaciones técnicas y éticas, las interfaces cerebro-computadora han demostrado ser efectivas en aplicaciones como la comunicación asistiva, el tratamiento de enfermedades neurológicas y la mejora de la calidad de vida.
+
+**Limitaciones**
+
+A pesar del progreso tecnológico, existen limitaciones importantes que debemos considerar al evaluar la viabilidad de las interfaces cerebro-computadora como paso evolutivo obligatorio:
+
+1. **Ética**: La integración de interfaces cerebro-computadora plantea preocupaciones éticas sobre la privacidad, la seguridad y el control sobre la información cerebral.
+2. **Viabilidad**: La captura y procesamiento de señales cerebrales son complejos y requieren de avances significativos en materiales avanzados y sistemas de IA.
+3. **Interferencia**: Las interfaces cerebro-computadora pueden interferir con las funciones cerebrales normales, lo que puede afectar la salud mental y física del usuario.
+
+**Conclusiones**
+
+En mi opinión, la integración de interfaces cerebro-computadora como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA no es tan sencillo. Aunque estas tecnologías ofrecen beneficios significativos en términos de calidad de vida y tratamiento de enfermedades neurológicas, también plantean preocupaciones éticas y limitaciones técnicas.
+
+En lugar de priorizar la integración de interfaces cerebro-computadora como paso evolutivo obligatorio, creo que es más importante enfocarnos en desarrollar tecnologías que respeten y protejan la privacidad y la seguridad del usuario. Además, debemos invertir en investigación y desarrollo para superar las limitaciones técnicas y éticas asociadas a estas interfaces.
+
+En resumen, aunque las interfaces cerebro-computadora ofrecen beneficios significativos, su integración como próximo paso evolutivo obligatorio requiere un enfoque más amplio que considere tanto las ventajas como las desventajas.
+
+### Turno 2: Crítico Ético (critic)
+**Modelo:** mistral:7b (mistral)
+
+ Como Crítico Ético, examino el tema de la integración de interfaces cerebro-computadora (ICC) desde una perspectiva ética profunda, evaluando las implicaciones éticas y morales de esta tecnología emergente.
+
+**Riesgos y Dilemas Éticos**
+
+La integración de ICCs plantea varios riesgos y dilemas éticos que son importantes considerar:
+
+1. **Privacidad**: La integración de ICCs permite la captura y procesamiento continuo de las señales cerebrales, lo que plantea preocupaciones acerca de la privacidad del usuario. Los riesgos incluyen el uso de esta información personal sin consentimiento, o la violación de la confidencialidad del usuario.
+2. **Autonomía**: La integración de ICCs podría limitar la autonomía humana al permitir que computadoras controlen una mayor cantidad de acciones y decisiones humanas. Esto plantea preguntas sobre el nivel adecuado de control humano sobre las computadoras, y cómo mantener la autonomía humana en un mundo cada vez más conectado.
+3. **Identidad**: La integración de ICCs podría cambiar la forma en que los humanos perciben su propia identidad. Por ejemplo, la capacidad de las computadoras para imitar el pensamiento humano plantea preguntas sobre lo que significa ser humano y cómo se define la autonomía humana.
+4. **Responsabilidad**: La integración de ICCs podría cambiar la forma en que se asigna la responsabilidad por las acciones humanas. Por ejemplo, si una computadora controla una acción que resulta en daño a un tercero, quién es responsable? El usuario, el diseñador de la ICC o la computadora misma?
+5. **Consecuencias no previstas**: La integración de ICCs podría tener consecuencias no previstas que son difíciles de anticipar o controlar. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+
+**Consecuencias No Previstas y Soluciones Éticas**
+
+La integración de ICCs podría tener consecuencias no previstas que son importantes considerar:
+
+1. **Control sobre la información**: La integración de ICCs plantea preocupaciones acerca del control humano sobre la información cerebral. Si las computadoras controlan más de las acciones y decisiones humanas, ¿quién tiene el control sobre la información que se captura y procesa?
+2. **Impacto en la sociedad**: La integración de ICCs podría cambiar la forma en que funciona la sociedad. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+3. **Impacto en la economía**: La integración de ICCs podría tener un impacto significativo en la economía. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desplazar trabajos humanos y aumentar la desempleo.
+4. **Educação ética**: Es importante que la educación sobre ICCs incluya componentes éticos que ayuden a los usuarios a comprender las implicaciones éticas de esta tecnología emergente. Esto puede incluir cursos de ética de la computación, discusiones en clases sobre los riesgos y dilemas éticos asociados con ICCs, y programas de educación comunitaria sobre cómo usar ICCs de manera responsable y ética.
+
+En resumen, la integración de ICCs plantea preocupaciones éticas y morales que son importantes considerar. Es importante desarrollar soluciones éticas que protejan la privacidad y la seguridad del usuario, mantienen la autonomía humana, promueven una educación ética sobre esta tecnología emergente, y minimizan los riesgos y dilemas éticos asociados con ICCs.
+
+### Turno 3: Filósofo (synthesizer)
+**Modelo:** deepseek-r1:7b (deepseek)
+
+**Integración de Interfaces Cerebro-Computadora: Un Desafío Filosófico para la Noción de Ser Humano**
+
+El debate sobre la integración de interfaces cerebro-computadora (ICC) como paso evolutivo obligatorio enfrenta profundamente questiones filosóficas sobre la naturaleza humana, la identidad, la consciencia y la libertad albedrío. Para entender este conflicto, es necesario explorar cómo esta tecnología puede transformar fundamentalmente quién Somos.
+
+### Identidad Humana: Un Compromiso con lo Personal
+
+La identidad humana es un concepto complejo que incluye tanto las características físicas como las actuaciones y pensamientos que guían our comportamiento. Si las ICC permiten una controlación más precisa del cerebro, ¿cómo cambia nuestra identidad? Es posible que perjudiquemos nuestra capacidad de percibir nosotros mismos, de manera que dependamos de dispositivos que podríamos perder la personalidad auténtica. Por otro lado, estas herramientas podrían ofrecer una nueva forma de interactuar con el mundo, permitiendo una identidad más enriquecida y compleja.
+
+### Consciencia: Un Desafío para lo consciente
+
+La consciencia es la experiencia consciente de nosotros mismos, de nuestros pensamientos y sentimientos. Si las ICC nos permitem controlar nuestra mente con precisión, ¿cómo afecta esto a nuestra consciencia? Es posible que perjudiquemos nuestra capacidad de percibir y entender nosotros mismos, restringiendo nuestro acceso a una experiencia consciente más rica. En cambio, estas tecnologías podrían ampliar nuestra consciencia, ofreciéndonos herramientas para explorar nuestros pensamientos de manera más detallada.
+
+### Libertad albedrío: Un Requimiento de Control Humano
+
+La libertad albedrío es la capacidad de actuar sin thought, controlando nuestras acciones y decisiones con precisión. Si las ICC nos permiten una controlación más avanzada del cerebro, ¿cómo afecta esto a nuestra libertad albedrío? Es posible que perjudiquemos nuestra capacidad de reflexionar y controlar nuestras acciones, restringiendo nuestra libertad humana. En cambio, estas tecnologías podrían ofrecer una nueva forma de actuar, permitiendo una mayor controlación sobre nosotros mismos.
+
+### Responsabilidad Ética: Un Desafío por el Control Humano
+
+La responsabilidad ética es fundamental cuando se manejan tecnologías que afectan a humanos. Si las ICC nos permiten hacer decisions que afectan a otros seres humanos, quién es el responsable de estas decisiones? ¿El diseñador de las ICC, el usuario o la computadora misma? Este dilema ético plantea la necesidad de considerar el control humano sobre las inteligencias y la responsabilidad de las acciones que ejecutamos.
+
+### Evolución del Cerebro: Un Desafío para lo Evolutivo
+
+Además, es importante considerar cómo estas ICC pueden afectar el desarrollo evolutionario del cerebro humano. Si estas tecnologías promueven el desarrollo hiperactivo del cerebro, ¿cambiará drásticamente el desarrollo evolutionario del ser humano? Esto podría llevar a cambios en el desarrollo de las neuronas y la funcionalidad del cuerpo, lo que tendría implicationes profundas para nuestra identidad, consciencia y libertad albedrío.
+
+### Balancing Act: Potencial y Limitaciones
+
+Aunque las ICC ofrecen una gran cantidad de beneficios, también poseen limitaciones éticas, filosóficas e tecnológicas. Es fundamental equilibrar el potencial de estas tecnologías con consideraciones sobre la responsabilidad humana, la privacidad y la seguridad, así como sobre el bienestar de los seres humanos que las utilizan.
+
+### Conclusión
+
+La integración de interfaces cerebro-computadora como paso evolutivo obligatorio no es sencillo. Esta tecnología puede transformar fundamentalmente quién Somos, cómo percibimos nosotros mismos y nuestras acciones, y cómo actúamos en el
+
+### Turno 4: Sintetizador Social (synthesizer)
+**Modelo:** gemma:7b (google)
+
+## Impacto Social de la Integración de Interfaces Cerebro-Computadora
+
+La integración de interfaces cerebro-computadora (ICC) presenta un impacto potencial en la sociedad, con implicaciones tanto positivas como negativas en términos de desigualdad, acceso, coerción social y estructura social.
+
+**Desigualdad y Acceso**
+
+* Las ICC podrían aumentar la desigualdad al proporcionar una ventaja a quienes pueden permitirse pagar estas tecnologías.
+* Sin embargo, también pueden aumentar el acceso a información y oportunidades para quienes de otro modo serían excluidos.
+
+**Coerción Social**
+
+* Las ICC podrían utilizarse para controlar o manipular a las personas, lo que podría conducir a una disminución de la libertad individual.
+* Sin embargo, también pueden aumentar la responsabilidad social y el sentido de comunidad.
+
+**Estructura Social**
+
+* Las ICC podrían cambiar la estructura de la sociedad al permitir que las personas conecten y aprendan de nuevas maneras.
+* Sin embargo, también pueden conducir a la pérdida de trabajos y la necesidad de adaptarse a nuevas estructuras de empleo.
+
+**Consideraciones Éticas**
+
+* Es importante abordar las preocupaciones éticas relacionadas con la privacidad, la seguridad y la autonomía de las personas.
+* La regulación y el desarrollo responsable de las ICC son esenciales para garantizar que se aprovechen de sus beneficios y se mitiguen sus riesgos.
+
+**Necesidad de un Enfoque Holístico**
+
+* La integración de ICC debe considerarse en un contexto holístico que comprenda las necesidades y los valores de la sociedad.
+* Es importante lograr un equilibrio entre el progreso tecnológico y los valores humanos.
+
+**Conclusión**
+
+La integración de ICC es una tecnología con un gran potencial para transformar la sociedad, pero es importante abordar las cuestiones sociales y éticas de forma responsable y justa. Es necesario garantizar que los beneficios de las ICC se distribuyan de forma equitativa y que los riesgos sean mitigués.
+
+### Turno 5: Futurista (refiner)
+**Modelo:** qwen2.5:3b (alibaba)
+
+### Escenario Futuro: Interfaces Cerebro-Computadora Evolutivas y Existenciales
+
+#### Escenario Futuro a 10 Años:
+A los 10 años de la implementación inicial, las interfaces cerebro-computadoras (ICC) están siendo utilizadas ampliamente para mejorar la calidad de vida en áreas como el tratamiento del Parkinson o la parálisis. Estas tecnologías permiten una comunicación asistida y han logrado un mayor control sobre acciones simples y cotidianas. Aún no hay grandes preocupaciones éticas significativas, pero las leyes de privacidad y seguridad están siendo revisadas para adaptarse a estas nuevas tecnologías.
+
+#### Escenario Futuro a 50 Años:
+Con el avance tecnológico, la complejidad de las ICC ha aumentado, permitiendo una mayor integración entre el cerebro humano y las computadoras. Las interfaces ya no solo ayudan en funciones básicas sino que también están desarrollando un control más profundo sobre procesos cognitivos como la memoria, la concentración o la empatía. Esto plantea nuevas preocupaciones éticas relacionadas con la privacidad de los pensamientos y la identidad personal.
+
+El uso masivo de estas interfaces ha desempeñado un papel crucial en el desarrollo de nuevos sistemas educativos y terapéuticos. Sin embargo, también han emergido problemas sociales, como una disminución del contacto humano debido a las interacciones virtuales cada vez más complejas. La educación comienza a incluir cursos sobre ética digital para preparar al siguiente generación.
+
+#### Escenario Futuro a 100 Años:
+Después de un siglo desde la primera implementación, los roles de ICC han evolucionado hacia una profundización en el interior del cerebro humano. Las interfaces ya no solo permiten una comunicación más fluida entre el usuario y sus dispositivos sino que también están trabajando para mejorar significativamente procesos cognitivos críticos como la memoria autobiográfica, las habilidades de empatía y hasta incluso el control emocional.
+
+Los problemas éticos se han vuelto más complejos. La privacidad cerebral ya no es un concepto abstracto; en su lugar, los individuos pueden tener acceso a sus propios pensamientos sin saberlo, lo que plantea preguntas sobre la autenticidad y la identidad personal. Además, las preocupaciones sobre el control humano sobre sus propios cerebros han evolucionado hacia una discusión más intensa sobre la naturaleza misma de la consciencia humana.
+
+En este escenario, la sociedad ha desarrollado una comprensión cada vez mayor de cómo estas interfaces pueden influir en nuestras estructuras sociales y políticas. La educación y el debate ético se han vuelto esenciales para garantizar que estos avances tecnológicos no solo mejoren nuestra calidad de vida sino también respeten nuestras valores humanos.
+
+En conclusión, a medida que avanzamos hacia estas cifras futuras, debemos estar preparados para abordar los desafíos éticos y sociales de manera proactiva. Es esencial mantener un equilibrio entre el progreso tecnológico y los derechos fundamentales humanos, garantizando que las interfaces cerebro-computadoras sean usadas en beneficio de la sociedad y no solo como herramientas de poder o control.
+
+============================================================
+
+## Tu Tarea
+
+Evalúa la viabilidad técnica actual y futura de BCI. Analiza bandwidth neural, latencia, biocompatibilidad y escalabilidad. Responde en español, máximo 600 palabras.</div>
+                    </div>
+                    <div class="turn-section">
+                        <h5>📥 Respuesta (0 chars)</h5>
+                        <div class="response-box"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="turn-card">
+                <div class="turn-header">
+                    <div class="agent-info">
+                        <span class="agent-icon">🎯</span>
+                        <span class="agent-name">Moderador</span>
+                        <span class="agent-role" style="background: #F59E0B20; color: #F59E0B;">moderator</span>
+                    </div>
+                    <div class="metrics">
+                        <span class="metric">📝 605 tokens</span>
+                        <span class="metric">⏱️ 83.7s</span>
+                        <span class="metric">🤖 gemma3:4b</span>
+                    </div>
+                </div>
+                <div class="turn-body">
+                    <div class="turn-section">
+                        <h5>📤 Prompt Enviado (18809 chars)</h5>
+                        <div class="prompt-box"># DEBATE SECUENCIAL: Deberia la humanidad priorizar la integracion de interfaces cerebro-computadora (Neuralink, BCI) como proximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA
+
+## Tu Rol
+Eres: Moderador
+Rol: moderator
+Modelo: gemma3:4b (google)
+
+## Información Actualizada (Búsqueda Web)
+Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.
+Úsalos como contexto adicional pero mantén tu pensamiento crítico.
+
+### DuckDuckGo Search
+**Cómo desarrollar interfaces cerebro-computadora de manera responsable**
+Las interfa\n... [contexto web truncado para legibilidad]\n\n## Historial del Debate
+
+### Turno 1: Analista Técnico (analyst)
+**Modelo:** llama3:8b (meta)
+
+**Debate Secuencial: La Integración de Interfaces Cerebro-Computadora como Paso Evolutivo Obligatorio**
+
+Como Analista Técnico, me enfoco en analizar el tema desde una perspectiva técnica profunda, examinando la viabilidad, arquitectura y limitaciones de las interfaces cerebro-computadora. A continuación, presento mi argumentación a favor o en contra de la integración de estas interfaces como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA.
+
+**Viabilidad y Arquitectura**
+
+Las interfaces cerebro-computadora, como Neuralink y BCI (Brain-Computer Interface), han demostrado ser viables en términos técnicos. Estas tecnologías permiten la comunicación entre el cerebro humano y las computadoras mediante señales eléctricas o neuromusculares. Sin embargo, es importante considerar que estas interfaces requieren de avances significativos en materiales avanzados, sistemas de IA y ética fundamental.
+
+La arquitectura actual de las interfaces cerebro-computadora se basa en la captación de señales cerebrales mediante electrodos o neuroimágenes. Estas señales son luego procesadas por algoritmos de aprendizaje automático para interpretar el pensamiento, deseo o intención del usuario. Aunque existen limitaciones técnicas y éticas, las interfaces cerebro-computadora han demostrado ser efectivas en aplicaciones como la comunicación asistiva, el tratamiento de enfermedades neurológicas y la mejora de la calidad de vida.
+
+**Limitaciones**
+
+A pesar del progreso tecnológico, existen limitaciones importantes que debemos considerar al evaluar la viabilidad de las interfaces cerebro-computadora como paso evolutivo obligatorio:
+
+1. **Ética**: La integración de interfaces cerebro-computadora plantea preocupaciones éticas sobre la privacidad, la seguridad y el control sobre la información cerebral.
+2. **Viabilidad**: La captura y procesamiento de señales cerebrales son complejos y requieren de avances significativos en materiales avanzados y sistemas de IA.
+3. **Interferencia**: Las interfaces cerebro-computadora pueden interferir con las funciones cerebrales normales, lo que puede afectar la salud mental y física del usuario.
+
+**Conclusiones**
+
+En mi opinión, la integración de interfaces cerebro-computadora como próximo paso evolutivo obligatorio para mantener competitividad cognitiva frente a la IA no es tan sencillo. Aunque estas tecnologías ofrecen beneficios significativos en términos de calidad de vida y tratamiento de enfermedades neurológicas, también plantean preocupaciones éticas y limitaciones técnicas.
+
+En lugar de priorizar la integración de interfaces cerebro-computadora como paso evolutivo obligatorio, creo que es más importante enfocarnos en desarrollar tecnologías que respeten y protejan la privacidad y la seguridad del usuario. Además, debemos invertir en investigación y desarrollo para superar las limitaciones técnicas y éticas asociadas a estas interfaces.
+
+En resumen, aunque las interfaces cerebro-computadora ofrecen beneficios significativos, su integración como próximo paso evolutivo obligatorio requiere un enfoque más amplio que considere tanto las ventajas como las desventajas.
+
+### Turno 2: Crítico Ético (critic)
+**Modelo:** mistral:7b (mistral)
+
+ Como Crítico Ético, examino el tema de la integración de interfaces cerebro-computadora (ICC) desde una perspectiva ética profunda, evaluando las implicaciones éticas y morales de esta tecnología emergente.
+
+**Riesgos y Dilemas Éticos**
+
+La integración de ICCs plantea varios riesgos y dilemas éticos que son importantes considerar:
+
+1. **Privacidad**: La integración de ICCs permite la captura y procesamiento continuo de las señales cerebrales, lo que plantea preocupaciones acerca de la privacidad del usuario. Los riesgos incluyen el uso de esta información personal sin consentimiento, o la violación de la confidencialidad del usuario.
+2. **Autonomía**: La integración de ICCs podría limitar la autonomía humana al permitir que computadoras controlen una mayor cantidad de acciones y decisiones humanas. Esto plantea preguntas sobre el nivel adecuado de control humano sobre las computadoras, y cómo mantener la autonomía humana en un mundo cada vez más conectado.
+3. **Identidad**: La integración de ICCs podría cambiar la forma en que los humanos perciben su propia identidad. Por ejemplo, la capacidad de las computadoras para imitar el pensamiento humano plantea preguntas sobre lo que significa ser humano y cómo se define la autonomía humana.
+4. **Responsabilidad**: La integración de ICCs podría cambiar la forma en que se asigna la responsabilidad por las acciones humanas. Por ejemplo, si una computadora controla una acción que resulta en daño a un tercero, quién es responsable? El usuario, el diseñador de la ICC o la computadora misma?
+5. **Consecuencias no previstas**: La integración de ICCs podría tener consecuencias no previstas que son difíciles de anticipar o controlar. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+
+**Consecuencias No Previstas y Soluciones Éticas**
+
+La integración de ICCs podría tener consecuencias no previstas que son importantes considerar:
+
+1. **Control sobre la información**: La integración de ICCs plantea preocupaciones acerca del control humano sobre la información cerebral. Si las computadoras controlan más de las acciones y decisiones humanas, ¿quién tiene el control sobre la información que se captura y procesa?
+2. **Impacto en la sociedad**: La integración de ICCs podría cambiar la forma en que funciona la sociedad. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desencadenar una revolución tecnológica que cambie el mundo tal como lo conocemos hoy en día.
+3. **Impacto en la economía**: La integración de ICCs podría tener un impacto significativo en la economía. Por ejemplo, si las computadoras se vuelven demasiado inteligentes, podrían desplazar trabajos humanos y aumentar la desempleo.
+4. **Educação ética**: Es importante que la educación sobre ICCs incluya componentes éticos que ayuden a los usuarios a comprender las implicaciones éticas de esta tecnología emergente. Esto puede incluir cursos de ética de la computación, discusiones en clases sobre los riesgos y dilemas éticos asociados con ICCs, y programas de educación comunitaria sobre cómo usar ICCs de manera responsable y ética.
+
+En resumen, la integración de ICCs plantea preocupaciones éticas y morales que son importantes considerar. Es importante desarrollar soluciones éticas que protejan la privacidad y la seguridad del usuario, mantienen la autonomía humana, promueven una educación ética sobre esta tecnología emergente, y minimizan los riesgos y dilemas éticos asociados con ICCs.
+
+### Turno 3: Filósofo (synthesizer)
+**Modelo:** deepseek-r1:7b (deepseek)
+
+**Integración de Interfaces Cerebro-Computadora: Un Desafío Filosófico para la Noción de Ser Humano**
+
+El debate sobre la integración de interfaces cerebro-computadora (ICC) como paso evolutivo obligatorio enfrenta profundamente questiones filosóficas sobre la naturaleza humana, la identidad, la consciencia y la libertad albedrío. Para entender este conflicto, es necesario explorar cómo esta tecnología puede transformar fundamentalmente quién Somos.
+
+### Identidad Humana: Un Compromiso con lo Personal
+
+La identidad humana es un concepto complejo que incluye tanto las características físicas como las actuaciones y pensamientos que guían our comportamiento. Si las ICC permiten una controlación más precisa del cerebro, ¿cómo cambia nuestra identidad? Es posible que perjudiquemos nuestra capacidad de percibir nosotros mismos, de manera que dependamos de dispositivos que podríamos perder la personalidad auténtica. Por otro lado, estas herramientas podrían ofrecer una nueva forma de interactuar con el mundo, permitiendo una identidad más enriquecida y compleja.
+
+### Consciencia: Un Desafío para lo consciente
+
+La consciencia es la experiencia consciente de nosotros mismos, de nuestros pensamientos y sentimientos. Si las ICC nos permitem controlar nuestra mente con precisión, ¿cómo afecta esto a nuestra consciencia? Es posible que perjudiquemos nuestra capacidad de percibir y entender nosotros mismos, restringiendo nuestro acceso a una experiencia consciente más rica. En cambio, estas tecnologías podrían ampliar nuestra consciencia, ofreciéndonos herramientas para explorar nuestros pensamientos de manera más detallada.
+
+### Libertad albedrío: Un Requimiento de Control Humano
+
+La libertad albedrío es la capacidad de actuar sin thought, controlando nuestras acciones y decisiones con precisión. Si las ICC nos permiten una controlación más avanzada del cerebro, ¿cómo afecta esto a nuestra libertad albedrío? Es posible que perjudiquemos nuestra capacidad de reflexionar y controlar nuestras acciones, restringiendo nuestra libertad humana. En cambio, estas tecnologías podrían ofrecer una nueva forma de actuar, permitiendo una mayor controlación sobre nosotros mismos.
+
+### Responsabilidad Ética: Un Desafío por el Control Humano
+
+La responsabilidad ética es fundamental cuando se manejan tecnologías que afectan a humanos. Si las ICC nos permiten hacer decisions que afectan a otros seres humanos, quién es el responsable de estas decisiones? ¿El diseñador de las ICC, el usuario o la computadora misma? Este dilema ético plantea la necesidad de considerar el control humano sobre las inteligencias y la responsabilidad de las acciones que ejecutamos.
+
+### Evolución del Cerebro: Un Desafío para lo Evolutivo
+
+Además, es importante considerar cómo estas ICC pueden afectar el desarrollo evolutionario del cerebro humano. Si estas tecnologías promueven el desarrollo hiperactivo del cerebro, ¿cambiará drásticamente el desarrollo evolutionario del ser humano? Esto podría llevar a cambios en el desarrollo de las neuronas y la funcionalidad del cuerpo, lo que tendría implicationes profundas para nuestra identidad, consciencia y libertad albedrío.
+
+### Balancing Act: Potencial y Limitaciones
+
+Aunque las ICC ofrecen una gran cantidad de beneficios, también poseen limitaciones éticas, filosóficas e tecnológicas. Es fundamental equilibrar el potencial de estas tecnologías con consideraciones sobre la responsabilidad humana, la privacidad y la seguridad, así como sobre el bienestar de los seres humanos que las utilizan.
+
+### Conclusión
+
+La integración de interfaces cerebro-computadora como paso evolutivo obligatorio no es sencillo. Esta tecnología puede transformar fundamentalmente quién Somos, cómo percibimos nosotros mismos y nuestras acciones, y cómo actúamos en el
+
+### Turno 4: Sintetizador Social (synthesizer)
+**Modelo:** gemma:7b (google)
+
+## Impacto Social de la Integración de Interfaces Cerebro-Computadora
+
+La integración de interfaces cerebro-computadora (ICC) presenta un impacto potencial en la sociedad, con implicaciones tanto positivas como negativas en términos de desigualdad, acceso, coerción social y estructura social.
+
+**Desigualdad y Acceso**
+
+* Las ICC podrían aumentar la desigualdad al proporcionar una ventaja a quienes pueden permitirse pagar estas tecnologías.
+* Sin embargo, también pueden aumentar el acceso a información y oportunidades para quienes de otro modo serían excluidos.
+
+**Coerción Social**
+
+* Las ICC podrían utilizarse para controlar o manipular a las personas, lo que podría conducir a una disminución de la libertad individual.
+* Sin embargo, también pueden aumentar la responsabilidad social y el sentido de comunidad.
+
+**Estructura Social**
+
+* Las ICC podrían cambiar la estructura de la sociedad al permitir que las personas conecten y aprendan de nuevas maneras.
+* Sin embargo, también pueden conducir a la pérdida de trabajos y la necesidad de adaptarse a nuevas estructuras de empleo.
+
+**Consideraciones Éticas**
+
+* Es importante abordar las preocupaciones éticas relacionadas con la privacidad, la seguridad y la autonomía de las personas.
+* La regulación y el desarrollo responsable de las ICC son esenciales para garantizar que se aprovechen de sus beneficios y se mitiguen sus riesgos.
+
+**Necesidad de un Enfoque Holístico**
+
+* La integración de ICC debe considerarse en un contexto holístico que comprenda las necesidades y los valores de la sociedad.
+* Es importante lograr un equilibrio entre el progreso tecnológico y los valores humanos.
+
+**Conclusión**
+
+La integración de ICC es una tecnología con un gran potencial para transformar la sociedad, pero es importante abordar las cuestiones sociales y éticas de forma responsable y justa. Es necesario garantizar que los beneficios de las ICC se distribuyan de forma equitativa y que los riesgos sean mitigués.
+
+### Turno 5: Futurista (refiner)
+**Modelo:** qwen2.5:3b (alibaba)
+
+### Escenario Futuro: Interfaces Cerebro-Computadora Evolutivas y Existenciales
+
+#### Escenario Futuro a 10 Años:
+A los 10 años de la implementación inicial, las interfaces cerebro-computadoras (ICC) están siendo utilizadas ampliamente para mejorar la calidad de vida en áreas como el tratamiento del Parkinson o la parálisis. Estas tecnologías permiten una comunicación asistida y han logrado un mayor control sobre acciones simples y cotidianas. Aún no hay grandes preocupaciones éticas significativas, pero las leyes de privacidad y seguridad están siendo revisadas para adaptarse a estas nuevas tecnologías.
+
+#### Escenario Futuro a 50 Años:
+Con el avance tecnológico, la complejidad de las ICC ha aumentado, permitiendo una mayor integración entre el cerebro humano y las computadoras. Las interfaces ya no solo ayudan en funciones básicas sino que también están desarrollando un control más profundo sobre procesos cognitivos como la memoria, la concentración o la empatía. Esto plantea nuevas preocupaciones éticas relacionadas con la privacidad de los pensamientos y la identidad personal.
+
+El uso masivo de estas interfaces ha desempeñado un papel crucial en el desarrollo de nuevos sistemas educativos y terapéuticos. Sin embargo, también han emergido problemas sociales, como una disminución del contacto humano debido a las interacciones virtuales cada vez más complejas. La educación comienza a incluir cursos sobre ética digital para preparar al siguiente generación.
+
+#### Escenario Futuro a 100 Años:
+Después de un siglo desde la primera implementación, los roles de ICC han evolucionado hacia una profundización en el interior del cerebro humano. Las interfaces ya no solo permiten una comunicación más fluida entre el usuario y sus dispositivos sino que también están trabajando para mejorar significativamente procesos cognitivos críticos como la memoria autobiográfica, las habilidades de empatía y hasta incluso el control emocional.
+
+Los problemas éticos se han vuelto más complejos. La privacidad cerebral ya no es un concepto abstracto; en su lugar, los individuos pueden tener acceso a sus propios pensamientos sin saberlo, lo que plantea preguntas sobre la autenticidad y la identidad personal. Además, las preocupaciones sobre el control humano sobre sus propios cerebros han evolucionado hacia una discusión más intensa sobre la naturaleza misma de la consciencia humana.
+
+En este escenario, la sociedad ha desarrollado una comprensión cada vez mayor de cómo estas interfaces pueden influir en nuestras estructuras sociales y políticas. La educación y el debate ético se han vuelto esenciales para garantizar que estos avances tecnológicos no solo mejoren nuestra calidad de vida sino también respeten nuestras valores humanos.
+
+En conclusión, a medida que avanzamos hacia estas cifras futuras, debemos estar preparados para abordar los desafíos éticos y sociales de manera proactiva. Es esencial mantener un equilibrio entre el progreso tecnológico y los derechos fundamentales humanos, garantizando que las interfaces cerebro-computadoras sean usadas en beneficio de la sociedad y no solo como herramientas de poder o control.
+
+============================================================
+
+## Tu Tarea
+
+Identifica puntos de acuerdo y desacuerdo entre los agentes. Propone marcos integradores y preguntas clave sin resolver. Responde en español, máximo 400 palabras.</div>
+                    </div>
+                    <div class="turn-section">
+                        <h5>📥 Respuesta (2856 chars)</h5>
+                        <div class="response-box">## Análisis del Debate y Marcos Integradores
+
+El debate sobre la integración de interfaces cerebro-computadora (ICC) revela una tensión fundamental entre la promesa de avance cognitivo y las profundas preocupaciones éticas y sociales. Si bien existe un acuerdo general sobre el potencial de las ICC para abordar problemas neurológicos y mejorar la calidad de vida, las opiniones divergen significativamente sobre la necesidad y la forma de su implementación como un &quot;paso evolutivo obligatorio&quot;.
+
+**Puntos de Acuerdo:**
+
+* **Viabilidad Técnica:** Todos los participantes reconocen la viabilidad técnica actual de las ICC, aunque con diferentes niveles de optimismo sobre el ritmo de los avances.
+* **Riesgos Éticos:** Existe un consenso en que las ICC plantean serios riesgos relacionados con la privacidad, la autonomía, la identidad y la responsabilidad.
+* **Necesidad de Regulación:** Se admite la necesidad de una regulación cuidadosa y un desarrollo responsable de la tecnología.
+
+**Puntos de Desacuerdo:**
+
+* **Obligatoriedad:** El Analista Técnico y el Futurista abogan por una implementación más rápida y generalizada, impulsada por la competencia cognitiva, mientras que el Crítico Ético y el Filósofo enfatizan la necesidad de una adopción gradual y basada en una evaluación ética exhaustiva.
+* **Enfoque:** El Analista Técnico se centra en la optimización y el rendimiento, mientras que el Crítico Ético prioriza la protección de los valores humanos fundamentales.
+
+**Marcos Integradores y Preguntas Clave:**
+
+Para avanzar en el debate, propongo los siguientes marcos:
+
+1. **Enfoque en el Bienestar Humano:**  Independientemente del nivel de avance tecnológico, la prioridad debe ser el bienestar físico y mental de los usuarios.
+2. **Desarrollo Iterativo y Regulado:**  La implementación de las ICC debe ser un proceso iterativo, comenzando con aplicaciones de bajo riesgo y altamente reguladas, con evaluaciones continuas de su impacto social y ético.
+3. **Consideraciones sobre la Justicia Social:**  Se debe abordar la potencial brecha digital y la desigualdad en el acceso a estas tecnologías.
+
+**Preguntas Clave sin Resolver:**
+
+* ¿Cómo podemos definir y medir el &quot;éxito&quot; de la integración de las ICC, considerando no solo el rendimiento cognitivo sino también el impacto en la identidad y el bienestar humano?
+* ¿Qué mecanismos de control y supervisión son necesarios para garantizar que las ICC no se utilicen para manipular o controlar a las personas?
+* ¿Cómo podemos garantizar que el desarrollo de las ICC sea transparente y participativo, involucrando a una amplia gama de partes interesadas, incluyendo a los usuarios, los expertos en ética y el público en general?
+
+Este debate, como lo han demostrado los participantes, es crucial para guiar el futuro de la tecnología y asegurar que se utilice para el beneficio de la humanidad.
+</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Verdict -->
+        <div class="section">
+            <h2 class="section-title">⚖️ Veredicto Final del Tribunal</h2>
+            <div class="verdict-box">
+                {_escape_html(verdict) if verdict else '<em>Veredicto no disponible para este debate.</em>'}
+            </div>
+        </div>
+        <div class="section">
+            <h2 class="section-title">🔑 Hallazgos Clave</h2>
+            <ul style="list-style: none; padding: 0;">
+                <li style="padding: 0.75rem 1rem; background: rgba(59, 130, 246, 0.1); border-left: 3px solid var(--accent); margin-bottom: 0.5rem; border-radius: 0 0.25rem 0.25rem 0;">
+                    ✅ Privacy concerns
+                </li>
+                <li style="padding: 0.75rem 1rem; background: rgba(59, 130, 246, 0.1); border-left: 3px solid var(--accent); margin-bottom: 0.5rem; border-radius: 0 0.25rem 0.25rem 0;">
+                    ✅ Autonomy and responsibility issues
+                </li>
+            </ul>
+        </div>
+        <div class="section">
+            <h2 class="section-title">⚠️ Riesgos Identificados</h2>
+            <ul style="list-style: none; padding: 0;">
+                <li style="padding: 0.75rem 1rem; background: rgba(239, 68, 68, 0.1); border-left: 3px solid var(--danger); margin-bottom: 0.5rem; border-radius: 0 0.25rem 0.25rem 0;">
+                    🚨 Data privacy breaches
+                </li>
+                <li style="padding: 0.75rem 1rem; background: rgba(239, 68, 68, 0.1); border-left: 3px solid var(--danger); margin-bottom: 0.5rem; border-radius: 0 0.25rem 0.25rem 0;">
+                    🚨 Potential for unequal access to technology
+                </li>
+            </ul>
+        </div>
+        <div class="footer">
+            <p><strong>Synapse Council v2.0</strong> - Sistema de Debate Multi-Modelo con IA</p>
+            <p>Informe generado el 17/05/2026 13:42:33 | Debate ID: 707ee35d-29ef-499c-8d49-ca502e53f727</p>
+            <p style="margin-top: 0.5rem; font-size: 0.75rem;">
+                Powered by Ollama, DuckDuckGo Search, y Trafilatura
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Tokens Chart
+        const tokensCtx = document.getElementById('tokensChart').getContext('2d');
+        new Chart(tokensCtx, {
+            type: 'bar',
+            data: {
+                labels: ["\ud83d\udd0d Analista T\u00e9cnico", "\u26a1 Cr\u00edtico \u00c9tico", "\ud83d\udd17 Fil\u00f3sofo", "\ud83d\udd17 Sintetizador Social", "\u2728 Futurista", "\u26a1 Esc\u00e9ptico", "\ud83d\udd0d Analista Evolutivo", "\u2728 Tecn\u00f3logo", "\ud83c\udfaf Moderador"],
+                datasets: [{
+                    label: 'Tokens Generados',
+                    data: [735, 1041, 1401, 391, 714, 0, 0, 0, 605],
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.7)',
+                        'rgba(239, 68, 68, 0.7)',
+                        'rgba(16, 185, 129, 0.7)',
+                        'rgba(139, 92, 246, 0.7)',
+                        'rgba(245, 158, 11, 0.7)',
+                    ],
+                    borderColor: [
+                        '#3B82F6', '#EF4444', '#10B981', '#8B5CF6', '#F59E0B'
+                    ],
+                    borderWidth: 2,
+                    borderRadius: 8,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#94a3b8',
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+
+        // Latency Chart
+        const latencyCtx = document.getElementById('latencyChart').getContext('2d');
+        new Chart(latencyCtx, {
+            type: 'line',
+            data: {
+                labels: ["\ud83d\udd0d Analista T\u00e9cnico", "\u26a1 Cr\u00edtico \u00c9tico", "\ud83d\udd17 Fil\u00f3sofo", "\ud83d\udd17 Sintetizador Social", "\u2728 Futurista", "\u26a1 Esc\u00e9ptico", "\ud83d\udd0d Analista Evolutivo", "\u2728 Tecn\u00f3logo", "\ud83c\udfaf Moderador"],
+                datasets: [{
+                    label: 'Latencia (ms)',
+                    data: [134406, 190461, 256229, 105442, 64464, 648, 2051, 644, 83666],
+                    borderColor: '#8B5CF6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#8B5CF6',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#94a3b8',
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return context.parsed.y + 'ms (' + (context.parsed.y / 1000).toFixed(1) + 's)';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

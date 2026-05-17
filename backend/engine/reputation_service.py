@@ -9,7 +9,6 @@ from typing import Dict, List, Optional
 
 import structlog
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.local_db import AsyncSessionLocal
 from backend.database.models import ModelReputation

@@ -528,8 +528,8 @@ def generate_professional_report(
         @media print {{
             body {{ background: white; color: black; }}
             .header {{ background: #1e3a5f !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
-            .section, .stat-card, .turn-card, .chart-container {{ 
-                background: white; 
+            .section, .stat-card, .turn-card, .chart-container {{
+                background: white;
                 border: 1px solid #ddd;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
@@ -634,7 +634,7 @@ def generate_professional_report(
         model = t.get("model", "Unknown")
         tokens_out = t.get("tokens_out", 0)
         latency = t.get("latency_ms", 0)
-        
+
         # Quality score: use stored value or estimate from response length
         raw_quality = t.get("quality_score")
         if raw_quality is not None:
@@ -652,7 +652,7 @@ def generate_professional_report(
                 quality = 50
             else:
                 quality = 30
-        
+
         quality_label, quality_color = _get_quality_badge(quality / 100)
 
         html += f"""
@@ -679,13 +679,10 @@ def generate_professional_report(
         role = t.get("agent_role", "unknown")
         name = t.get("agent_name", "Unknown")
         model = t.get("model", "Unknown")
-        provider = t.get("provider", "Unknown")
-        tokens_in = t.get("tokens_in", 0)
         tokens_out = t.get("tokens_out", 0)
         latency = t.get("latency_ms", 0)
         prompt = t.get("prompt_sent", "")
         response = t.get("response_received", "")
-        turn_num = t.get("turn_number", 0)
 
         # Clean up prompt: remove web context repetition for readability
         # Keep only the essential parts
@@ -1119,8 +1116,9 @@ def generate_pdf_report(
     Genera un PDF profesional optimizado para impresión.
     Diseño limpio, tema claro, estilo reporte empresarial.
     """
-    from xhtml2pdf import pisa
     import io
+
+    from xhtml2pdf import pisa
 
     topic = debate_data.get("topic", "Sin tema")
     status = debate_data.get("status", "completed")
@@ -1177,8 +1175,6 @@ def generate_pdf_report(
         role = t.get("agent_role", "unknown")
         name = t.get("agent_name", "Unknown")
         model = t.get("model", "Unknown")
-        provider = t.get("provider", "Unknown")
-        tokens_in_val = t.get("tokens_in", 0)
         tokens_out_val = t.get("tokens_out", 0)
         latency = t.get("latency_ms", 0)
         prompt = t.get("prompt_sent", "")

@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synapse Council - Debate Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #1e3a5f;
+            --primary-light: #2d5a8e;
+            --accent: #3B82F6;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --bg: #0f172a;
+            --bg-card: #1e293b;
+            --bg-card-hover: #334155;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            padding: 3rem 2rem;
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        .header .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            position: relative;
+        }
+
+        .header .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-top: 1rem;
+            position: relative;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--border);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .stat-card .label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .stat-card .unit {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-left: 0.25rem;
+        }
+
+        /* Section */
+        .section {
+            background: var(--bg-card);
+            border-radius: 0.75rem;
+            border: 1px solid var(--border);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Web Context */
+        .web-context {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .web-context h4 {
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Turn Cards */
+        .turn-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+
+        .turn-card:hover {
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .turn-header {
+            padding: 1.25rem 1.5rem;
+            background: linear-gradient(90deg, var(--bg-card-hover) 0%, var(--bg-card) 100%);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .turn-header .agent-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .turn-header .agent-icon {
+            font-size: 1.5rem;
+        }
+
+        .turn-header .agent-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .turn-header .agent-role {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .turn-header .metrics {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .turn-header .metric {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .turn-body {
+            padding: 1.5rem;
+        }
+
+        .turn-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .turn-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .turn-section h5 {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .prompt-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .response-box {
+            background: rgba(16, 185, 129, 0.05);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+        }
+
+        .chart-container h4 {
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            color: var(--text-muted);
+        }
+
+        /* Scoring Table */
+        .scoring-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .scoring-table th {
+            background: var(--bg-card-hover);
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            border-bottom: 2px solid var(--border);
+        }
+
+        .scoring-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .scoring-table tr:hover {
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .quality-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Verdict */
+        .verdict-box {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            font-size: 1.05rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Consensus Bar */
+        .consensus-bar {
+            height: 8px;
+            background: var(--border);
+            border-radius: 9999px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .consensus-fill {
+            height: 100%;
+            border-radius: 9999px;
+            transition: width 0.5s ease;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            border-top: 1px solid var(--border);
+            margin-top: 2rem;
+        }
+
+        /* Print styles */
+        @media print {
+            body { background: white; color: black; }
+            .header { background: #1e3a5f !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .section, .stat-card, .turn-card, .chart-container { 
+                background: white; 
+                border: 1px solid #ddd;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .header h1 { font-size: 1.75rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🏛️ Synapse Council</h1>
+            <div class="subtitle">Informe de Debate Multi-Modelo con IA</div>
+            <div class="badge">✅ COMPLETED</div>
+            <p style="margin-top: 1rem; font-size: 1.25rem; position: relative;">
+                <strong>Tema:</strong> IA reemplazará programadores en 5 años
+            </p>
+            <p style="margin-top: 0.5rem; color: var(--text-muted); position: relative;">
+                📅 17/05/2026 11:57 → 13:59 UTC
+            </p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="label">Turnos</div>
+                <div class="value">3<span class="unit">agentes</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Tokens Generados</div>
+                <div class="value">227<span class="unit">out</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Tokens Consumidos</div>
+                <div class="value">1.3k<span class="unit">in</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Duración Total</div>
+                <div class="value">7286.4s</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Consenso</div>
+                <div class="value">50<span class="unit">%</span></div>
+                <div class="consensus-bar">
+                    <div class="consensus-fill" style="width: 50%; background: #F59E0B"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Web Context -->
+        <div class="section">
+            <h2 class="section-title">🌐 Contexto Web en Tiempo Real</h2>
+            <div class="web-context">
+                <h4>Fuentes Consultadas</h4>
+                <p>✅ 1 fuente(s) consultada(s) exitosamente<br><strong>DuckDuckGo Search:</strong> **La IA reemplazará a los desarrolladores? - DreamHost**
+¿Podría la IA del futuro escribir aplicaciones completas y quitarle el trabajo a los programadores? Entendamos de manera realista lo que la IA ...</p>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="section">
+            <h2 class="section-title">📊 Métricas de Rendimiento</h2>
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h4>Tokens Generados por Agente</h4>
+                    <canvas id="tokensChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h4>Latencia por Agente (ms)</h4>
+                    <canvas id="latencyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scoring Table -->
+        <div class="section">
+            <h2 class="section-title">🏆 Puntuación de Agentes</h2>
+            <table class="scoring-table">
+                <thead>
+                    <tr>
+                        <th>Agente</th>
+                        <th>Rol</th>
+                        <th>Modelo</th>
+                        <th>Tokens Out</th>
+                        <th>Latencia</th>
+                        <th>Calidad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>🔍 Test Phi3 (Fallback)</td>
+                        <td><span style="color: #3B82F6; font-weight: 600;">ANALYST</span></td>
+                        <td>llama3:8b</td>
+                        <td>85</td>
+                        <td>12.2s</td>
+                        <td><span class="quality-badge" style="background: #F59E0B20; color: #F59E0B;">Aceptable (50%)</span></td>
+                    </tr>
+                    <tr>
+                        <td>⚡ Test Llama3.1 (Fallback)</td>
+                        <td><span style="color: #EF4444; font-weight: 600;">CRITIC</span></td>
+                        <td>llama3:8b</td>
+                        <td>73</td>
+                        <td>13.8s</td>
+                        <td><span class="quality-badge" style="background: #F59E0B20; color: #F59E0B;">Aceptable (50%)</span></td>
+                    </tr>
+                    <tr>
+                        <td>🔗 Test Gemma3</td>
+                        <td><span style="color: #10B981; font-weight: 600;">SYNTHESIZER</span></td>
+                        <td>gemma3:4b</td>
+                        <td>69</td>
+                        <td>11.1s</td>
+                        <td><span class="quality-badge" style="background: #F59E0B20; color: #F59E0B;">Aceptable (50%)</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Debate Turns -->
+        <div class="section">
+            <h2 class="section-title">💬 Desarrollo del Debate</h2>
+            <div class="turn-card">
+                <div class="turn-header">
+                    <div class="agent-info">
+                        <span class="agent-icon">🔍</span>
+                        <span class="agent-name">Test Phi3 (Fallback)</span>
+                        <span class="agent-role" style="background: #3B82F620; color: #3B82F6;">analyst</span>
+                    </div>
+                    <div class="metrics">
+                        <span class="metric">📝 85 tokens</span>
+                        <span class="metric">⏱️ 12.2s</span>
+                        <span class="metric">🤖 llama3:8b</span>
+                    </div>
+                </div>
+                <div class="turn-body">
+                    <div class="turn-section">
+                        <h5>📤 Prompt Enviado (2487 chars)</h5>
+                        <div class="prompt-box"># DEBATE SECUENCIAL: IA reemplazará programadores en 5 años
+
+## Tu Rol
+Eres: Test Phi3
+Rol: analyst
+Modelo: phi3:mini (microsoft)
+
+## Información Actualizada (Búsqueda Web)
+Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.
+Úsalos como contexto adicional pero mantén tu pensamiento crítico.
+
+### DuckDuckGo Search
+**La IA reemplazará a los desarrolladores? - DreamHost**
+¿Podría la IA del futuro esc\n... [contexto web truncado para legibilidad]\n\n## Historial del Debate
+
+============================================================
+
+## Tu Tarea
+
+Opinión breve (2 frases) sobre el tema.</div>
+                    </div>
+                    <div class="turn-section">
+                        <h5>📥 Respuesta (467 chars)</h5>
+                        <div class="response-box">Here&#x27;s my brief opinion:
+
+As an analyst, I believe that while AI has made significant progress in generating code and solving programming problems, it is still far from replacing human programmers entirely within the next 5 years. The limitations of current AI models, such as their reliance on pre-existing data and lack of true understanding of the world, mean that human judgment and creativity will continue to be essential for complex software development tasks.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="turn-card">
+                <div class="turn-header">
+                    <div class="agent-info">
+                        <span class="agent-icon">⚡</span>
+                        <span class="agent-name">Test Llama3.1 (Fallback)</span>
+                        <span class="agent-role" style="background: #EF444420; color: #EF4444;">critic</span>
+                    </div>
+                    <div class="metrics">
+                        <span class="metric">📝 73 tokens</span>
+                        <span class="metric">⏱️ 13.8s</span>
+                        <span class="metric">🤖 llama3:8b</span>
+                    </div>
+                </div>
+                <div class="turn-body">
+                    <div class="turn-section">
+                        <h5>📤 Prompt Enviado (3016 chars)</h5>
+                        <div class="prompt-box"># DEBATE SECUENCIAL: IA reemplazará programadores en 5 años
+
+## Tu Rol
+Eres: Test Llama3.1
+Rol: critic
+Modelo: llama3.1:8b (meta)
+
+## Información Actualizada (Búsqueda Web)
+Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.
+Úsalos como contexto adicional pero mantén tu pensamiento crítico.
+
+### DuckDuckGo Search
+**La IA reemplazará a los desarrolladores? - DreamHost**
+¿Podría la IA del futuro esc\n... [contexto web truncado para legibilidad]\n\n## Historial del Debate
+
+### Turno 1: Test Phi3 (Fallback) (analyst)
+**Modelo:** llama3:8b (meta)
+
+Here&#x27;s my brief opinion:
+
+As an analyst, I believe that while AI has made significant progress in generating code and solving programming problems, it is still far from replacing human programmers entirely within the next 5 years. The limitations of current AI models, such as their reliance on pre-existing data and lack of true understanding of the world, mean that human judgment and creativity will continue to be essential for complex software development tasks.
+
+============================================================
+
+## Tu Tarea
+
+Crítica breve (2 frases).</div>
+                    </div>
+                    <div class="turn-section">
+                        <h5>📥 Respuesta (403 chars)</h5>
+                        <div class="response-box">As a critic, I think it&#x27;s overly optimistic to assume that AI will replace programmers in just 5 years. While AI has made significant strides in generating code and solving programming problems, its limitations, such as relying on pre-existing data and lacking true understanding of the world, mean that human judgment and creativity will continue to be essential for complex software development tasks.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="turn-card">
+                <div class="turn-header">
+                    <div class="agent-info">
+                        <span class="agent-icon">🔗</span>
+                        <span class="agent-name">Test Gemma3</span>
+                        <span class="agent-role" style="background: #10B98120; color: #10B981;">synthesizer</span>
+                    </div>
+                    <div class="metrics">
+                        <span class="metric">📝 69 tokens</span>
+                        <span class="metric">⏱️ 11.1s</span>
+                        <span class="metric">🤖 gemma3:4b</span>
+                    </div>
+                </div>
+                <div class="turn-body">
+                    <div class="turn-section">
+                        <h5>📤 Prompt Enviado (3502 chars)</h5>
+                        <div class="prompt-box"># DEBATE SECUENCIAL: IA reemplazará programadores en 5 años
+
+## Tu Rol
+Eres: Test Gemma3
+Rol: synthesizer
+Modelo: gemma3:4b (google)
+
+## Información Actualizada (Búsqueda Web)
+Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.
+Úsalos como contexto adicional pero mantén tu pensamiento crítico.
+
+### DuckDuckGo Search
+**La IA reemplazará a los desarrolladores? - DreamHost**
+¿Podría la IA del futuro esc\n... [contexto web truncado para legibilidad]\n\n## Historial del Debate
+
+### Turno 1: Test Phi3 (Fallback) (analyst)
+**Modelo:** llama3:8b (meta)
+
+Here&#x27;s my brief opinion:
+
+As an analyst, I believe that while AI has made significant progress in generating code and solving programming problems, it is still far from replacing human programmers entirely within the next 5 years. The limitations of current AI models, such as their reliance on pre-existing data and lack of true understanding of the world, mean that human judgment and creativity will continue to be essential for complex software development tasks.
+
+### Turno 2: Test Llama3.1 (Fallback) (critic)
+**Modelo:** llama3:8b (meta)
+
+As a critic, I think it&#x27;s overly optimistic to assume that AI will replace programmers in just 5 years. While AI has made significant strides in generating code and solving programming problems, its limitations, such as relying on pre-existing data and lacking true understanding of the world, mean that human judgment and creativity will continue to be essential for complex software development tasks.
+
+============================================================
+
+## Tu Tarea
+
+Síntesis breve (2 frases).</div>
+                    </div>
+                    <div class="turn-section">
+                        <h5>📥 Respuesta (340 chars)</h5>
+                        <div class="response-box">La IA, representada por modelos de lenguaje grandes como ChatGPT, puede generar código y asistir a los programadores, pero aún carece de una verdadera comprensión del mundo.  Por lo tanto, es poco probable que la IA reemplace completamente a los programadores en los próximos 5 años, enfatizando la necesidad de juicio y creatividad humana.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Verdict -->
+        <div class="section">
+            <h2 class="section-title">⚖️ Veredicto Final del Tribunal</h2>
+            <div class="verdict-box">
+                {_escape_html(verdict) if verdict else '<em>Veredicto no disponible para este debate.</em>'}
+            </div>
+        </div>
+        <div class="section">
+            <h2 class="section-title">🔑 Hallazgos Clave</h2>
+            <ul style="list-style: none; padding: 0;">
+                <li style="padding: 0.75rem 1rem; background: rgba(59, 130, 246, 0.1); border-left: 3px solid var(--accent); margin-bottom: 0.5rem; border-radius: 0 0.25rem 0.25rem 0;">
+                    ✅ Turnos completados: 3
+                </li>
+            </ul>
+        </div>
+        <div class="footer">
+            <p><strong>Synapse Council v2.0</strong> - Sistema de Debate Multi-Modelo con IA</p>
+            <p>Informe generado el 17/05/2026 13:59:08 | Debate ID: ff47346e-06c4-47b3-a5c0-6170629cc1be</p>
+            <p style="margin-top: 0.5rem; font-size: 0.75rem;">
+                Powered by Ollama, DuckDuckGo Search, y Trafilatura
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Tokens Chart
+        const tokensCtx = document.getElementById('tokensChart').getContext('2d');
+        new Chart(tokensCtx, {
+            type: 'bar',
+            data: {
+                labels: ["\ud83d\udd0d Test Phi3 (Fallback)", "\u26a1 Test Llama3.1 (Fallback)", "\ud83d\udd17 Test Gemma3"],
+                datasets: [{
+                    label: 'Tokens Generados',
+                    data: [85, 73, 69],
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.7)',
+                        'rgba(239, 68, 68, 0.7)',
+                        'rgba(16, 185, 129, 0.7)',
+                        'rgba(139, 92, 246, 0.7)',
+                        'rgba(245, 158, 11, 0.7)',
+                    ],
+                    borderColor: [
+                        '#3B82F6', '#EF4444', '#10B981', '#8B5CF6', '#F59E0B'
+                    ],
+                    borderWidth: 2,
+                    borderRadius: 8,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#94a3b8',
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+
+        // Latency Chart
+        const latencyCtx = document.getElementById('latencyChart').getContext('2d');
+        new Chart(latencyCtx, {
+            type: 'line',
+            data: {
+                labels: ["\ud83d\udd0d Test Phi3 (Fallback)", "\u26a1 Test Llama3.1 (Fallback)", "\ud83d\udd17 Test Gemma3"],
+                datasets: [{
+                    label: 'Latencia (ms)',
+                    data: [12154, 13758, 11060],
+                    borderColor: '#8B5CF6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#8B5CF6',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#94a3b8',
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return context.parsed.y + 'ms (' + (context.parsed.y / 1000).toFixed(1) + 's)';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
