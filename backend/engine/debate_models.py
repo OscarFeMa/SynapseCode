@@ -103,6 +103,7 @@ class DebateSession:
     consensus_score: float = 0.0
     convergence_level: str = "UNKNOWN"
     structured_report: Optional[Dict[str, Any]] = None
+    web_context: Optional[Dict[str, Any]] = None  # Contexto de búsqueda web
 
     # Configuración de iteraciones
     current_iteration: int = 0
@@ -137,8 +138,25 @@ class DebateSession:
             f"Rol: {current_agent.role.value}",
             f"Modelo: {current_agent.model} ({current_agent.provider})",
             "",
-            "## Historial del Debate",
         ]
+
+        # Inyectar contexto web si existe
+        if self.web_context:
+            from backend.engine.web_search_service import WebContext
+
+            web_ctx = WebContext.from_dict(self.web_context)
+            if web_ctx.searches:
+                lines.append("## Información Actualizada (Búsqueda Web)")
+                lines.append(f"Los siguientes resultados provienen de búsquedas web en tiempo real sobre el tema.")
+                lines.append("Úsalos como contexto adicional pero mantén tu pensamiento crítico.")
+                lines.append("")
+                for result in web_ctx.searches:
+                    if result.success:
+                        lines.append(f"### {result.site_label}")
+                        lines.append(result.response[:2000])
+                        lines.append("")
+
+        lines.append("## Historial del Debate")
 
         for turn in self.turns:
             if turn.status.startswith("completed"):

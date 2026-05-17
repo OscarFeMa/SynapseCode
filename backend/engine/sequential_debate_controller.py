@@ -47,6 +47,7 @@ from backend.engine.task_manager import (
     task_manager,
 )
 from backend.engine.tribunal import TribunalCouncil
+from backend.engine.web_search_service import get_web_search_service
 from backend.monitoring.prometheus import (
     record_debate_completed,
     record_prompt_cache_hit,
@@ -252,6 +253,33 @@ class SequentialDebateController:
             topic=topic,
             num_agents=len(agents_config),
         )
+
+        # Lanzar búsqueda web al inicio del debate (no bloqueante)
+        web_context = None
+        if settings.WEB_AGENT_ENABLED:
+            try:
+                logger.info("sequential_debate.web_search_starting", session_id=session_id)
+                web_search = get_web_search_service()
+                web_ctx = await web_search.search_for_debate(topic, timeout_per_site=90)
+                session.web_context = web_ctx.to_dict()
+                web_context = web_ctx
+                logger.info(
+                    "sequential_debate.web_search_completed",
+                    session_id=session_id,
+                    sites=len(web_ctx.searches),
+                )
+
+                # Guardar web_context en la base de datos
+                try:
+                    async with AsyncSessionLocal() as db_session:
+                        db_debate = await db_session.get(SequentialDebate, session_id)
+                        if db_debate:
+                            db_debate.web_context = web_ctx.to_dict()
+                            await db_session.commit()
+                except Exception as e:
+                    logger.warning("sequential_debate.web_context_db_failed", error=str(e))
+            except Exception as e:
+                logger.warning("sequential_debate.web_search_failed", error=str(e))
 
         try:
             # Variable para rastrear el modelo anterior y liberarlo de RAM
@@ -994,6 +1022,15 @@ class SequentialDebateController:
             # Para debate secuencial, cloud_synthesis es vacío (solo local)
             cloud_synthesis = ""
 
+            # Preparar contexto web para el tribunal
+            web_context_str = ""
+            if session.web_context:
+                from backend.engine.web_search_service import WebContext
+
+                web_ctx = WebContext.from_dict(session.web_context)
+                web_search = get_web_search_service()
+                web_context_str = web_search.format_web_context_for_tribunal(web_ctx)
+
             # Llamar al Tribunal
             verdict = await self.tribunal.issue_verdict(
                 session_id=session.id,
@@ -1004,6 +1041,7 @@ class SequentialDebateController:
                 cloud_synthesis=cloud_synthesis,
                 db_session=db_session,
                 on_event=None,  # Sin callbacks por ahora
+                web_context=web_context_str if web_context_str else None,
             )
 
             logger.info(

@@ -389,7 +389,7 @@ Síntesis Local:
 
 Síntesis Cloud:
 {cloud_synthesis}
-
+{web_context}
 INSTRUCCIÓN:
 Analiza la propuesta de sentencia del Magistrado de Alineación (si se proporciona)
 o evalúa directamente las síntesis. Emite tu objeción de bloqueo si encuentras
@@ -436,7 +436,7 @@ Síntesis Local:
 
 Síntesis Cloud:
 {cloud_synthesis}
-
+{web_context}
 INSTRUCCIÓN:
 Analiza la propuesta de sentencia del Magistrado de Alineación (si se proporciona)
 y evalúa los riesgos no considerados. Emite objeción de bloqueo si los riesgos
@@ -498,7 +498,7 @@ Síntesis Local:
 
 Síntesis Cloud:
 {cloud_synthesis}
-
+{web_context}
 {evidence_input}
 {risk_input}
 
@@ -542,6 +542,7 @@ FORMATO DE RESPUESTA:
         risk_input: Optional[str] = None,
         iteration: int = 1,
         max_tokens: int = 1500,
+        web_context: Optional[str] = None,
     ) -> str:
         """Construye prompt para magistrados del Tribunal"""
 
@@ -562,6 +563,10 @@ FORMATO DE RESPUESTA:
         if risk_input:
             risk_section = f"\n## Evaluación del Magistrado de Riesgos:\n{risk_input}\n"
 
+        web_section = ""
+        if web_context:
+            web_section = f"\n## INFORMACIÓN WEB PARA VERIFICACIÓN:\n{web_context}\n"
+
         return template.format(
             query=query,
             local_synthesis=local_synthesis,
@@ -570,6 +575,7 @@ FORMATO DE RESPUESTA:
             risk_input=risk_section,
             iteration=iteration,
             max_tokens=max_tokens,
+            web_context=web_section,
         )
 
     # ─── FASE 2B: REDUCCIÓN AL ABSURDO ────────────────────────

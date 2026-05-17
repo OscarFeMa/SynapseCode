@@ -163,6 +163,7 @@ class TribunalCouncil:
         cloud_synthesis: str,
         db_session: AsyncSession,
         on_event: Optional[Callable[[str, Any], None]] = None,
+        web_context: Optional[str] = None,
     ) -> TribunalVerdict:
         """
         Emite veredicto mediante Protocolo de Consenso Forzado
@@ -225,6 +226,7 @@ class TribunalCouncil:
                 risk_input=risk_input,
                 iteration=iteration,
                 max_tokens=self.MAGISTRATES["alignment"].max_tokens,
+                web_context=web_context,
             )
 
             alignment_result = await self._call_magistrate_with_fallback(
@@ -269,6 +271,7 @@ class TribunalCouncil:
                 local_synthesis=local_synthesis,
                 cloud_synthesis=cloud_synthesis,
                 max_tokens=self.MAGISTRATES["evidence"].max_tokens,
+                web_context=web_context,
             )
 
             risk_prompt = self.prompt_builder.build_magistrate_prompt(
@@ -277,6 +280,7 @@ class TribunalCouncil:
                 local_synthesis=local_synthesis,
                 cloud_synthesis=cloud_synthesis,
                 max_tokens=self.MAGISTRATES["risk"].max_tokens,
+                web_context=web_context,
             )
 
             # Función helper para llamar a agente con su propia sesión (evita errores de concurrencia en SQLAlchemy)
@@ -542,6 +546,7 @@ Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} itera
                 risk_input=risk_input,
                 iteration=iteration,
                 max_tokens=self.MAGISTRATES["alignment"].max_tokens,
+                web_context=web_context,
             )
 
             alignment_result = await self._call_magistrate_with_fallback(
@@ -586,6 +591,7 @@ Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} itera
                 local_synthesis=local_synthesis,
                 cloud_synthesis=cloud_synthesis,
                 max_tokens=self.MAGISTRATES["evidence"].max_tokens,
+                web_context=web_context,
             )
 
             risk_prompt = self.prompt_builder.build_magistrate_prompt(
@@ -594,6 +600,7 @@ Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} itera
                 local_synthesis=local_synthesis,
                 cloud_synthesis=cloud_synthesis,
                 max_tokens=self.MAGISTRATES["risk"].max_tokens,
+                web_context=web_context,
             )
 
             # Función helper para llamar a agente con su propia sesión (evita errores de concurrencia en SQLAlchemy)

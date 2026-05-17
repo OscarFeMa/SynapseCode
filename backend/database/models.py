@@ -256,6 +256,7 @@ class SequentialDebate(Base):
     final_verdict: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     structured_report: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     transcript_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    web_context: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # Contexto de búsqueda web
     paused_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     pause_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
