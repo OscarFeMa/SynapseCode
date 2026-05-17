@@ -20,6 +20,7 @@ from backend.database.models import AgentCall, CrossReference
 from backend.engine.intervention_taxonomy import detect_intervention_type
 from backend.engine.local_engine_manager import EngineType, LocalEngineManager
 from backend.engine.quality_monitor import evaluate_response
+from backend.engine.reputation_service import get_reputation_service
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -51,6 +52,9 @@ class AgentResult:
     tokens_out: int = 0
     latency_ms: int = 0
     error_message: Optional[str] = None
+    reputation_score: float = 0.5  # Score EMA del modelo+rol
+    model: str = ""
+    role: str = ""
 
 
 class AgentOrchestrator:
@@ -352,6 +356,10 @@ class AgentOrchestrator:
             quality_score, _ = evaluate_response(response_text, config.slot)
             intervention_type = detect_intervention_type(response_text, config.slot)
 
+            # Obtener score de reputación
+            rep_service = get_reputation_service()
+            rep_score = await rep_service.get_score(config.model, config.role_label)
+
             # Actualizar en DB
             agent_call.status = "COMPLETED"
             agent_call.response = response_text
@@ -369,6 +377,7 @@ class AgentOrchestrator:
                 agent_slot=config.slot,
                 latency_ms=latency_ms,
                 tokens_out=tokens_out,
+                reputation_score=round(rep_score.reputation_score, 3),
             )
 
             return AgentResult(
@@ -380,6 +389,9 @@ class AgentOrchestrator:
                 tokens_in=tokens_in,
                 tokens_out=tokens_out,
                 latency_ms=latency_ms,
+                reputation_score=rep_score.reputation_score,
+                model=config.model,
+                role=config.role_label,
             )
 
         except asyncio.TimeoutError:

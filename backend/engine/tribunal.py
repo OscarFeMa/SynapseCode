@@ -24,6 +24,7 @@ from backend.engine.agent_orchestrator import (
 )
 from backend.engine.prompts import PromptBuilder
 from backend.engine.reductio_absurdum import get_reductio_absurdum_engine
+from backend.engine.reputation_service import get_reputation_service
 from backend.engine.tribunal_config import TribunalRoleConfig, build_tribunal_config
 
 settings = get_settings()
@@ -165,11 +166,342 @@ class TribunalCouncil:
     ) -> TribunalVerdict:
         """
         Emite veredicto mediante Protocolo de Consenso Forzado
+        con ponderación por reputación EMA de cada modelo.
         """
         logger.info(
             "tribunal.verdict_start",
             session_id=session_id,
             round_number=round_number,
+        )
+
+        if on_event:
+            on_event("tribunal_started", {"round_number": round_number})
+
+        opinions_history: Dict[str, list] = {
+            "evidence": [],
+            "risk": [],
+            "alignment": [],
+        }
+
+        # Cargar scores de reputación para los modelos del tribunal
+        rep_service = get_reputation_service()
+        rep_scores = {}
+        for role, config in self.MAGISTRATES.items():
+            score = await rep_service.get_score(config.model, role)
+            rep_scores[role] = score
+            logger.info(
+                "tribunal.reputation_loaded",
+                role=role,
+                model=config.model,
+                score=round(score.reputation_score, 3),
+            )
+
+        for iteration in range(1, self.MAX_ITERATIONS + 1):
+            logger.info(
+                "tribunal.iteration",
+                session_id=session_id,
+                iteration=iteration,
+            )
+
+            if on_event:
+                on_event(
+                    "tribunal_iteration",
+                    {"iteration": iteration, "max_iterations": self.MAX_ITERATIONS},
+                )
+
+            # ═════════════════════════════════════════════════════
+            # PASO 1: Alineación propone borrador
+            # ═════════════════════════════════════════════════════
+
+            evidence_input = opinions_history["evidence"][-1].response if opinions_history["evidence"] else None
+            risk_input = opinions_history["risk"][-1].response if opinions_history["risk"] else None
+
+            alignment_prompt = self.prompt_builder.build_magistrate_prompt(
+                role="alignment",
+                query=query,
+                local_synthesis=local_synthesis,
+                cloud_synthesis=cloud_synthesis,
+                evidence_input=evidence_input,
+                risk_input=risk_input,
+                iteration=iteration,
+                max_tokens=self.MAGISTRATES["alignment"].max_tokens,
+            )
+
+            alignment_result = await self._call_magistrate_with_fallback(
+                role="alignment",
+                session_id=session_id,
+                round_id=round_id,
+                round_number=round_number,
+                phase="TRIBUNAL",
+                prompt=alignment_prompt,
+                db_session=db_session,
+                on_event=on_event,
+            )
+
+            alignment_opinion = MagistrateOpinion(
+                role="alignment",
+                call_id=alignment_result.call_id,
+                blocking=False,  # Alineación no bloquea
+                response=alignment_result.response or "",
+                score=self._extract_score(alignment_result.response or ""),
+                iteration=iteration,
+            )
+            opinions_history["alignment"].append(alignment_opinion)
+
+            if on_event:
+                on_event(
+                    "magistrate_complete",
+                    {
+                        "role": "alignment",
+                        "iteration": iteration,
+                        "status": alignment_result.status,
+                    },
+                )
+
+            # ═════════════════════════════════════════════════════
+            # PASO 2: Evidencias y Riesgos evalúan EN PARALELO
+            # ═════════════════════════════════════════════════════
+
+            # Preparar prompts
+            evidence_prompt = self.prompt_builder.build_magistrate_prompt(
+                role="evidence",
+                query=query,
+                local_synthesis=local_synthesis,
+                cloud_synthesis=cloud_synthesis,
+                max_tokens=self.MAGISTRATES["evidence"].max_tokens,
+            )
+
+            risk_prompt = self.prompt_builder.build_magistrate_prompt(
+                role="risk",
+                query=query,
+                local_synthesis=local_synthesis,
+                cloud_synthesis=cloud_synthesis,
+                max_tokens=self.MAGISTRATES["risk"].max_tokens,
+            )
+
+            # Función helper para llamar a agente con su propia sesión (evita errores de concurrencia en SQLAlchemy)
+            async def call_with_own_session(prompt, role):
+                async with AsyncSessionLocal() as session:
+                    return await self._call_magistrate_with_fallback(
+                        role=role,
+                        session_id=session_id,
+                        round_id=round_id,
+                        round_number=round_number,
+                        phase="TRIBUNAL",
+                        prompt=prompt,
+                        db_session=session,
+                        on_event=on_event,
+                    )
+
+            # Ejecutar ambos magistrados en paralelo con sesiones INDEPENDIENTES
+            evidence_result, risk_result = await asyncio.gather(
+                call_with_own_session(evidence_prompt, "evidence"),
+                call_with_own_session(risk_prompt, "risk"),
+                return_exceptions=True,
+            )
+
+            # Helper para procesar resultado
+            def parse_magistrate_result(result, role_name):
+                if isinstance(result, Exception):
+                    logger.error("tribunal.magistrate_failed", role=role_name, error=str(result))
+                    return AgentResult(
+                        call_id="",
+                        slot=role_name,
+                        node="UNKNOWN",
+                        status="FAILED",
+                        response="FALLO_DE_SISTEMA: 0/100",
+                    )
+                if result.status != "COMPLETED" or not result.response:
+                    logger.error(
+                        "tribunal.magistrate_failed",
+                        role=role_name,
+                        status=result.status,
+                        error=result.error_message,
+                    )
+                    return AgentResult(
+                        call_id=result.call_id,
+                        slot=result.slot,
+                        node=result.node,
+                        status=result.status,
+                        response="FALLO_DE_SISTEMA: 0/100",
+                        error_message=result.error_message,
+                    )
+                return result
+
+            # Procesar resultado de Evidencias
+            evidence_result_parsed = parse_magistrate_result(evidence_result, "evidence")
+            evidence_blocking = self._has_blocking_objection(evidence_result_parsed.response or "")
+            evidence_opinion = MagistrateOpinion(
+                role="evidence",
+                call_id=evidence_result_parsed.call_id,
+                blocking=evidence_blocking,
+                response=evidence_result_parsed.response or "",
+                score=self._extract_score(evidence_result_parsed.response or ""),
+                iteration=iteration,
+            )
+            opinions_history["evidence"].append(evidence_opinion)
+
+            if on_event:
+                on_event(
+                    "tribunal_objection",
+                    {
+                        "role": "evidence",
+                        "blocking": evidence_blocking,
+                        "score": evidence_opinion.score,
+                    },
+                )
+
+            # Procesar resultado de Riesgos
+            risk_result_parsed = parse_magistrate_result(risk_result, "risk")
+            risk_blocking = self._has_blocking_objection(risk_result_parsed.response or "")
+            risk_opinion = MagistrateOpinion(
+                role="risk",
+                call_id=risk_result_parsed.call_id,
+                blocking=risk_blocking,
+                response=risk_result_parsed.response or "",
+                score=self._extract_score(risk_result_parsed.response or ""),
+                iteration=iteration,
+            )
+            opinions_history["risk"].append(risk_opinion)
+
+            if on_event:
+                on_event(
+                    "tribunal_objection",
+                    {
+                        "role": "risk",
+                        "blocking": risk_blocking,
+                        "score": risk_opinion.score,
+                    },
+                )
+
+            # ═════════════════════════════════════════════════════
+            # FASE ADICIONAL: AUTO-CUESTIONAMIENTO (Ronda 2)
+            # Magistrados se desafían a sí mismos usando Reducción al Absurdo
+            # ═════════════════════════════════════════════════════
+            if iteration == 2:
+                logger.info(
+                    "tribunal.self_challenge_phase",
+                    session_id=session_id,
+                    iteration=iteration,
+                )
+
+                # Cada magistrado se auto-cuestiona su veredicto
+                await self._run_magistrate_self_challenge(
+                    session_id=session_id,
+                    opinions_history=opinions_history,
+                    iteration=iteration,
+                    on_event=on_event,
+                )
+
+            # ═════════════════════════════════════════════════════
+            # PASO 3: ¿Hay consenso?
+            # ═════════════════════════════════════════════════════
+
+            if not evidence_blocking and not risk_blocking:
+                # ✅ CONSENSO ALCANZADO
+                logger.info(
+                    "tribunal.consensus_reached",
+                    session_id=session_id,
+                    iterations=iteration,
+                )
+
+                if on_event:
+                    on_event("tribunal_consensus", {"iterations": iteration})
+
+                # Calcular scores ponderados por reputación
+                rep_evidence = rep_scores["evidence"].reputation_score
+                rep_risk = rep_scores["risk"].reputation_score
+                rep_alignment = rep_scores["alignment"].reputation_score
+
+                weighted_evidence = int(evidence_opinion.score * rep_evidence + 50 * (1 - rep_evidence))
+                weighted_risk = int(risk_opinion.score * rep_risk + 50 * (1 - rep_risk))
+                weighted_alignment = int(alignment_opinion.score * rep_alignment + 50 * (1 - rep_alignment))
+
+                return TribunalVerdict(
+                    verdict_text=alignment_opinion.response,
+                    consensus_reached=True,
+                    iterations_required=iteration,
+                    magistrate_opinions={
+                        "evidence": evidence_opinion,
+                        "risk": risk_opinion,
+                        "alignment": alignment_opinion,
+                    },
+                    evidence_score=weighted_evidence,
+                    risk_score=weighted_risk,
+                    alignment_score=weighted_alignment,
+                    dissent_areas=None,
+                )
+
+            # Hay objeciones, continuar a siguiente iteración
+            logger.info(
+                "tribunal.objections_found",
+                session_id=session_id,
+                iteration=iteration,
+                evidence_blocks=evidence_blocking,
+                risk_blocks=risk_blocking,
+            )
+
+        # ═════════════════════════════════════════════════════
+        # PASO 4: Sin consenso tras 3 iteraciones → Resolución por méritos
+        # ═════════════════════════════════════════════════════
+
+        logger.info(
+            "tribunal.no_consensus",
+            session_id=session_id,
+            max_iterations=self.MAX_ITERATIONS,
+        )
+
+        if on_event:
+            on_event("tribunal_no_consensus", {"max_iterations": self.MAX_ITERATIONS})
+
+        # Determinar veredicto final por méritos
+        final_alignment = opinions_history["alignment"][-1]
+        final_evidence = opinions_history["evidence"][-1]
+        final_risk = opinions_history["risk"][-1]
+
+        # Scores ponderados por reputación
+        rep_evidence = rep_scores["evidence"].reputation_score
+        rep_risk = rep_scores["risk"].reputation_score
+        rep_alignment = rep_scores["alignment"].reputation_score
+
+        weighted_evidence = int(final_evidence.score * rep_evidence + 50 * (1 - rep_evidence))
+        weighted_risk = int(final_risk.score * rep_risk + 50 * (1 - rep_risk))
+        weighted_alignment = int(final_alignment.score * rep_alignment + 50 * (1 - rep_alignment))
+
+        # Construir veredicto compuesto
+        verdict_text = f"""{final_alignment.response}
+
+---
+
+## NOTA DEL TRIBUNAL
+Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} iteraciones del Protocolo de Consenso Forzado.
+
+**Disentimientos pendientes:**
+
+**Magistrado de Evidencias** (Score Técnico: {weighted_evidence}/100, Reputación EMA: {rep_evidence:.2f}):
+{final_evidence.response[:500]}...
+
+**Magistrado de Riesgos** (Score de Riesgo: {weighted_risk}/100, Reputación EMA: {rep_risk:.2f}):
+{final_risk.response[:500]}...
+
+**Resolución aplicada:** Veredicto del Magistrado de Alineación con notas de disentimiento.
+"""
+
+        dissent_areas = self._extract_dissent_areas(final_evidence.response, final_risk.response)
+
+        return TribunalVerdict(
+            verdict_text=verdict_text,
+            consensus_reached=False,
+            iterations_required=self.MAX_ITERATIONS,
+            magistrate_opinions={
+                "evidence": final_evidence,
+                "risk": final_risk,
+                "alignment": final_alignment,
+            },
+            evidence_score=weighted_evidence,
+            risk_score=weighted_risk,
+            alignment_score=weighted_alignment,
+            dissent_areas=dissent_areas,
         )
 
         if on_event:
