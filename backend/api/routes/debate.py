@@ -922,23 +922,6 @@ async def create_iterative_debate(request: IterativeDebateRequest, background_ta
 # ============================================================================
 
 
-@router.get("/{session_id}", response_model=DebateResponse)
-async def get_debate(session_id: str):
-    """Obtiene el estado completo de una sesión de debate"""
-
-    # Primero buscar en debate_controller (standard, local_only, cloud_ollama)
-    session = debate_controller.get_session(session_id)
-    if session:
-        return build_debate_response(session)
-
-    # Si no está, buscar en ultra_controller (ultra_crossing)
-    session = ultra_controller.active_sessions.get(session_id)
-    if session:
-        return build_debate_response(session)
-
-    raise HTTPException(status_code=404, detail="Debate session not found")
-
-
 # ============================================================================
 # EXPORTACIÓN DE RESULTADOS
 # ============================================================================
@@ -1275,7 +1258,54 @@ async def export_debate_docx(session_id: str):
 
     session = debate_controller.get_session(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Debate not found")
+        # Buscar en base de datos
+        debate_data = await debate_controller.get_debate_from_db(session_id)
+        if not debate_data:
+            raise HTTPException(status_code=404, detail="Debate not found")
+
+        # Crear sesion temporal desde datos de BD
+        from backend.engine.debate_models import (
+            AgentRole,
+            DebateAgent,
+            DebateSession,
+            DebateTurn,
+        )
+
+        turns = []
+        for t in debate_data.get("turns", []):
+            if t.get("status", "").startswith("completed"):
+                agent = DebateAgent(
+                    id=t.get("agent_id", ""),
+                    name=t.get("agent_name", ""),
+                    role=AgentRole(t.get("agent_role", "analyst")),
+                    node=t.get("node", "LOCAL"),
+                    engine=t.get("engine", "ollama"),
+                    model=t.get("model", ""),
+                    provider=t.get("provider", ""),
+                )
+                turns.append(
+                    DebateTurn(
+                        turn_number=t.get("turn_number", 0),
+                        agent=agent,
+                        response_received=t.get("response_received", ""),
+                        tokens_in=t.get("tokens_in", 0),
+                        tokens_out=t.get("tokens_out", 0),
+                        latency_ms=t.get("latency_ms", 0),
+                        status=t.get("status", "completed"),
+                        started_at=t.get("started_at"),
+                        completed_at=t.get("completed_at"),
+                    )
+                )
+
+        session = DebateSession(
+            id=session_id,
+            topic=debate_data.get("topic", ""),
+            status=debate_data.get("status", "completed"),
+            turns=turns,
+            final_verdict=debate_data.get("final_verdict"),
+            created_at=debate_data.get("created_at"),
+            completed_at=debate_data.get("completed_at"),
+        )
 
     doc = Document()
 
@@ -1324,3 +1354,31 @@ async def export_debate_docx(session_id: str):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f"attachment; filename=debate_{session_id}.docx"},
     )
+
+
+@router.get("/{session_id}", response_model=DebateResponse)
+async def get_debate(session_id: str):
+    """Obtiene el estado completo de una sesión de debate"""
+
+    # Primero buscar en debate_controller (standard, local_only, cloud_ollama)
+    session = debate_controller.get_session(session_id)
+    if session:
+        return build_debate_response(session)
+
+    # Si no está, buscar en ultra_controller (ultra_crossing)
+    session = ultra_controller.active_sessions.get(session_id)
+    if session:
+        return build_debate_response(session)
+
+    raise HTTPException(status_code=404, detail="Debate session not found")
+
+
+from backend.api.routes.debate_report_generator import (
+    generate_professional_report as _generate_report_impl,
+)
+
+
+@router.post("/{session_id}/generate-report")
+async def generate_report_endpoint(session_id: str):
+    """Wrapper para el generador de informes hibrido"""
+    return await _generate_report_impl(session_id, debate_controller)
