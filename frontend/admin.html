@@ -211,7 +211,6 @@
         <div class="form-group" style="margin-top:16px">
           <label>Actualizar API Key</label>
           <select id="key-service" style="max-width:200px">
-            <option value="openrouter">OpenRouter</option>
             <option value="groq">Groq</option>
             <option value="gemini">Gemini</option>
             <option value="huggingface">HuggingFace</option>
@@ -313,7 +312,6 @@ async function refreshDashboard() {
     {title:'LM Studio', val:svc.lm_studio?.status||'?', sub:(svc.lm_studio?.models_available||'?')+' modelos', st:svc.lm_studio?.status},
     {title:'Groq', val:svc.groq?.status||'no config', sub:(svc.groq?.models_available||'?')+' modelos', st:svc.groq?.status},
     {title:'Gemini', val:svc.gemini?.status||'no config', sub:(svc.gemini?.models_available||'?')+' modelos', st:svc.gemini?.status},
-    {title:'OpenRouter', val:svc.openrouter?.status||'?', sub:svc.openrouter?.key_valid ? 'key valida' : '', st:svc.openrouter?.status},
     {title:'Web Agent', val:svc.web_agent?.status||'?', sub:svc.web_agent?.playwright_installed ? '✅ Playwright' : '', st:svc.web_agent?.status},
     {title:'HuggingFace', val:svc.huggingface?.status||'?', sub:svc.huggingface?.user||'', st:svc.huggingface?.status},
   ];
@@ -504,7 +502,6 @@ async function refreshHealthHistory() {
     ollama: 'Verifica Ollama en Worker: ollama serve',
     lm_studio: 'Activa Local Inference Server en LM Studio',
     jan: 'Activa servidor API en Jan',
-    openrouter: 'Agrega crédito en openrouter.ai/settings/credits',
     groq: 'Verifica GROQ_API_KEY en .env',
     gemini: 'Verifica GEMINI_API_KEY en .env',
     huggingface: 'Obtén token en huggingface.co/settings/tokens',
@@ -542,7 +539,6 @@ async function refreshSettings() {
   if (h.status === 200) {
     const svc = h.data.services || {};
     const keys = [
-      {name:'OpenRouter', status:svc.openrouter?.status, configured: !!svc.openrouter && svc.openrouter.status !== 'skipped'},
       {name:'Groq', status:svc.groq?.status, configured: !!svc.groq && svc.groq.status !== 'skipped'},
       {name:'Gemini', status:svc.gemini?.status, configured: !!svc.gemini && svc.gemini.status !== 'skipped'},
       {name:'HuggingFace', status:svc.huggingface?.status, configured: !!svc.huggingface && svc.huggingface.status !== 'skipped'},
@@ -559,7 +555,7 @@ async function refreshSettings() {
     "deepseek-r1:32b": 300, "deepseek-r1:70b": 600, "mistral-large": 180,
     "mixtral:8x22b": 300, "qwen2.5:72b": 300, "qwen2.5:32b": 180,
     "codellama:70b": 300, "nemotron": 300, "70b": 300, "405b": 600,
-    "ollama (default)": 600, "lm_studio (default)": 120, "openrouter (default)": 90,
+    "ollama (default)": 600, "lm_studio (default)": 120,
   };
   document.getElementById('timeouts-tbody').innerHTML = Object.entries(timeouts).map(([p, t]) =>
     `<tr><td><code>${p}</code></td><td>${t}s</td></tr>`

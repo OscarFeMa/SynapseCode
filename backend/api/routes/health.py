@@ -14,7 +14,6 @@ from sqlalchemy import text
 from backend.adapters.jan import JanClient
 from backend.adapters.lm_studio import LMStudioClient
 from backend.adapters.ollama import OllamaClient
-from backend.adapters.openrouter import OpenRouterClient
 from backend.adapters.web_agent import WebAgentClient
 from backend.api.health_tracker import health_tracker
 from backend.config import get_settings
@@ -45,17 +44,16 @@ async def check_service_health(client_class, settings_prefix: str) -> Dict[str, 
         if settings_prefix == "ollama":
             client = OllamaClient(base_url=settings.worker_ollama_url)
         elif settings_prefix == "lm_studio":
-            client = LMStudioClient(base_url=settings.worker_lm_studio_url)
+            # LM Studio usa formato OpenAI: base_url + /v1/models
+            lm_url = settings.worker_lm_studio_url.rstrip("/")
+            client = LMStudioClient(base_url=lm_url)
         elif settings_prefix == "jan":
-            client = JanClient(base_url=settings.worker_jan_url)
-        elif settings_prefix == "openrouter":
-            if not settings.OPENROUTER_ENABLED or not settings.OPENROUTER_API_KEY:
-                health_tracker.record(settings_prefix, "skipped")
-                return {"status": "skipped", "reason": "OpenRouter is disabled or not configured"}
-            client = OpenRouterClient(
-                api_key=settings.OPENROUTER_API_KEY,
-                base_url=settings.OPENROUTER_BASE_URL,
-            )
+            # Jan ya incluye /v1 en worker_jan_url, pero _check_models_endpoint agrega otro /v1/models
+            # Quitamos el /v1 para que quede correcto: http://host:1337 + /v1/models
+            jan_url = settings.worker_jan_url.rstrip("/")
+            if jan_url.endswith("/v1"):
+                jan_url = jan_url[:-3]
+            client = JanClient(base_url=jan_url)
         elif settings_prefix == "web_agent":
             client = WebAgentClient(
                 enabled=settings.WEB_AGENT_ENABLED,
@@ -112,7 +110,6 @@ def _get_suggested_fix(service: str, error: str) -> str:
         + str(settings.get_worker_host()),
         "lm_studio": "Abre LM Studio en el Worker y activa Local Inference Server",
         "jan": "Abre Jan en el Worker y activa el servidor API",
-        "openrouter": "La API key no tiene credito. Agrega minimo $1 en https://openrouter.ai/settings/credits",
         "web_agent": "Ejecuta: playwright install chromium",
         "huggingface": "Obtener token en https://huggingface.co/settings/tokens",
         "groq": "Verifica GROQ_API_KEY en .env. Crear key en https://console.groq.com/keys",
@@ -149,7 +146,6 @@ async def collect_dependency_health() -> Dict[str, Any]:
         check_service_health(OllamaClient, "ollama"),
         check_service_health(LMStudioClient, "lm_studio"),
         check_service_health(JanClient, "jan"),
-        check_service_health(OpenRouterClient, "openrouter"),
         check_service_health(WebAgentClient, "web_agent"),
         check_service_health(None, "huggingface"),
         check_service_health(None, "groq"),
@@ -162,7 +158,6 @@ async def collect_dependency_health() -> Dict[str, Any]:
         ollama_health,
         lm_studio_health,
         jan_health,
-        openrouter_health,
         web_agent_health,
         huggingface_health,
         groq_health,
@@ -175,7 +170,6 @@ async def collect_dependency_health() -> Dict[str, Any]:
         "ollama": ollama_health.get("status", "unknown") if isinstance(ollama_health, dict) else "error",
         "lm_studio": lm_studio_health.get("status", "unknown") if isinstance(lm_studio_health, dict) else "error",
         "jan": jan_health.get("status", "unknown") if isinstance(jan_health, dict) else "error",
-        "openrouter": openrouter_health.get("status", "unknown") if isinstance(openrouter_health, dict) else "error",
         "web_agent": web_agent_health.get("status", "unknown") if isinstance(web_agent_health, dict) else "error",
         "huggingface": huggingface_health.get("status", "unknown") if isinstance(huggingface_health, dict) else "error",
         "groq": groq_health.get("status", "unknown") if isinstance(groq_health, dict) else "error",
@@ -205,9 +199,6 @@ async def collect_dependency_health() -> Dict[str, Any]:
             if isinstance(lm_studio_health, dict)
             else {"status": "error", "error": str(lm_studio_health)},
             "jan": jan_health if isinstance(jan_health, dict) else {"status": "error", "error": str(jan_health)},
-            "openrouter": openrouter_health
-            if isinstance(openrouter_health, dict)
-            else {"status": "error", "error": str(openrouter_health)},
             "web_agent": web_agent_health
             if isinstance(web_agent_health, dict)
             else {"status": "error", "error": str(web_agent_health)},
