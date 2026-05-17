@@ -2,21 +2,22 @@
 SynapseCode v2.8 - Comprehensive Test Battery v2
 Tests: imports, config, database, adapters, API, workers, logging, stability, security
 """
-import sys
-import os
+
 import asyncio
-import json
-import time
+import os
 import socket
-import httpx
+import subprocess
+import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from fastapi.testclient import TestClient
+
 from backend.config import get_settings
 from backend.main import app
-from fastapi.testclient import TestClient
 
 # Results tracking
 results = {"passed": [], "failed": [], "skipped": [], "warnings": []}
@@ -110,8 +111,16 @@ config_checks = [
     ("PORT", settings.PORT == 8000, f"port={settings.PORT}"),
     ("HOST", settings.HOST == "0.0.0.0", f"host={settings.HOST}"),
     ("DATABASE_URL", bool(settings.DATABASE_URL), f"url={settings.DATABASE_URL[:30]}..."),
-    ("SUPABASE_URL", bool(settings.SUPABASE_URL) and "CHANGEME" not in settings.SUPABASE_URL, f"configured={bool(settings.SUPABASE_URL)}"),
-    ("SUPABASE_ANON_KEY", bool(settings.SUPABASE_ANON_KEY) and "CHANGEME" not in settings.SUPABASE_ANON_KEY, "configured"),
+    (
+        "SUPABASE_URL",
+        bool(settings.SUPABASE_URL) and "CHANGEME" not in settings.SUPABASE_URL,
+        f"configured={bool(settings.SUPABASE_URL)}",
+    ),
+    (
+        "SUPABASE_ANON_KEY",
+        bool(settings.SUPABASE_ANON_KEY) and "CHANGEME" not in settings.SUPABASE_ANON_KEY,
+        "configured",
+    ),
     ("WORKER_HOST", bool(settings.WORKER_HOST), f"host={settings.WORKER_HOST}"),
     ("WORKER_OLLAMA_PORT", settings.WORKER_OLLAMA_PORT == 11434, f"port={settings.WORKER_OLLAMA_PORT}"),
     ("WORKER_LM_STUDIO_PORT", settings.WORKER_LM_STUDIO_PORT == 1234, f"port={settings.WORKER_LM_STUDIO_PORT}"),
@@ -122,10 +131,18 @@ config_checks = [
     ("LOG_TO_FILE", isinstance(settings.LOG_TO_FILE, bool), f"to_file={settings.LOG_TO_FILE}"),
     ("RDP_ENABLED", isinstance(settings.RDP_ENABLED, bool), f"rdp={settings.RDP_ENABLED}"),
     ("WEB_AGENT_ENABLED", isinstance(settings.WEB_AGENT_ENABLED, bool), f"web_agent={settings.WEB_AGENT_ENABLED}"),
-    ("AGENT_REPUTATION_ENABLED", isinstance(settings.AGENT_REPUTATION_ENABLED, bool), f"reputation={settings.AGENT_REPUTATION_ENABLED}"),
+    (
+        "AGENT_REPUTATION_ENABLED",
+        isinstance(settings.AGENT_REPUTATION_ENABLED, bool),
+        f"reputation={settings.AGENT_REPUTATION_ENABLED}",
+    ),
     ("TRIBUNAL_MAX_ITERATIONS", settings.TRIBUNAL_MAX_ITERATIONS >= 1, f"max_iter={settings.TRIBUNAL_MAX_ITERATIONS}"),
     ("MODEL_TIMEOUT_OLLAMA", settings.OLLAMA_TIMEOUT_SECONDS > 0, f"timeout={settings.OLLAMA_TIMEOUT_SECONDS}s"),
-    ("MODEL_TIMEOUT_OPENROUTER", settings.OPENROUTER_TIMEOUT_SECONDS > 0, f"timeout={settings.OPENROUTER_TIMEOUT_SECONDS}s"),
+    (
+        "MODEL_TIMEOUT_OPENROUTER",
+        settings.OPENROUTER_TIMEOUT_SECONDS > 0,
+        f"timeout={settings.OPENROUTER_TIMEOUT_SECONDS}s",
+    ),
     ("get_model_timeout works", settings.get_model_timeout("llama3.2:latest", "ollama") > 0, "function works"),
     ("CORS includes localhost:8080", "http://localhost:8080" in settings.CORS_ORIGINS, "CORS configured"),
 ]
@@ -137,25 +154,41 @@ for name, condition, detail in config_checks:
 print("\n[3/14] DATABASE CONNECTIVITY")
 print("-" * 60)
 
+
 async def test_database():
-    from backend.database.local_db import init_db, AsyncSessionLocal
+    from sqlalchemy import func, select
+
+    from backend.database.local_db import AsyncSessionLocal, init_db
     from backend.database.models import (
-        SequentialDebate, SequentialDebateTurn, PromptResponseCache,
-        ReductioAbsurdumProof, DebateAggregate, TopicTrending,
-        ConsensusPattern, ModelPerformance, DailyMetricsSnapshot,
-        SupabaseSyncQueueItem, ModelReputation,
+        ConsensusPattern,
+        DailyMetricsSnapshot,
+        DebateAggregate,
+        ModelPerformance,
+        ModelReputation,
+        PromptResponseCache,
+        ReductioAbsurdumProof,
+        SequentialDebate,
+        SequentialDebateTurn,
+        SupabaseSyncQueueItem,
+        TopicTrending,
     )
-    from sqlalchemy import select, func
 
     await init_db()
     record("Database", "init_db()", "passed", "SQLite initialized")
 
     # Test all models have tables
     models = [
-        SequentialDebate, SequentialDebateTurn, PromptResponseCache,
-        ReductioAbsurdumProof, DebateAggregate, TopicTrending,
-        ConsensusPattern, ModelPerformance, DailyMetricsSnapshot,
-        SupabaseSyncQueueItem, ModelReputation,
+        SequentialDebate,
+        SequentialDebateTurn,
+        PromptResponseCache,
+        ReductioAbsurdumProof,
+        DebateAggregate,
+        TopicTrending,
+        ConsensusPattern,
+        ModelPerformance,
+        DailyMetricsSnapshot,
+        SupabaseSyncQueueItem,
+        ModelReputation,
     ]
     for model in models:
         record("Database", f"Model {model.__tablename__}", "passed", f"table={model.__tablename__}")
@@ -190,6 +223,7 @@ async def test_database():
     async with AsyncSessionLocal() as session:
         count = await session.scalar(select(func.count(SequentialDebate.id)))
         record("Database", "Aggregate: COUNT debates", "passed", f"count={count}")
+
 
 asyncio.run(test_database())
 
@@ -273,7 +307,12 @@ print("\n[6/14] ADAPTER INSTANTIATION & METHODS")
 print("-" * 60)
 
 adapter_tests = [
-    ("OllamaClient", "backend.adapters.ollama", "OllamaClient", ["chat", "generate", "health_check", "warm_model", "unload_model"]),
+    (
+        "OllamaClient",
+        "backend.adapters.ollama",
+        "OllamaClient",
+        ["chat", "generate", "health_check", "warm_model", "unload_model"],
+    ),
     ("GroqClient", "backend.adapters.groq", "GroqClient", ["chat_completion", "health_check"]),
     ("GeminiClient", "backend.adapters.gemini", "GeminiClient", ["chat_completion", "health_check"]),
     ("LMStudioClient", "backend.adapters.lm_studio", "LMStudioClient", ["chat_completion", "health_check"]),
@@ -282,7 +321,12 @@ adapter_tests = [
     ("JanClient", "backend.adapters.jan", "JanClient", ["chat_completion", "health_check"]),
     ("WebAgentClient", "backend.adapters.web_agent", "WebAgentClient", ["query", "health_check"]),
     ("HuggingFaceClient", "backend.adapters.huggingface", "HuggingFaceClient", ["chat_completion", "health_check"]),
-    ("HTTPClientManager", "backend.adapters.http_client_manager", "HTTPClientManager", ["get_client", "close_all", "close"]),
+    (
+        "HTTPClientManager",
+        "backend.adapters.http_client_manager",
+        "HTTPClientManager",
+        ["get_client", "close_all", "close"],
+    ),
 ]
 
 for label, mod_path, cls_name, methods in adapter_tests:
@@ -302,6 +346,7 @@ for label, mod_path, cls_name, methods in adapter_tests:
 print("\n[7/14] LIVE CONNECTION TESTS")
 print("-" * 60)
 
+
 def test_port(host, port, service_name, timeout=3):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -311,6 +356,7 @@ def test_port(host, port, service_name, timeout=3):
         return result == 0
     except Exception:
         return False
+
 
 live_tests = [
     ("localhost", 8000, "Backend API (Master local)"),
@@ -338,6 +384,7 @@ for host, port, label in live_tests:
 print()
 try:
     import requests
+
     r = requests.get("http://localhost:11434/api/tags", timeout=5)
     if r.status_code == 200:
         models = r.json().get("models", [])
@@ -354,13 +401,13 @@ try:
     r = requests.get(f"http://{settings.WORKER_HOST}:11434/api/tags", timeout=10)
     if r.status_code == 200:
         models = r.json().get("models", [])
-        record("Connections", f"Ollama Worker /api/tags", "passed", f"models={len(models)}")
+        record("Connections", "Ollama Worker /api/tags", "passed", f"models={len(models)}")
         for m in models[:5]:
             record("Connections", f"  Worker Model: {m['name']}", "passed")
     else:
-        record("Connections", f"Ollama Worker /api/tags", "failed", f"status={r.status_code}")
+        record("Connections", "Ollama Worker /api/tags", "failed", f"status={r.status_code}")
 except Exception as e:
-    record("Connections", f"Ollama Worker /api/tags", "failed", str(e)[:80])
+    record("Connections", "Ollama Worker /api/tags", "failed", str(e)[:80])
 
 # Test Supabase connectivity
 try:
@@ -376,11 +423,11 @@ except Exception as e:
 try:
     r = requests.get(f"http://{settings.WORKER_HOST}:1337/v1/models", timeout=10)
     if r.status_code in (200, 403):
-        record("Connections", f"Jan Worker /v1/models", "passed", f"status={r.status_code}")
+        record("Connections", "Jan Worker /v1/models", "passed", f"status={r.status_code}")
     else:
-        record("Connections", f"Jan Worker /v1/models", "failed", f"status={r.status_code}")
+        record("Connections", "Jan Worker /v1/models", "failed", f"status={r.status_code}")
 except Exception as e:
-    record("Connections", f"Jan Worker /v1/models", "failed", str(e)[:80])
+    record("Connections", "Jan Worker /v1/models", "failed", str(e)[:80])
 
 # ─── 8. ENGINE COMPONENTS ─────────────────────────────────────────────────────
 print("\n[8/14] ENGINE COMPONENTS")
@@ -389,11 +436,21 @@ print("-" * 60)
 # SequentialDebateController
 try:
     from backend.engine.sequential_debate_controller import SequentialDebateController
+
     ctrl = SequentialDebateController()
-    methods = ["create_debate", "continue_debate", "pause_debate", "resume_debate",
-               "get_session", "get_debate_from_db", "_run_local_agent",
-               "_run_cloud_agent", "_persist_reductio_absurdum_proof",
-               "_find_next_preload_model", "_save_transcript"]
+    methods = [
+        "create_debate",
+        "continue_debate",
+        "pause_debate",
+        "resume_debate",
+        "get_session",
+        "get_debate_from_db",
+        "_run_local_agent",
+        "_run_cloud_agent",
+        "_persist_reductio_absurdum_proof",
+        "_find_next_preload_model",
+        "_save_transcript",
+    ]
     missing = [m for m in methods if not hasattr(ctrl, m)]
     if not missing:
         record("Engine", "SequentialDebateController", "passed", f"methods={len(methods)}")
@@ -405,8 +462,9 @@ except Exception as e:
 # UltraDebateController
 try:
     from backend.engine.ultra_debate_controller import UltraDebateController
+
     uctrl = UltraDebateController()
-    if hasattr(uctrl, 'stages'):
+    if hasattr(uctrl, "stages"):
         record("Engine", "UltraDebateController", "passed", f"stages={len(uctrl.stages)}")
     else:
         record("Engine", "UltraDebateController", "failed", "missing stages attribute")
@@ -416,6 +474,7 @@ except Exception as e:
 # ConsensusDebateController
 try:
     from backend.engine.consensus_debate_controller import ConsensusDebateController
+
     cctrl = ConsensusDebateController()
     record("Engine", "ConsensusDebateController", "passed")
 except Exception as e:
@@ -424,8 +483,9 @@ except Exception as e:
 # TribunalCouncil
 try:
     from backend.engine.tribunal import TribunalCouncil
+
     tribunal = TribunalCouncil()
-    if hasattr(tribunal, 'MAGISTRATE_ROLES'):
+    if hasattr(tribunal, "MAGISTRATE_ROLES"):
         record("Engine", "TribunalCouncil", "passed", f"magistrates={len(tribunal.MAGISTRATE_ROLES)}")
     else:
         record("Engine", "TribunalCouncil", "failed", "missing MAGISTRATE_ROLES")
@@ -435,6 +495,7 @@ except Exception as e:
 # ConvergenceEvaluator
 try:
     from backend.engine.convergence import ConvergenceEvaluator
+
     conv = ConvergenceEvaluator()
     result = conv.evaluate("test A", "test A", 1, 3)
     if hasattr(result, "similarity_score"):
@@ -446,7 +507,8 @@ except Exception as e:
 
 # QualityMonitor
 try:
-    from backend.engine.quality_monitor import is_response_usable, evaluate_response
+    from backend.engine.quality_monitor import evaluate_response, is_response_usable
+
     assert is_response_usable("Good analysis text", "analyst") is True
     assert is_response_usable("", "analyst") is False
     assert is_response_usable("[ERROR]", "analyst") is False
@@ -459,6 +521,7 @@ except Exception as e:
 # ReductioAbsurdum
 try:
     from backend.engine.reductio_absurdum import get_reductio_absurdum_engine
+
     engine = get_reductio_absurdum_engine()
     props = engine.extract_propositions_from_text("La IA es buena porque automatiza tareas.")
     if isinstance(props, list) and len(props) > 0:
@@ -471,6 +534,7 @@ except Exception as e:
 # InterventionTaxonomy
 try:
     from backend.engine.intervention_taxonomy import detect_intervention_type
+
     t1 = detect_intervention_type("El analisis muestra...", "analyst")
     t2 = detect_intervention_type("Sin embargo, hay debilidades...", "critic")
     t3 = detect_intervention_type("En sintesis...", "synthesizer")
@@ -485,6 +549,7 @@ print("-" * 60)
 # SupabaseSyncService
 try:
     from backend.services.supabase_sync import SupabaseSyncService
+
     svc = SupabaseSyncService()
     record("Services", "SupabaseSyncService", "passed", f"enabled={svc.enabled}")
 except Exception as e:
@@ -493,6 +558,7 @@ except Exception as e:
 # SQLiteBackupService
 try:
     from backend.services.sqlite_backup import SQLiteBackupService
+
     backup = SQLiteBackupService()
     record("Services", "SQLiteBackupService", "passed", f"enabled={backup.enabled}, bucket={backup.BACKUP_BUCKET}")
 except Exception as e:
@@ -501,6 +567,7 @@ except Exception as e:
 # WorkerServiceManager
 try:
     from backend.engine.worker_launcher import WorkerServiceManager
+
     wsm = WorkerServiceManager()
     record("Services", "WorkerServiceManager", "passed", f"worker={settings.WORKER_HOST}")
 except Exception as e:
@@ -509,6 +576,7 @@ except Exception as e:
 # HybridMemoryV2
 try:
     from backend.memory.hybrid_memory_v2 import get_hybrid_memory_v2
+
     mem = get_hybrid_memory_v2()
     record("Services", "HybridMemoryV2", "passed", f"enabled={mem._enabled}")
 except Exception as e:
@@ -517,6 +585,7 @@ except Exception as e:
 # SemanticCacheService
 try:
     from backend.caching.semantic_cache import SemanticCacheService
+
     cache = SemanticCacheService()
     key = cache._generate_cache_key("test", "model", "engine", 0.7)
     record("Services", "SemanticCacheService", "passed", f"key_len={len(key)}")
@@ -526,6 +595,7 @@ except Exception as e:
 # WarehouseManager
 try:
     from backend.database.warehouse import WarehouseManager
+
     wm = WarehouseManager()
     record("Services", "WarehouseManager", "passed")
 except Exception as e:
@@ -536,9 +606,11 @@ print("\n[10/14] LOGGING SYSTEM")
 print("-" * 60)
 
 try:
-    import tempfile
     import shutil
-    from backend.logging_config import setup_logging, shutdown_logging, _EngineFilter, _APIFilter
+    import tempfile
+
+    from backend.logging_config import _APIFilter, _EngineFilter, setup_logging, shutdown_logging
+
     tmpdir = tempfile.mkdtemp()
     setup_logging(log_level="DEBUG", log_dir=Path(tmpdir), console=False, file_output=True)
 
@@ -547,8 +619,12 @@ try:
     engine_file = Path(tmpdir) / "synapse_engine.log"
     api_file = Path(tmpdir) / "synapse_api.log"
 
-    for name, path in [("synapse.log", log_file), ("synapse_error.log", error_file),
-                        ("synapse_engine.log", engine_file), ("synapse_api.log", api_file)]:
+    for name, path in [
+        ("synapse.log", log_file),
+        ("synapse_error.log", error_file),
+        ("synapse_engine.log", engine_file),
+        ("synapse_api.log", api_file),
+    ]:
         if path.exists():
             record("Logging", f"{name} created", "passed", f"size={path.stat().st_size}B")
         else:
@@ -556,10 +632,19 @@ try:
 
     # Test filters
     import logging
+
     ef = _EngineFilter()
     af = _APIFilter()
-    record("Logging", "_EngineFilter", "passed" if ef.filter(logging.LogRecord("backend.engine.x", 20, "", 0, "", (), None)) else "failed")
-    record("Logging", "_APIFilter", "passed" if af.filter(logging.LogRecord("backend.api.routes.x", 20, "", 0, "", (), None)) else "failed")
+    record(
+        "Logging",
+        "_EngineFilter",
+        "passed" if ef.filter(logging.LogRecord("backend.engine.x", 20, "", 0, "", (), None)) else "failed",
+    )
+    record(
+        "Logging",
+        "_APIFilter",
+        "passed" if af.filter(logging.LogRecord("backend.api.routes.x", 20, "", 0, "", (), None)) else "failed",
+    )
 
     shutdown_logging()
     shutil.rmtree(tmpdir, ignore_errors=True)
@@ -582,21 +667,26 @@ try:
 except Exception as e:
     record("Stability", "50 rapid GET /health", "failed", str(e)[:80])
 
+
 # Concurrent DB operations
 async def test_concurrent_db():
+    from sqlalchemy import select
+
     from backend.database.local_db import AsyncSessionLocal
     from backend.database.models import SequentialDebate
-    from sqlalchemy import select
 
     tasks = []
     for i in range(10):
+
         async def op(n=i):
             async with AsyncSessionLocal() as s:
                 result = await s.execute(select(SequentialDebate).limit(1))
                 return result.scalar_one_or_none() is not None
+
         tasks.append(op())
     results_list = await asyncio.gather(*tasks)
     return all(results_list)
+
 
 try:
     ok = asyncio.run(test_concurrent_db())
@@ -607,7 +697,9 @@ except Exception as e:
 # Memory leak check (repeated controller creation)
 try:
     import gc
+
     from backend.engine.sequential_debate_controller import SequentialDebateController
+
     controllers = []
     for i in range(20):
         controllers.append(SequentialDebateController())
@@ -620,6 +712,7 @@ except Exception as e:
 # WebSocket Manager stress
 try:
     from backend.api.websocket import WebSocketManager
+
     manager = WebSocketManager()
     for i in range(100):
         manager.buffer_tokens = True
@@ -633,36 +726,53 @@ print("\n[12/14] FILE STRUCTURE & INTEGRITY")
 print("-" * 60)
 
 required_files = [
-    "backend/main.py", "backend/config.py", "backend/logging_config.py",
-    "backend/requirements.txt", "backend/.env",
-    "backend/database/models.py", "backend/database/local_db.py",
-    "backend/api/routes/debate.py", "backend/api/routes/system.py",
-    "backend/api/routes/health.py", "backend/api/routes/cache.py",
+    "backend/main.py",
+    "backend/config.py",
+    "backend/logging_config.py",
+    "backend/requirements.txt",
+    "backend/.env",
+    "backend/database/models.py",
+    "backend/database/local_db.py",
+    "backend/api/routes/debate.py",
+    "backend/api/routes/system.py",
+    "backend/api/routes/health.py",
+    "backend/api/routes/cache.py",
     "backend/api/routes/debug.py",
     "backend/api/websocket.py",
     "backend/engine/sequential_debate_controller.py",
     "backend/engine/ultra_debate_controller.py",
     "backend/engine/consensus_debate_controller.py",
-    "backend/engine/tribunal.py", "backend/engine/convergence.py",
-    "backend/engine/quality_monitor.py", "backend/engine/reputation_unified.py",
-    "backend/engine/task_manager.py", "backend/engine/worker_launcher.py",
+    "backend/engine/tribunal.py",
+    "backend/engine/convergence.py",
+    "backend/engine/quality_monitor.py",
+    "backend/engine/reputation_unified.py",
+    "backend/engine/task_manager.py",
+    "backend/engine/worker_launcher.py",
     "backend/engine/reductio_absurdum.py",
-    "backend/adapters/ollama.py", "backend/adapters/groq.py",
-    "backend/adapters/gemini.py", "backend/adapters/lm_studio.py",
-    "backend/adapters/openrouter.py", "backend/adapters/deepseek.py",
-    "backend/adapters/jan.py", "backend/adapters/web_agent.py",
+    "backend/adapters/ollama.py",
+    "backend/adapters/groq.py",
+    "backend/adapters/gemini.py",
+    "backend/adapters/lm_studio.py",
+    "backend/adapters/openrouter.py",
+    "backend/adapters/deepseek.py",
+    "backend/adapters/jan.py",
+    "backend/adapters/web_agent.py",
     "backend/adapters/http_client_manager.py",
-    "backend/services/supabase_sync.py", "backend/services/sqlite_backup.py",
+    "backend/services/supabase_sync.py",
+    "backend/services/sqlite_backup.py",
     "backend/services/rdp_manager.py",
     "backend/memory/hybrid_memory_v2.py",
     "backend/caching/semantic_cache.py",
     "backend/database/warehouse.py",
     "backend/monitoring/prometheus.py",
-    "backend/network/discovery.py", "backend/network/heartbeat.py",
+    "backend/network/discovery.py",
+    "backend/network/heartbeat.py",
     "backend/network/tcp_handshake.py",
     "frontend/control-center/index.html",
     ".github/workflows/ci.yml",
-    "pyproject.toml", "README.md", "CHANGELOG.md",
+    "pyproject.toml",
+    "README.md",
+    "CHANGELOG.md",
 ]
 
 base = Path("D:\\proyectos\\SynapseCode")
@@ -700,15 +810,16 @@ print("-" * 60)
 # Test worker service detection
 try:
     from backend.engine.worker_launcher import WorkerServiceManager
+
     wsm = WorkerServiceManager()
-    
+
     # Test IP resolution
     ip = asyncio.run(wsm.resolve_worker_ip())
     if ip:
         record("Worker", "IP resolution", "passed", f"ip={ip}")
     else:
         record("Worker", "IP resolution", "failed", "could not resolve")
-    
+
     # Test service check
     status = asyncio.run(wsm.check_all_services())
     for svc_name in ["ollama", "lm_studio", "jan"]:
@@ -717,10 +828,10 @@ try:
             record("Worker", f"{svc_name} running", "passed", f"port={svc_status.get('port', 'N/A')}")
         else:
             record("Worker", f"{svc_name} running", "skipped", f"status={svc_status.get('status', 'unknown')}")
-    
+
     # Test summary
     summary = wsm.get_status_summary(status)
-    record("Worker", "Status summary", "passed", f"summary generated")
+    record("Worker", "Status summary", "passed", "summary generated")
 except Exception as e:
     record("Worker", "Service detection", "failed", str(e)[:80])
 
@@ -729,10 +840,13 @@ print("\n[14/14] PYTEST INTEGRATION")
 print("-" * 60)
 
 # Run pytest programmatically
-import subprocess
+
 result = subprocess.run(
     [sys.executable, "-m", "pytest", "backend/tests/", "-v", "--tb=short", "-q"],
-    capture_output=True, text=True, timeout=180, cwd="D:\\proyectos\\SynapseCode"
+    capture_output=True,
+    text=True,
+    timeout=180,
+    cwd="D:\\proyectos\\SynapseCode",
 )
 
 if result.returncode == 0:
@@ -740,7 +854,8 @@ if result.returncode == 0:
     output = result.stdout + result.stderr
     if "passed" in output:
         import re
-        match = re.search(r'(\d+) passed', output)
+
+        match = re.search(r"(\d+) passed", output)
         if match:
             count = match.group(1)
             record("Pytest", "All tests pass", "passed", f"{count} tests")
@@ -775,9 +890,9 @@ skipped = len(results["skipped"])
 warnings = len(results["warnings"])
 
 print(f"\nTotal tests:  {total}")
-print(f"  PASSED:     {passed} ({passed/total*100:.1f}%)")
-print(f"  FAILED:     {failed} ({failed/total*100:.1f}%)")
-print(f"  SKIPPED:    {skipped} ({skipped/total*100:.1f}%)")
+print(f"  PASSED:     {passed} ({passed / total * 100:.1f}%)")
+print(f"  FAILED:     {failed} ({failed / total * 100:.1f}%)")
+print(f"  SKIPPED:    {skipped} ({skipped / total * 100:.1f}%)")
 print(f"  WARNINGS:   {warnings}")
 
 if failed > 0:
