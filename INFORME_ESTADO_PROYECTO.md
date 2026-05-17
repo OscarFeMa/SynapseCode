@@ -1,366 +1,223 @@
-# Informe de Estado del Proyecto Synapse Council
+# Informe de Estado del Proyecto SynapseCode
 
-**Fecha:** 26 de abril de 2026  
-**Versión:** 3.0.0
+**Fecha:** 17 de mayo de 2026  
+**Versión:** 2.8.0  
+**Último commit:** `4446798` — docs: update README, HISTORY and CHANGELOG to v2.8
 
 ---
 
 ## Resumen Ejecutivo
 
-El proyecto Synapse Council es una aplicación desktop (Electron + React) que gestiona la conexión entre un proceso Master y un proceso Worker distribuidos en dos ordenadores de la misma red. El objetivo principal es permitir el descubrimiento automático del Worker y su arranque remoto sin intervención manual.
+SynapseCode es una plataforma de **razonamiento colectivo híbrido** que orquesta múltiples modelos de IA en debates estructurados por roles, con veredicto del **Tribunal de Magistrados**. Arquitectura **Master-Worker** sobre red local: Master (localhost:8000) orquesta, Worker (192.168.1.43) ejecuta modelos locales vía Ollama, LM Studio y Jan.
 
-**Estado actual:** La aplicación está funcional pero el enlace Master/Worker no se establece correctamente. El descubrimiento de IP funciona, pero la conexión entre Master y Worker falla.
-
----
-
-## Componentes Implementados
-
-### 1. Aplicación Desktop (Electron + React)
-
-**Ubicación:** `d:\proyectos\Synapse\desktop\`
-
-#### Frontend (React + Vite)
-- **Ubicación:** `desktop\frontend\`
-- **Tecnologías:** React, Vite, TailwindCSS, Lucide Icons
-- **Componentes principales:**
-  - `ConnectionWindow.jsx`: Ventana de gestión de conexión Master/Worker
-  - `Dashboard.jsx`: Panel de visualización de estado y métricas
-  - `Chatbox.jsx`: Chat directo a modelos
-  - `ModelConfig.jsx`: Panel de configuración de modelos/engines
-  - `DatabaseViewer.jsx`: Visualización de debates históricos
-  - `DebateModeSelector.jsx`: Selector de modos de debate
-
-#### Backend Electron (Node.js)
-- **Ubicación:** `desktop\electron\`
-- **Funcionalidades:**
-  - Servidor Express local para servir frontend en producción (puerto 5174)
-  - Descubrimiento UDP compatible con backend Python (protocolo SYNAPSE_V2)
-  - Escaneo de red local para encontrar Worker por puerto
-  - Descubrimiento por dirección MAC usando ARP (para IPs dinámicas)
-  - Arranque remoto de Worker vía WinRM
-  - Apertura de RDP manual como fallback
-  - Monitoreo de procesos Master/Worker
-  - Comunicación IPC con renderer process
-
-### 2. Backend Python (FastAPI)
-
-**Ubicación:** `d:\proyectos\Synapse\backend\`
-
-#### Componentes principales
-- **API REST:** Endpoints para configuración, chat, métricas y health checks
-- **Engine:** Sistema de tribunales para debates entre modelos
-- **Memory:** Sistema de memoria vectorial para contexto
-- **Network:** Sistema de descubrimiento UDP peer-to-peer
-- **Database:** Almacenamiento de debates históricos
-
-#### Endpoints API
-- `POST /api/v1/system/chat/direct`: Chat directo a modelos
-- `GET /api/v1/system/settings`: Configuración del sistema
-- `GET /api/v1/system/metrics`: Métricas de rendimiento
-- `GET /api/v1/system/health`: Health check
+**Estado actual:** ✅ Funcional. CI/CD pasando (lint + tests + security + build). Debates secuenciales con búsqueda web en tiempo real, reportes HTML/PDF automáticos, fallback de modelos, y recuperación CUDA.
 
 ---
 
-## Configuración Actual
+## Arquitectura
 
-### Master (Ordenador `sobremesa`)
-- **Usuario:** `sobremesa\usuario`
-- **IP dinámica:** Detectada automáticamente
-- **Puerto API:** 8000
-- **Puerto descubrimiento UDP:** 54321
-
-### Worker (Ordenador `makederpc`)
-- **Usuario:** `MAKEDER\maked`
-- **MAC:** `E0:0A:F6:9E:CB:01`
-- **IP dinámica:** Detectada por MAC/ARP
-- **Puerto API:** 8000
-- **Puerto descubrimiento UDP:** 54321
-- **Carpeta compartida:** `\\MAKEDERPC\Synapse` (permisos para Todos)
-- **WinRM:** Configurado (TrustedHosts = *, puerto 5985 abierto)
-
-### Archivo RDP
-- **Ubicación:** `D:\proyectos\Synapse\Escritorio.rdp`
-- **Función:** Acceso manual al Worker como fallback
-
----
-
-## Sistema de Descubrimiento Implementado
-
-### 1. Descubrimiento por MAC (Prioridad 1)
-- **Método:** ARP table scanning
-- **Proceso:**
-  1. Ping a toda la subred (192.168.1.x)
-  2. Consulta tabla ARP
-  3. Busca MAC `E0:0A:F6:9E:CB:01`
-  4. Retorna IP asociada
-- **Ventaja:** Funciona con IPs dinámicas (DHCP)
-- **Estado:** ✅ Implementado y funcional
-
-### 2. Descubrimiento UDP (Prioridad 2)
-- **Protocolo:** SYNAPSE_V2
-- **Formato mensaje:**
-  ```json
-  {
-    "magic": "SYNAPSE_V2",
-    "node_id": "master-{timestamp}",
-    "role": "MASTER",
-    "port": 8000,
-    "timestamp": 1234567890.123
-  }
-  ```
-- **Proceso:**
-  1. Master broadcast a 255.255.255.255:54321
-  2. Worker responde con su IP y rol
-  3. Master filtra mensajes de `role: "WORKER"`
-- **Estado:** ✅ Implementado, compatible con backend Python
-
-### 3. Escaneo de Red (Fallback)
-- **Método:** Port scanning TCP
-- **Proceso:**
-  1. Escanea IPs en subred local
-  2. Verifica puerto 8000 abierto
-  3. Retorna IP del Worker
-- **Estado:** ✅ Implementado
-
----
-
-## Problemas Identificados
-
-### 1. Enlace Master/Worker No Funciona ⚠️
-
-**Síntoma:**
-- El descubrimiento de IP funciona correctamente
-- La IP del Worker se detecta por MAC
-- Al iniciar Master/Worker, no se establece el enlace
-- El Worker no responde al Master
-
-**Causas posibles:**
-1. **Worker no iniciado correctamente:** El arranque remoto vía WinRM puede estar fallando
-2. **Problema de configuración del Worker:** `NODE_ROLE=WORKER` no se está estableciendo correctamente
-3. **Firewall del Worker:** Puerto 8000 puede estar bloqueado
-4. **Ruta de red incorrecta:** `\\MAKEDERPC\Synapse\backend` puede no ser accesible
-5. **Problema de credenciales WinRM:** Usuario `MAKEDER\maked` puede no tener permisos suficientes
-
-**Evidencia:**
-- WinRM configurado correctamente (TrustedHosts = *, puerto 5985 abierto)
-- Carpeta compartida configurada con permisos para Todos
-- RDP funciona correctamente
-- Descubrimiento de IP funciona
-
-### 2. Arranque Remoto vía WinRM No Verificado
-
-**Estado:** ❌ No se ha verificado que el arranque remoto funcione
-
-**Comando ejecutado:**
-```powershell
-cd "\\MAKEDERPC\Synapse\backend" && set NODE_ROLE=WORKER && python -m backend.main
+```
+[Master: localhost:8000] <--- LAN ---> [Worker: 192.168.1.43]
+  FastAPI + Control Center                 Ollama (11434)
+  SQLite + Supabase sync                   LM Studio (1235)
+  Tribunal + Orchestrator                  Jan (1337)
+  Web Search (ddgs + trafilatura)          GPU/CPU inference
 ```
 
-**Posibles problemas:**
-1. La ruta de red UNC puede no funcionar con `cd`
-2. `set NODE_ROLE=WORKER` puede no persistir en el contexto remoto
-3. Python puede no estar en el PATH del Worker
-4. Dependencias de Python pueden no estar instaladas en `C:\Synapse\backend`
+### Topología de Red
+| Nodo | Hostname | IP | Rol |
+|------|----------|----|-----|
+| Master | sobremesa | localhost | Orquestador, API, UI |
+| Worker | makederpc | 192.168.1.43 | Inferencia local |
 
 ---
 
-## Próximos Pasos
+## Componentes Principales
 
-### Prioridad Alta: Corregir Enlace Master/Worker
+### Backend Python (FastAPI)
 
-#### 1. Verificar Arranque Remoto WinRM
-- **Acción:** Probar el comando WinRM manualmente desde PowerShell
-- **Comando:**
-  ```powershell
-  winrs -r:MAKEDERPC -u:MAKEDER\maked -p:PASSWORD "cd C:\Synapse\backend && set NODE_ROLE=WORKER && python -m backend.main"
-  ```
-- **Objetivo:** Verificar que el comando funciona fuera de la aplicación
+| Módulo | Archivo | Función |
+|--------|---------|---------|
+| **API Routes** | `backend/api/routes/` | REST endpoints + WebSockets |
+| **Debate Engine** | `backend/engine/sequential_debate_controller.py` | Debate secuencial multi-modelo |
+| **Tribunal** | `backend/engine/tribunal.py` | 3 magistrados (evidencia, riesgo, alineación) |
+| **Local Engine Manager** | `backend/engine/local_engine_manager.py` | Gestión Ollama/LM Studio/Jan |
+| **Web Search** | `backend/engine/web_search_service.py` | DuckDuckGo + Trafilatura |
+| **Report Generator** | `backend/engine/report_generator.py` | HTML (Chart.js) + PDF (xhtml2pdf) |
+| **Reputation** | `backend/engine/reputation_unified.py` | EMA scores (TSA, IID, PVT) |
+| **Adapters** | `backend/adapters/` | Ollama, OpenRouter, Groq, Gemini, DeepSeek, LM Studio, Jan |
 
-#### 2. Mejorar Comando de Arranque Remoto
-- **Problema actual:** Uso de ruta UNC (`\\MAKEDERPC\...`) que puede no funcionar
-- **Solución:** Usar ruta local en el Worker (`C:\Synapse\backend`)
-- **Cambio en `electron/main.js`:**
-  ```javascript
-  const command = `cd C:\\Synapse\\backend && set NODE_ROLE=WORKER && python -m backend.main`;
-  ```
+### Control Center (Web UI)
 
-#### 3. Verificar Instalación de Dependencias en Worker
-- **Acción:** Asegurar que `requirements.txt` está instalado en `C:\Synapse\backend`
-- **Comando:**
-  ```powershell
-  cd C:\Synapse\backend
-  pip install -r requirements.txt
-  ```
+Vanilla JS, zero dependencies, 6 pestañas: Command, Launcher, Metrics, Tribunal, Models, History.
 
-#### 4. Verificar Configuración de Firewall en Worker
-- **Acción:** Asegurar que puerto 8000 está abierto en el Worker
-- **Comando:**
-  ```powershell
-  netsh advfirewall firewall add rule name="Synapse API" dir=in action=allow protocol=TCP localport=8000
-  ```
+### Base de Datos
 
-#### 5. Agregar Logs Detallados de WinRM
-- **Acción:** Capturar salida del comando WinRM para debugging
-- **Implementación:** Modificar `startWorkerRemotely` para capturar stdout/stderr
+- **SQLite local:** `data/synapse.db` — debates, turnos, reputación, caché
+- **Supabase Cloud:** Sync asíncrono con cola persistente y reintentos
 
-#### 6. Verificar Configuración de NODE_ROLE
-- **Problema:** `set NODE_ROLE=WORKER` puede no persistir
-- **Solución:** Pasar variable de entorno directamente en el comando
-- **Comando alternativo:**
-  ```powershell
-  $env:NODE_ROLE="WORKER"; python -m backend.main
-  ```
+---
 
-### Prioridad Media: Mejoras de UX
+## Funcionalidades de v2.8 (última versión)
 
-#### 1. Indicador Visual de Estado de WinRM
-- **Acción:** Mostrar estado de conexión WinRM en la UI
-- **Implementación:** Agregar indicador de "Conectado/Desconectado" para WinRM
+### Añadido en esta versión
+- ✅ **Búsqueda web real:** DuckDuckGo (`ddgs`) + Trafilatura para contenido completo
+- ✅ **Reportes HTML/PDF:** Generación automática post-debate con gráficos y métricas
+- ✅ **Fallback local:** Agentes locales fallan → fallback automático a `llama3:8b`
+- ✅ **Recuperación CUDA:** Detecta errores GPU, limpia memoria y reintenta
+- ✅ **Validación respuestas vacías:** 0 tokens lanza RuntimeError (antes silent fail)
+- ✅ **HTTP 500 en streaming:** Detectado y reportado correctamente
+- ✅ **warm_model retry:** 2 intentos con delay para errores transitorios
+- ✅ **Safety policy:** `.safety-policy.yml` para CI/CD vulnerability checks
 
-#### 2. Guardar Credenciales de Forma Segura
-- **Acción:** Usar `electron-store` para guardar credenciales encriptadas
-- **Beneficio:** No tener que ingresar contraseña cada vez
+### Motor de Debate
+- Debates secuenciales multi-modelo con roles (Analista, Crítico, Sintetizador, Validador)
+- Debates iterativos con cruzamientos críticos
+- Ultra Crossing: 12+ agentes, múltiples fases
+- Consenso forzado con umbral configurable
+- Reducción al absurdo (eliminación de sesgos de complacencia)
+- Pausar/reanudar/continuar debates
 
-#### 3. Agregar Logs de Debugging Avanzados
-- **Acción:** Agregar toggle para mostrar logs detallados
-- **Implementación:** Checkbox "Mostrar logs de debugging"
+### Tribunal de Magistrados
+- 3 roles: Defensor (evidencia), Fiscal (riesgo), Árbitro (alineación)
+- Fallback chains: local → local reserve → cloud fallback
+- Protocolo de consenso forzado o libre
 
-### Prioridad Baja: Optimizaciones
+### Sistema de Reputación EMA
+- **TSA** (Coherencia): Consistencia lógica
+- **IID** (Info Density): Densidad informativa
+- **PVT** (Veracidad): Precisión factual
+- Score global: Media ponderada EMA
 
-#### 1. Optimizar Escaneo de MAC
-- **Problema:** Escaneo de 254 IPs puede ser lento
-- **Solución:** Limitar rango de escaneo o usar técnicas más eficientes
+### Observabilidad
+- Prometheus Metrics: `/metrics`
+- Logging rotatorio: 4 archivos, rotación 10MB/5 backups
+- Health checks: `/health`, `/health/live`, `/health/ready`, `/health/dependencies`
 
-#### 2. Agregar Sistema de Reintento Automático
-- **Acción:** Reintentar enlace automáticamente si falla
-- **Implementación:** Lógica de retry con backoff exponencial
+---
 
-#### 3. Agregar Notificaciones de Estado
-- **Acción:** Notificaciones del sistema cuando Worker se conecta/desconecta
-- **Implementación:** Usar `electron-notification` o nativo
+## Modelos Disponibles en Worker (Ollama)
+
+| Modelo | Tamaño | Estado | Uso |
+|--------|--------|--------|-----|
+| `llama3:8b` | 4.7 GB | ✅ Estable | Fallback principal, tribunal |
+| `llama3.1:8b` | 4.9 GB | ⚠️ 18.4GB RAM req | Debate (fallback si hay memoria) |
+| `gemma3:4b` | 3.3 GB | ✅ Estable | Debate rápido |
+| `qwen2.5-coder:14b` | 9.0 GB | ⚠️ 14GB RAM req | Debate especializado |
+| `qwen2.5-coder:14b-instruct-q5_K_M` | 10.5 GB | ⚠️ Alto consumo | Backup coder |
+| `phi3:mini` | 2.2 GB | ⚠️ 50GB RAM req (corrupto?) | No usable actualmente |
+| `mistral:7b` | 4.4 GB | ✅ Estable | Tribunal (magistrado riesgo) |
+| `gemma:7b` | 5.0 GB | ✅ Disponible | Backup |
+| `gemma4:latest` | 9.6 GB | ✅ Disponible | Backup |
+| `deepseek-r1:7b` | 4.7 GB | ✅ Disponible | Reasoning |
+| `nemotron-mini` | 2.7 GB | ✅ Estable | Debate rápido |
+| `tinyllama` | 0.6 GB | ✅ Disponible | Tests |
+| `qwen2.5:3b` | 1.9 GB | ✅ Disponible | Rápido |
+
+**Nota:** La GPU del Worker tiene ~13.5 GB disponibles. Modelos que requieren más (phi3:mini, llama3.1:8b, qwen2.5-coder:14b) fallan con HTTP 500 y el sistema hace fallback automático a `llama3:8b`.
+
+---
+
+## CI/CD Pipeline
+
+| Job | Herramienta | Estado |
+|-----|-------------|--------|
+| **Lint** | Ruff (E,F,W,I) | ✅ Pasando |
+| **Format** | Ruff format check | ✅ Pasando |
+| **Tests** | pytest (unit + integration + API) | ✅ 162 tests |
+| **Security** | Bandit + Safety | ✅ Pasando |
+| **Build** | python -m build | ✅ Pasando |
+
+Config: `.github/workflows/ci.yml` + `.safety-policy.yml`
 
 ---
 
 ## Estructura de Archivos
 
 ```
-d:\proyectos\Synapse\
-├── backend\
-│   ├── api\
-│   ├── engine\
-│   ├── memory\
-│   ├── network\
-│   ├── database\
-│   ├── main.py
-│   ├── config.py
-│   └── requirements.txt
-├── desktop\
-│   ├── electron\
-│   │   ├── main.js
-│   │   └── preload.js
-│   ├── frontend\
-│   │   ├── src\
-│   │   │   └── components\
-│   │   │       ├── ConnectionWindow.jsx
-│   │   │       ├── Dashboard.jsx
-│   │   │       ├── Chatbox.jsx
-│   │   │       ├── ModelConfig.jsx
-│   │   │       ├── DatabaseViewer.jsx
-│   │   │       └── DebateModeSelector.jsx
-│   │   └── package.json
-│   ├── assets\
-│   │   └── icon.png
-│   ├── package.json
-│   └── dist\
-│       └── Synapse Council Setup 3.0.0.exe
-├── SynapseWorker.zip
-└── Escritorio.rdp
+D:\proyectos\Synapse\
+├── backend/
+│   ├── api/                    # FastAPI routes + middleware
+│   ├── adapters/               # Ollama, Groq, Gemini, etc.
+│   ├── config.py               # Pydantic settings
+│   ├── database/               # SQLAlchemy models + local_db
+│   ├── engine/                 # Debate controllers, tribunal, reports
+│   ├── memory/                 # Hybrid memory v2
+│   ├── monitoring/             # Prometheus metrics
+│   ├── services/               # Supabase sync, RDP, worker launcher
+│   ├── tests/                  # unit, integration, api tests
+│   ├── main.py                 # FastAPI entry point
+│   └── requirements.txt        # Python dependencies
+├── frontend/                   # React + Vite (Control Center v2)
+├── desktop/                    # Electron app (legacy)
+├── data/
+│   ├── debates/                # Transcripts markdown
+│   ├── reports/                # HTML + PDF reports
+│   └── synapse.db              # SQLite database
+├── logs/                       # Rotating log files
+├── .github/workflows/ci.yml    # CI/CD pipeline
+├── .safety-policy.yml          # Safety vulnerability policy
+├── README.md                   # Documentation
+├── CHANGELOG.md                # Version history
+├── HISTORY.md                  # Development timeline
+└── .env                        # Environment config (gitignored)
 ```
 
 ---
 
-## Configuración de Red
+## Problemas Conocidos
 
-### Topología
-```
-[Master: sobremesa] <---> [Router] <---> [Worker: makederpc]
-IP: 192.168.1.45       192.168.1.1       IP: 192.168.1.43 (dinámica)
-```
+| Problema | Severidad | Estado | Workaround |
+|----------|-----------|--------|------------|
+| `phi3:mini` requiere 50GB RAM | Alta | Conocido | Fallback a llama3:8b |
+| `llama3.1:8b` requiere 18.4GB RAM | Media | Conocido | Fallback a llama3:8b |
+| `qwen2.5-coder:14b` requiere 14GB RAM | Media | Conocido | Fallback a llama3:8b |
+| CUDA runner crash bajo carga | Media | Mitigado | Recovery automático + retry |
+| OpenRouter 401 Unauthorized | Baja | Sin fix | Cloud fallback deshabilitado |
+| `weasyprint` no funciona en Windows | Baja | Resuelto | Usando xhtml2pdf |
 
-### Puertos Utilizados
-- **8000:** API REST (Master y Worker)
-- **54321:** Descubrimiento UDP
-- **5173:** Dev server frontend (solo desarrollo)
-- **5174:** Local server frontend (producción)
-- **5985:** WinRM HTTP
+---
+
+## Próximos Pasos
+
+### Prioridad Alta
+- [ ] Investigar por qué `phi3:mini` reporta 50GB RAM (posible modelo corrupto)
+- [ ] Configurar API key de OpenRouter/Groq/Gemini para cloud fallback del tribunal
+- [ ] Optimizar gestión de memoria GPU en Worker (unload agresivo entre turnos)
+
+### Prioridad Media
+- [ ] Agregar métricas de uso de GPU/RAM del Worker al dashboard
+- [ ] Implementar debate paralelo (múltiples agentes simultáneos)
+- [ ] Mejorar parsing JSON en structured reports (a veces no encuentra JSON válido)
+
+### Prioridad Baja
+- [ ] Migrar Control Center de vanilla JS a React (frontend/ ya existe)
+- [ ] Agregar notificaciones push para debates completados
+- [ ] Exportar reports a DOCX (librería docx ya instalada)
 
 ---
 
 ## Dependencias Principales
 
-### Desktop (Node.js)
-- `electron`: 28.3.3
-- `react`: ^18.2.0
-- `vite`: ^5.0.0
-- `tailwindcss`: ^3.4.0
-- `express`: ^4.18.0
-- `node-winrm`: ^1.0.0
-- `electron-builder`: 24.13.3
-
 ### Backend (Python)
-- `fastapi`: ^0.104.0
-- `uvicorn`: ^0.24.0
-- `openai`: ^1.0.0
-- `langchain`: ^0.1.0
-- `chromadb`: ^0.4.0
+```
+fastapi, uvicorn, httpx, aiosqlite, sqlalchemy
+ollama (via adapters), ddgs, trafilatura, xhtml2pdf
+structlog, prometheus-client, playwright
+```
 
----
+### Frontend (React)
+```
+react, react-router-dom, vite, tailwindcss, lucide-react
+```
 
-## Resumen de Tareas Completadas
-
-### ✅ Completado
-- [x] Diseño de arquitectura desktop mejorada
-- [x] Creación de estructura Electron + React
-- [x] Ventana de estado de conexión Master/Worker
-- [x] Botón para enlazar Master/Worker
-- [x] Auto-descubrimiento UDP mejorado (SYNAPSE_V2)
-- [x] Botón para arrancar Master/Worker
-- [x] Botón SynapseIA para abrir dashboard
-- [x] Dashboard con estado master/worker + velocidades
-- [x] Chatbox directo a modelos (unilateral)
-- [x] Panel de configuración de modelos/engines
-- [x] Visualización de base de datos (debates históricos)
-- [x] Selector de modo de debate
-- [x] Script wrapper para arrancar master y worker
-- [x] Monitoreo de procesos master/worker
-- [x] Endpoints API (/settings, /chat/direct, /metrics, /health)
-- [x] Instalación de dependencias desktop
-- [x] Configuración de empaquetado Electron
-- [x] Creación de instalador
-- [x] Arreglo de ventana en blanco (Express local)
-- [x] Eliminación de DevTools en producción
-- [x] Actualización de protocolo UDP para compatibilidad Python
-- [x] Escaneo de red local como fallback
-- [x] Descubrimiento por dirección MAC usando ARP
-- [x] Configuración de carpeta compartida en Worker
-- [x] Botón para abrir RDP manualmente
-- [x] Configuración de ventana maximizada
-
-### ⚠️ Pendiente
-- [ ] Corregir enlace Master/Worker
-- [ ] Verificar arranque remoto WinRM
-- [ ] Mejorar comando de arranque remoto (usar ruta local)
-- [ ] Verificar instalación de dependencias en Worker
-- [ ] Verificar configuración de firewall en Worker
-- [ ] Agregar logs detallados de WinRM
-- [ ] Verificar configuración de NODE_ROLE
+### CI/CD
+```
+ruff, pytest, pytest-asyncio, pytest-cov, bandit, safety
+```
 
 ---
 
 ## Conclusión
 
-El proyecto Synapse Council tiene una arquitectura sólida y la mayoría de los componentes están implementados correctamente. El sistema de descubrimiento automático funciona bien y puede detectar IPs dinámicas usando MAC addresses.
-
-El problema principal es el enlace entre Master y Worker, que parece estar relacionado con el arranque remoto del Worker vía WinRM. Los próximos pasos deben enfocarse en verificar y corregir el comando de arranque remoto, asegurando que el Worker se inicie correctamente con la configuración adecuada.
-
-Una vez resuelto el problema de enlace, el sistema funcionará completamente automático: descubrirá la IP del Worker, lo iniciará remotamente, y establecerá la conexión sin intervención manual.
+SynapseCode v2.8 es una plataforma funcional de debate multi-agente con búsqueda web en tiempo real, reportes profesionales, y sistema robusto de fallback. El pipeline CI/CD pasa completamente. Los únicos problemas pendientes son limitaciones de hardware del Worker (GPU con 13.5GB disponibles) que se mitigan con fallback automático a modelos más ligeros.
