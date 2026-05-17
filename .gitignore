@@ -1,65 +1,80 @@
-# Dependencies
+# ══════════════════════════════════════════════
+# SynapseCode v2.8 — .gitignore
+# ══════════════════════════════════════════════
+
+# ── Python ───────────────────────────────────
 .venv/
 venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
 *.so
-node_modules/
-.pnpm-store/
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
-# Environment
+# ── Entorno y Secretos ───────────────────────
 .env
 .env.local
 .env.*.local
+*.key
+*.pem
+*.p12
+*.pfx
 
-# Database
+# ── Acceso remoto — NUNCA versionar ──────────
+*.rdp
+*.vnc
+synapse_workers.json
+synapse_workers_*.json
+
+# ── Base de datos ────────────────────────────
 data/*.db
 data/*.db-journal
 data/*.db-wal
 data/*.db-shm
 
-# Browser sessions (Playwright)
+# ── Datos generados en runtime ───────────────
+data/debates/*.md
+data/debates/*.json
+data/reports/*.html
+data/reports/*.pdf
+
+# ── Browser sessions (Playwright) ────────────
 data/browser_sessions/
 *.cookie
 
-# Logs
+# ── Logs ─────────────────────────────────────
 logs/
 *.log
 
-# IDE
+# ── Frontend ─────────────────────────────────
+node_modules/
+.pnpm-store/
+frontend/dist/
+frontend/.vite/
+desktop/node_modules/
+desktop/dist/
+desktop/frontend/dist/
+
+# ── IDE ──────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS
+# ── OS ───────────────────────────────────────
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Build
-build/
-dist/
-*.egg-info/
-
-# Frontend
-frontend/dist/
-frontend/.vite/
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Alembic
-backend/database/migrations/__pycache__/
-backend/database/migrations/versions/__pycache__/
-
-# Test artifacts
-test_results.xml
-test_comprehensive_results.xml
-test_full_results.xml
-data/debates/*.md
+# ── CI artifacts ─────────────────────────────
+test_results*.xml
