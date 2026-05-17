@@ -924,7 +924,7 @@ Máximo 400 palabras.
         session: ConsensusSession,
         original: AgentPosition,
         validations: list[CrossValidation],
-        synthesis: str,
+        _synthesis: str,
     ) -> AgentPosition:
         """Genera posición refinada tras considerar feedback"""
 
