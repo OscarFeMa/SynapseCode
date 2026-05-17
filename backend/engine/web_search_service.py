@@ -117,24 +117,12 @@ class WebSearchService:
         """
         from datetime import UTC, datetime
 
-        # Simple HTTP-based search sources (no browser needed)
-        HTTP_SOURCES = {
-            "wikipedia": {
-                "label": "Wikipedia",
-                "url": "https://en.wikipedia.org/api/rest_v1/page/summary/{topic}",
-            },
-            "duckduckgo": {
-                "label": "DuckDuckGo",
-                "url": "https://html.duckduckgo.com/html/?q={query}",
-            },
-        }
-
         if sites is None:
-            # Default: usar fuentes HTTP simples (sin browser)
-            sites = ["wikipedia", "duckduckgo"]
+            # Default: usar DuckDuckGo search (resultados reales, sin API key)
+            sites = ["duckduckgo_search"]
 
         # Filtrar solo sitios configurados y disponibles
-        available_sites = [s for s in sites if s in SITE_CONFIGS or s in HTTP_SOURCES]
+        available_sites = [s for s in sites if s in SITE_CONFIGS or s == "duckduckgo_search"]
         if not available_sites:
             logger.warning("web_search.no_available_sites", requested=sites)
             return WebContext(
@@ -150,13 +138,16 @@ class WebSearchService:
         )
 
         # Construir query optimizada para cada sitio
-        query = f"Provide a concise, factual summary of: {topic}. Include recent developments, key facts, and current consensus. Be objective and cite sources if possible."
+        # DuckDuckGo search funciona mejor con queries cortas y directas
+        query_ddg = topic
+        # WebAgent queries son más elaborados (para IAs conversacionales)
+        query_web_agent = f"Provide a concise, factual summary of: {topic}. Include recent developments, key facts, and current consensus. Be objective and cite sources if possible."
 
         # Lanzar búsquedas en paralelo
         async def search_one(site: str) -> WebSearchResult:
-            # HTTP-based search (simple, fast, no browser)
-            if site in HTTP_SOURCES:
-                return await self._search_http(site, HTTP_SOURCES[site], topic, query)
+            # DuckDuckGo search via library (real-time results, no browser)
+            if site == "duckduckgo_search":
+                return await self._search_duckduckgo(topic, query_ddg)
 
             # Browser-based search (Playwright)
             if site not in SITE_CONFIGS:
@@ -171,13 +162,13 @@ class WebSearchService:
 
             try:
                 response = await asyncio.wait_for(
-                    self.web_agent.query(site, query),
+                    self.web_agent.query(site, query_web_agent),
                     timeout=timeout_per_site,
                 )
                 return WebSearchResult(
                     site=site,
                     site_label=SITE_CONFIGS[site]["label"],
-                    query=query,
+                    query=query_web_agent,
                     response=response,
                     success=True,
                 )
@@ -186,7 +177,7 @@ class WebSearchService:
                 return WebSearchResult(
                     site=site,
                     site_label=SITE_CONFIGS[site]["label"],
-                    query=query,
+                    query=query_web_agent,
                     response="",
                     success=False,
                     error=f"Timeout after {timeout_per_site}s",
@@ -196,7 +187,7 @@ class WebSearchService:
                 return WebSearchResult(
                     site=site,
                     site_label=SITE_CONFIGS[site]["label"],
-                    query=query,
+                    query=query_web_agent,
                     response="",
                     success=False,
                     error=str(e),
@@ -213,7 +204,7 @@ class WebSearchService:
                     WebSearchResult(
                         site="unknown",
                         site_label="Unknown",
-                        query=query,
+                        query=topic,
                         response="",
                         success=False,
                         error=str(r),
@@ -256,90 +247,112 @@ class WebSearchService:
 
         return web_context
 
-    async def _search_http(
+    async def _search_duckduckgo(
         self,
-        site: str,
-        config: Dict[str, str],
         topic: str,
         query: str,
     ) -> WebSearchResult:
-        """Busqueda HTTP simple (sin browser)"""
-        import httpx
-
-        label = config["label"]
-        url = config["url"]
-
-        headers = {
-            "User-Agent": "SynapseCouncil/2.0 (Research Bot; +https://github.com/OscarFeMa/SynapseCode)",
-            "Accept": "application/json, text/html, text/plain",
-        }
-
+        """Busqueda en tiempo real via DuckDuckGo + trafilatura para contenido completo"""
         try:
-            async with httpx.AsyncClient(timeout=15.0, headers=headers) as client:
-                if site == "wikipedia":
-                    # Wikipedia summary API
-                    search_url = url.format(topic=topic.replace(" ", "_"))
-                    resp = await client.get(search_url)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        text = data.get("extract", "")
-                        if text:
-                            return WebSearchResult(
-                                site=site,
-                                site_label=label,
-                                query=query,
-                                response=text[:2000],
-                                success=True,
-                            )
-                    return WebSearchResult(
-                        site=site,
-                        site_label=label,
-                        query=query,
-                        response="",
-                        success=False,
-                        error=f"No article found (HTTP {resp.status_code})",
+            from ddgs import DDGS
+
+            loop = asyncio.get_event_loop()
+
+            # Paso 1: Buscar URLs en DuckDuckGo
+            results = await loop.run_in_executor(
+                None,
+                lambda: DDGS().text(query, max_results=8),
+            )
+
+            if not results:
+                return WebSearchResult(
+                    site="duckduckgo_search",
+                    site_label="DuckDuckGo Search",
+                    query=query,
+                    response="",
+                    success=False,
+                    error="No results found",
+                )
+
+            # Paso 2: Extraer contenido limpio de las top 3 URLs con trafilatura
+            import trafilatura
+
+            urls_to_fetch = []
+            for r in results[:8]:
+                url = r.get("href", "")
+                title = r.get("title", "")
+                body = r.get("body", "")
+                if url:
+                    urls_to_fetch.append({"url": url, "title": title, "snippet": body})
+
+            # Fetch y extraer contenido de las top 3 URLs en paralelo
+            async def fetch_url(item: dict) -> dict:
+                url = item["url"]
+                try:
+                    downloaded = await loop.run_in_executor(
+                        None,
+                        lambda: trafilatura.fetch_url(url),
                     )
+                    if downloaded:
+                        content = await loop.run_in_executor(
+                            None,
+                            lambda: trafilatura.extract(
+                                downloaded,
+                                include_comments=False,
+                                include_tables=True,
+                            ),
+                        )
+                        if content and len(content) > 100:
+                            return {
+                                "url": url,
+                                "title": item["title"],
+                                "content": content[:2000],
+                                "snippet": item["snippet"],
+                            }
+                except Exception:
+                    pass
+                # Fallback al snippet si falla la extraccion
+                return {
+                    "url": url,
+                    "title": item["title"],
+                    "content": item["snippet"],
+                    "snippet": item["snippet"],
+                }
 
-                elif site == "duckduckgo":
-                    # DuckDuckGo Instant Answer API (no HTML parsing needed)
-                    ddg_url = f"https://api.duckduckgo.com/?q={query.replace(' ', '+')}&format=json&no_html=1"
-                    resp = await client.get(ddg_url)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        abstract = data.get("Abstract", "")
-                        summary = data.get("AbstractText", "")
-                        related = data.get("RelatedTopics", [])
+            fetch_tasks = [fetch_url(item) for item in urls_to_fetch[:3]]
+            fetched = await asyncio.gather(*fetch_tasks)
 
-                        results = []
-                        if abstract:
-                            results.append(f"**{abstract}**")
-                        if summary:
-                            results.append(summary)
-                        for topic in related[:3]:
-                            if "Text" in topic and "Text" in topic:
-                                results.append(topic["Text"])
+            # Construir resultado
+            parts = []
+            for item in fetched:
+                title = item.get("title", "Sin titulo")
+                content = item.get("content", "")
+                url = item.get("url", "")
+                if content:
+                    parts.append(f"**{title}**\n{content}\nFuente: {url}")
 
-                        if results:
-                            return WebSearchResult(
-                                site=site,
-                                site_label=label,
-                                query=query,
-                                response="\n\n".join(results)[:2000],
-                                success=True,
-                            )
-                    return WebSearchResult(
-                        site=site,
-                        site_label=label,
-                        query=query,
-                        response="",
-                        success=False,
-                        error=f"Search failed (HTTP {resp.status_code})",
-                    )
+            if parts:
+                return WebSearchResult(
+                    site="duckduckgo_search",
+                    site_label="DuckDuckGo Search",
+                    query=query,
+                    response="\n\n".join(parts)[:4000],
+                    success=True,
+                )
+
+            return WebSearchResult(
+                site="duckduckgo_search",
+                site_label="DuckDuckGo Search",
+                query=query,
+                response="",
+                success=False,
+                error="No content could be extracted",
+            )
 
         except Exception as e:
             return WebSearchResult(
-                site=site,
-                site_label=label,
+                site="duckduckgo_search",
+                site_label="DuckDuckGo Search",
                 query=query,
                 response="",
                 success=False,

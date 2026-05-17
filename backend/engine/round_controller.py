@@ -57,7 +57,7 @@ class RoundController:
             "analyst_cloud_a",
             "CLOUD",
             "ollama",
-            "llama3.2:latest",
+            "llama3:8b",
             "Analista de Negocio (Master)",
             max_tokens=1000,
         ),

@@ -408,7 +408,7 @@ class SequentialDebateController:
                             "sequential_debate.using_fallback",
                             session_id=session_id,
                             turn=idx,
-                            fallback_model="llama3.2:latest",
+                            fallback_model="llama3:8b",
                         )
 
                         # Crear agente fallback local - asegurar role tiene valor
@@ -427,7 +427,7 @@ class SequentialDebateController:
                             role=fallback_role,
                             node="LOCAL",
                             engine="ollama",
-                            model="llama3.2:latest",
+                            model="llama3:8b",
                             provider="meta",
                             system_prompt=agent_config.system_prompt
                             + "\n\n[Nota: Actúas como respaldo local debido a indisponibilidad del servicio cloud]",
@@ -501,14 +501,84 @@ class SequentialDebateController:
                                 error=str(fallback_error),
                             )
                     else:
-                        turn.status = "failed"
-                        turn.response_received = f"[ERROR: {str(e)}]"
-                        logger.error(
-                            "sequential_debate.turn_failed",
+                        logger.info(
+                            "sequential_debate.local_agent_failed_trying_fallback",
                             session_id=session_id,
                             turn=idx,
-                            error=str(e),
+                            failed_model=agent_config.model,
                         )
+                        fallback_role = agent_config.role if hasattr(agent_config, "role") else AgentRole.REFINER
+                        fallback_agent = DebateAgent(
+                            id=f"{agent_config.id}_fallback",
+                            name=f"{agent_config.name} (Fallback)",
+                            role=fallback_role,
+                            node="LOCAL",
+                            engine="ollama",
+                            model="llama3:8b",
+                            provider="meta",
+                            system_prompt=agent_config.system_prompt
+                            + "\n\n[Nota: Respaldo local - el modelo original falló al generar]",
+                            temperature=agent_config.temperature,
+                            max_tokens=agent_config.max_tokens,
+                        )
+                        try:
+                            response = await self._run_local_agent(fallback_agent, full_prompt, on_model_unload)
+                            turn.response_received = response["text"]
+                            turn.tokens_in = response["tokens_in"]
+                            turn.tokens_out = response["tokens_out"]
+                            turn.latency_ms = response["latency_ms"]
+                            turn.status = "completed (fallback)"
+                            turn.agent = fallback_agent
+                            turn.completed_at = datetime.now()
+
+                            try:
+                                async with AsyncSessionLocal() as db_session:
+                                    from sqlalchemy import update
+
+                                    await db_session.execute(
+                                        update(SequentialDebateTurn)
+                                        .where(SequentialDebateTurn.debate_id == session_id)
+                                        .where(SequentialDebateTurn.turn_number == turn.turn_number)
+                                        .values(
+                                            agent_id=fallback_agent.id,
+                                            agent_name=fallback_agent.name,
+                                            agent_role=fallback_agent.role.value,
+                                            model=fallback_agent.model,
+                                            provider=fallback_agent.provider,
+                                            node=fallback_agent.node,
+                                            engine=fallback_agent.engine,
+                                            response_received=turn.response_received,
+                                            tokens_in=turn.tokens_in,
+                                            tokens_out=turn.tokens_out,
+                                            latency_ms=turn.latency_ms,
+                                            status=turn.status,
+                                            completed_at=turn.completed_at,
+                                        )
+                                    )
+                                    await db_session.commit()
+                            except Exception as db_update_error:
+                                logger.error(
+                                    "sequential_debate.fallback_db_update_failed",
+                                    session_id=session_id,
+                                    turn=idx,
+                                    error=str(db_update_error),
+                                )
+
+                            logger.info(
+                                "sequential_debate.local_fallback_success",
+                                session_id=session_id,
+                                turn=idx,
+                                tokens_out=turn.tokens_out,
+                            )
+                        except Exception as fallback_error:
+                            turn.status = "failed"
+                            turn.response_received = f"[ERROR Local: {str(e)}]\n[ERROR Fallback: {str(fallback_error)}]"
+                            logger.error(
+                                "sequential_debate.local_fallback_failed",
+                                session_id=session_id,
+                                turn=idx,
+                                error=str(fallback_error),
+                            )
 
                 if on_turn_complete:
                     on_turn_complete(turn)
@@ -715,6 +785,82 @@ class SequentialDebateController:
                                 session_id=session_id,
                                 error=str(e),
                             )
+
+                        # Generar informe HTML profesional
+                        try:
+                            from backend.engine.report_generator import save_report, save_pdf_report
+
+                            # Preparar datos de turnos desde la DB
+                            from sqlalchemy import select
+
+                            turns_result = await db_session.execute(
+                                select(SequentialDebateTurn)
+                                .where(SequentialDebateTurn.debate_id == session_id)
+                                .order_by(SequentialDebateTurn.turn_number)
+                            )
+                            db_turns = turns_result.scalars().all()
+                            turns_data = [
+                                {
+                                    "turn_number": t.turn_number,
+                                    "agent_name": t.agent_name,
+                                    "agent_role": t.agent_role,
+                                    "model": t.model,
+                                    "provider": t.provider,
+                                    "prompt_sent": t.prompt_sent,
+                                    "response_received": t.response_received,
+                                    "tokens_in": t.tokens_in,
+                                    "tokens_out": t.tokens_out,
+                                    "latency_ms": t.latency_ms,
+                                    "quality_score": getattr(t, "quality_score", None),
+                                }
+                                for t in db_turns
+                            ]
+
+                            report_data = {
+                                "id": session_id,
+                                "topic": db_debate.topic,
+                                "status": db_debate.status,
+                                "total_tokens_in": db_debate.total_tokens_in,
+                                "total_tokens_out": db_debate.total_tokens_out,
+                                "total_latency_ms": db_debate.total_latency_ms,
+                                "created_at": str(db_debate.created_at),
+                                "completed_at": str(db_debate.completed_at),
+                                "web_context": db_debate.web_context,
+                            }
+
+                            # HTML report
+                            html_path = save_report(
+                                debate_id=session_id,
+                                debate_data=report_data,
+                                turns=turns_data,
+                                verdict=db_debate.final_verdict or "",
+                                structured_report=db_debate.structured_report,
+                            )
+                            logger.info(
+                                "sequential_debate.html_report_generated",
+                                session_id=session_id,
+                                report_path=html_path,
+                            )
+
+                            # PDF report
+                            pdf_path = save_pdf_report(
+                                debate_id=session_id,
+                                debate_data=report_data,
+                                turns=turns_data,
+                                verdict=db_debate.final_verdict or "",
+                                structured_report=db_debate.structured_report,
+                            )
+                            logger.info(
+                                "sequential_debate.pdf_report_generated",
+                                session_id=session_id,
+                                report_path=pdf_path,
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "sequential_debate.report_failed",
+                                session_id=session_id,
+                                error=str(e),
+                            )
             except Exception as e:
                 logger.error(
                     "sequential_debate.final_db_error",
@@ -842,11 +988,18 @@ class SequentialDebateController:
         end_time = datetime.now()
         latency_ms = int((end_time - start_time).total_seconds() * 1000)
 
+        full_text = "".join(response_parts)
+        if not full_text.strip() or tokens_out == 0:
+            raise RuntimeError(
+                f"Local agent {agent.model} ({agent.engine}) returned empty response "
+                f"(model failed to generate, possibly unloaded or GPU OOM)"
+            )
+
         if on_model_unload:
             on_model_unload(agent.model, agent.provider)
 
         result = {
-            "text": "".join(response_parts),
+            "text": full_text,
             "tokens_in": len(prompt.split()),
             "tokens_out": tokens_out,
             "latency_ms": latency_ms,
@@ -1139,7 +1292,7 @@ JSON:"""
             response_text = ""
             async for token in self.local_manager.generate(
                 engine_type=EngineType.OLLAMA,
-                model="llama3.2:latest",
+                model="llama3:8b",
                 prompt=prompt,
                 temperature=0.1,
                 max_tokens=800,
@@ -1160,7 +1313,7 @@ JSON:"""
                 json_str = json_match.group(1) if json_match.lastindex else json_match.group(0)
                 try:
                     report_data = json.loads(json_str)
-                    report_data["generated_by"] = "llama3.2:latest"
+                    report_data["generated_by"] = "llama3:8b"
                     logger.info(
                         "sequential_debate.structured_report.parsed_successfully",
                         session_id=session_id,
@@ -1805,7 +1958,7 @@ JSON:"""
                 role=AgentRole(turn_data.get("agent_role", "analyst")),
                 node=turn_data.get("node", "LOCAL"),
                 engine=turn_data.get("engine", "ollama"),
-                model=turn_data.get("model", "llama3.2:latest"),
+                model=turn_data.get("model", "llama3:8b"),
                 provider=turn_data.get("provider", "meta"),
                 system_prompt="",
                 temperature=0.7,
@@ -2860,13 +3013,13 @@ def get_standard_debate_config(topic: str) -> List[DebateAgent]:
             role=AgentRole.ANALYST,
             node="LOCAL",
             engine="ollama",
-            model="llama3.2:latest",
+            model="llama3:8b",
             provider="meta",
             system_prompt="Analiza el tema propuesto desde una perspectiva técnica y estructurada. "
             "Identifica los puntos clave, supuestos y posibles enfoques. "
-            "Responde en español, máximo 300 palabras.",
+            "Responde en español, máximo 500 palabras.",
             temperature=0.7,
-            max_tokens=500,
+            max_tokens=1000,
         ),
         # 2. Crítica - Mistral AI
         DebateAgent(
@@ -2879,9 +3032,9 @@ def get_standard_debate_config(topic: str) -> List[DebateAgent]:
             provider="mistral",
             system_prompt="Examina críticamente el análisis anterior. Identifica debilidades lógicas, "
             "supuestos no verificados y alternativas no consideradas. "
-            "Sé constructivo pero riguroso. Responde en español, máximo 300 palabras.",
+            "Sé constructivo pero riguroso. Responde en español, máximo 500 palabras.",
             temperature=0.8,
-            max_tokens=500,
+            max_tokens=1000,
         ),
         # 3. Síntesis - Alibaba (Qwen)
         DebateAgent(
@@ -2894,24 +3047,24 @@ def get_standard_debate_config(topic: str) -> List[DebateAgent]:
             provider="alibaba",
             system_prompt="Sintetiza los argumentos presentados hasta ahora. Encuentra puntos de "
             "acuerdo y desacuerdo. Propone un marco integrador. "
-            "Responde en español, máximo 300 palabras.",
+            "Responde en español, máximo 500 palabras.",
             temperature=0.6,
-            max_tokens=500,
+            max_tokens=1000,
         ),
-        # 4. Refinamiento - OpenRouter (Cloud)
+        # 4. Refinamiento - DeepSeek (local reasoning)
         DebateAgent(
-            id="refiner_cloud",
-            name="Refinador Cloud",
+            id="refiner_deepseek",
+            name="Refinador DeepSeek",
             role=AgentRole.REFINER,
-            node="CLOUD",
-            engine="openrouter",
-            model="anthropic/claude-3.5-haiku",
-            provider="anthropic",
+            node="LOCAL",
+            engine="ollama",
+            model="deepseek-r1:7b",
+            provider="deepseek",
             system_prompt="Refina y mejora la síntesis anterior. Considera perspectivas adicionales "
             "y elabora una conclusión bien fundamentada. "
-            "Responde en español, máximo 400 palabras.",
+            "Responde en español, máximo 600 palabras.",
             temperature=0.5,
-            max_tokens=600,
+            max_tokens=1200,
         ),
     ]
 
@@ -2925,10 +3078,11 @@ def get_local_only_config(topic: str) -> List[DebateAgent]:
             role=AgentRole.ANALYST,
             node="LOCAL",
             engine="ollama",
-            model="llama3.2:latest",
+            model="llama3:8b",
             provider="meta",
-            system_prompt="Análisis técnico profundo del tema. Enfoque práctico y estructurado. Máximo 300 palabras.",
+            system_prompt="Análisis técnico profundo del tema. Enfoque práctico y estructurado. Máximo 500 palabras.",
             temperature=0.7,
+            max_tokens=1000,
         ),
         DebateAgent(
             id="critic_mistral",
@@ -2938,8 +3092,9 @@ def get_local_only_config(topic: str) -> List[DebateAgent]:
             engine="ollama",
             model="mistral:7b",
             provider="mistral",
-            system_prompt="Crítica constructiva y rigurosa del análisis. Identificar debilidades. Máximo 300 palabras.",
+            system_prompt="Crítica constructiva y rigurosa del análisis. Identificar debilidades. Máximo 500 palabras.",
             temperature=0.8,
+            max_tokens=1000,
         ),
         DebateAgent(
             id="synth_qwen",
@@ -2950,8 +3105,9 @@ def get_local_only_config(topic: str) -> List[DebateAgent]:
             model="qwen2.5:3b",
             provider="alibaba",
             system_prompt="Síntesis integradora de todos los argumentos. Enfoque oriental pragmatico. "
-            "Máximo 300 palabras.",
+            "Máximo 500 palabras.",
             temperature=0.6,
+            max_tokens=1000,
         ),
         DebateAgent(
             id="refiner_deepseek",
@@ -2961,8 +3117,9 @@ def get_local_only_config(topic: str) -> List[DebateAgent]:
             engine="ollama",
             model="deepseek-r1:7b",
             provider="deepseek",
-            system_prompt="Refinamiento final con reasoning. Considera implicaciones profundas. Máximo 350 palabras.",
+            system_prompt="Refinamiento final con reasoning. Considera implicaciones profundas. Máximo 600 palabras.",
             temperature=0.5,
+            max_tokens=1200,
         ),
     ]
 

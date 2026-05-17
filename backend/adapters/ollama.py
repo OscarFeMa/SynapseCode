@@ -3,6 +3,7 @@ Synapse Council v2.0 - Ollama Adapter
 Cliente async para Ollama API (usa formato nativo, no OpenAI-compatible)
 """
 
+import asyncio
 import json
 from typing import Any, AsyncGenerator, Dict, Optional
 
@@ -93,34 +94,46 @@ class OllamaClient:
     async def warm_model(self, model: str, keep_alive: Optional[int] = None) -> bool:
         """
         Precarga un modelo en memoria sin generar contenido útil.
+        Reintenta hasta 2 veces en caso de HTTP 500 (GPU loading race).
         """
         keep_alive_value = settings.OLLAMA_PRELOAD_KEEP_ALIVE if keep_alive is None else keep_alive
-        try:
-            logger.info("ollama.warm_model.start", model=model, keep_alive=keep_alive_value)
-            client = self.client
-            response = await client.post(
-                f"{self.base_url}/api/generate",
-                json={
-                    "model": model,
-                    "prompt": "",
-                    "stream": False,
-                    "keep_alive": keep_alive_value,
-                    "options": {"num_predict": 0},
-                },
-                timeout=30.0,
-            )
-            if response.status_code == 200:
-                logger.info("ollama.warm_model.success", model=model)
-                return True
-            logger.warning(
-                "ollama.warm_model.failed",
-                model=model,
-                status_code=response.status_code,
-            )
-            return False
-        except Exception as e:
-            logger.warning("ollama.warm_model.error", model=model, error=str(e))
-            return False
+        max_attempts = 2
+        for attempt in range(max_attempts):
+            try:
+                if attempt > 0:
+                    logger.info("ollama.warm_model.retry", model=model, attempt=attempt + 1)
+                    await asyncio.sleep(2)
+                logger.info("ollama.warm_model.start", model=model, keep_alive=keep_alive_value)
+                client = self.client
+                response = await client.post(
+                    f"{self.base_url}/api/generate",
+                    json={
+                        "model": model,
+                        "prompt": "",
+                        "stream": False,
+                        "keep_alive": keep_alive_value,
+                        "options": {"num_predict": 0},
+                    },
+                    timeout=30.0,
+                )
+                if response.status_code == 200:
+                    logger.info("ollama.warm_model.success", model=model)
+                    return True
+                logger.warning(
+                    "ollama.warm_model.failed",
+                    model=model,
+                    status_code=response.status_code,
+                )
+                if response.status_code == 500 and attempt < max_attempts - 1:
+                    continue
+                return False
+            except Exception as e:
+                logger.warning("ollama.warm_model.error", model=model, error=str(e))
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(2)
+                    continue
+                return False
+        return False
 
     async def unload_model(self, model: str) -> bool:
         """Descarga un modelo específico de la RAM del worker
@@ -161,6 +174,41 @@ class OllamaClient:
             logger.error("ollama.unload_model.error", model=model, error=str(e))
             return False
 
+    def _is_cuda_error(self, error_text: str) -> bool:
+        """Detecta errores CUDA que requieren recuperación de GPU"""
+        cuda_indicators = ["cuda error", "cuda out of memory", "shared object initialization failed", "llama runner process has terminated"]
+        return any(indicator in error_text.lower() for indicator in cuda_indicators)
+
+    async def _recover_from_cuda_error(self) -> bool:
+        """Intenta recuperarse de un error CUDA liberando memoria GPU"""
+        try:
+            logger.info("ollama.cuda_recovery.starting")
+            # Intentar descargar todos los modelos conocidos
+            try:
+                tags_response = await self.client.get(f"{self.base_url}/api/tags", timeout=5.0)
+                if tags_response.status_code == 200:
+                    models = tags_response.json().get("models", [])
+                    for m in models[:5]:  # Limitar a 5 para no saturar
+                        model_name = m.get("name", "")
+                        if model_name:
+                            try:
+                                await self.client.post(
+                                    f"{self.base_url}/api/generate",
+                                    json={"model": model_name, "prompt": "", "keep_alive": 0},
+                                    timeout=5.0,
+                                )
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+            # Esperar a que la GPU se recupere
+            await asyncio.sleep(3)
+            logger.info("ollama.cuda_recovery.completed")
+            return True
+        except Exception as e:
+            logger.warning("ollama.cuda_recovery.failed", error=str(e))
+            return False
+
     async def generate(
         self,
         model: str,
@@ -191,63 +239,89 @@ class OllamaClient:
             payload["system"] = system
 
         client = self.client
-        try:
-            logger.info(
-                "ollama.generate.sending_request",
-                model=model,
-                url=f"{self.base_url}/api/generate",
-            )
-            async with client.stream(
-                "POST",
-                f"{self.base_url}/api/generate",
-                json=payload,
-                headers={"Content-Type": "application/json"},
-            ) as response:
-                logger.info("ollama.generate.response_started", status_code=response.status_code)
-                if stream:
-                    token_count = 0
-                    async for line in response.aiter_lines():
-                        if line:
-                            try:
-                                data = json.loads(line)
-                                if "response" in data:
-                                    token_count += 1
-                                    yield data["response"]
-                                if data.get("done", False):
-                                    logger.info(
-                                        "ollama.generate.done",
-                                        model=model,
-                                        tokens_yielded=token_count,
+        max_attempts = 2
+        for attempt in range(max_attempts):
+            try:
+                if attempt > 0:
+                    logger.info("ollama.generate.retry", model=model, attempt=attempt + 1)
+                    if await self._recover_from_cuda_error():
+                        await asyncio.sleep(2)
+                    else:
+                        break
+                logger.info(
+                    "ollama.generate.sending_request",
+                    model=model,
+                    url=f"{self.base_url}/api/generate",
+                )
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/api/generate",
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                ) as response:
+                    logger.info("ollama.generate.response_started", status_code=response.status_code)
+                    if response.status_code != 200:
+                        error_body = await response.aread()
+                        error_text = error_body.decode("utf-8", errors="replace")[:500]
+                        logger.error(
+                            "ollama.generate.http_error",
+                            model=model,
+                            status_code=response.status_code,
+                            error=error_text,
+                        )
+                        if self._is_cuda_error(error_text) and attempt < max_attempts - 1:
+                            continue
+                        raise RuntimeError(f"Ollama generate returned HTTP {response.status_code}: {error_text}")
+                    if stream:
+                        token_count = 0
+                        async for line in response.aiter_lines():
+                            if line:
+                                try:
+                                    data = json.loads(line)
+                                    if "response" in data:
+                                        token_count += 1
+                                        yield data["response"]
+                                    if data.get("done", False):
+                                        logger.info(
+                                            "ollama.generate.done",
+                                            model=model,
+                                            tokens_yielded=token_count,
+                                        )
+                                        break
+                                except json.JSONDecodeError as e:
+                                    logger.warning(
+                                        "ollama.generate.json_decode_error",
+                                        line=line[:100],
+                                        error=str(e),
                                     )
-                                    break
-                            except json.JSONDecodeError as e:
-                                logger.warning(
-                                    "ollama.generate.json_decode_error",
-                                    line=line[:100],
-                                    error=str(e),
-                                )
-                                continue
-                else:
-                    text = ""
-                    async for line in response.aiter_lines():
-                        if line:
-                            try:
-                                data = json.loads(line)
-                                if "response" in data:
-                                    text += data["response"]
-                                if data.get("done", False):
-                                    break
-                            except json.JSONDecodeError:
-                                continue
-                    yield text
-        except Exception as e:
-            logger.error(
-                "ollama.generate.exception",
-                model=model,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-            raise e
+                                    continue
+                    else:
+                        text = ""
+                        async for line in response.aiter_lines():
+                            if line:
+                                try:
+                                    data = json.loads(line)
+                                    if "response" in data:
+                                        text += data["response"]
+                                    if data.get("done", False):
+                                        break
+                                except json.JSONDecodeError:
+                                    continue
+                        yield text
+                    return  # Éxito, salir del retry loop
+            except RuntimeError as e:
+                if attempt < max_attempts - 1 and self._is_cuda_error(str(e)):
+                    logger.warning("ollama.generate.cuda_error_retry", model=model, error=str(e))
+                    continue
+                raise
+            except Exception as e:
+                logger.error(
+                    "ollama.generate.exception",
+                    model=model,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+                raise e
 
     async def chat(self, model: str, messages: list, stream: bool = True) -> AsyncGenerator[str, None]:
         """

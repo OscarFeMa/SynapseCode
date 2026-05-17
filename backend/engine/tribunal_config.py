@@ -63,7 +63,7 @@ def _local_reserve(role: str, temperature: float, max_tokens: int) -> AgentConfi
         slot=f"magistrate_{role}_local_reserve",
         node="LOCAL",
         engine="ollama",
-        model="llama3.2:latest",
+        model="llama3:8b",
         role_label=f"Magistrado de {role.capitalize()} (Reserva Local)",
         temperature=temperature,
         max_tokens=max_tokens,

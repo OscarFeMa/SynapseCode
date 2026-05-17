@@ -317,7 +317,7 @@ class ConsensusDebateController:
         """Genera posición con reintentos y fallback entre modelos"""
 
         # Modelos fallback por si el principal falla
-        fallback_models = ["llama3.2:latest", "mistral:7b", "qwen2.5:3b"]
+        fallback_models = ["llama3:8b", "mistral:7b", "qwen2.5:3b"]
 
         last_error = None
 
