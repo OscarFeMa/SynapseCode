@@ -1,0 +1,11 @@
+version: "3.0"
+security:
+  ignore-cvss-severity-below: 0
+  ignore-cvss-unknown-severity: false
+  ignore-vulnerabilities:
+    70612:
+      reason: "Development dependency only, not exposed in production"
+      expires: "2027-01-01"
+    70613:
+      reason: "Development dependency only, not exposed in production"
+      expires: "2027-01-01"
