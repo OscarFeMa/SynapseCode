@@ -1,0 +1,496 @@
+{
+  "supabase": {
+    "sequential_debates": {
+      "status": 200,
+      "columns": [
+        "id",
+        "topic",
+        "mode",
+        "status",
+        "total_turns",
+        "total_tokens_in",
+        "total_tokens_out",
+        "total_latency_ms",
+        "final_verdict",
+        "transcript_path",
+        "created_at",
+        "completed_at",
+        "synced_at"
+      ],
+      "count_header": "0-0/74",
+      "has_data": true
+    },
+    "sequential_debate_turns": {
+      "status": 200,
+      "columns": [
+        "id",
+        "debate_id",
+        "turn_number",
+        "agent_id",
+        "agent_name",
+        "agent_role",
+        "model",
+        "provider",
+        "node",
+        "engine",
+        "prompt_sent",
+        "response_received",
+        "tokens_in",
+        "tokens_out",
+        "latency_ms",
+        "status",
+        "error_message",
+        "started_at",
+        "completed_at",
+        "synced_at"
+      ],
+      "count_header": "0-0/181",
+      "has_data": true
+    },
+    "consensus_debates": {
+      "status": 200,
+      "columns": [
+        "id",
+        "topic",
+        "status",
+        "total_agents",
+        "max_rounds",
+        "consensus_score",
+        "final_consensus",
+        "bias_analysis",
+        "transcript_path",
+        "total_tokens_in",
+        "total_tokens_out",
+        "total_latency_ms",
+        "created_at",
+        "completed_at",
+        "synced_at"
+      ],
+      "count_header": "0-0/2",
+      "has_data": true
+    },
+    "consensus_rounds": {
+      "status": 200,
+      "columns": [
+        "id",
+        "debate_id",
+        "round_number",
+        "round_type",
+        "global_consensus_score",
+        "converged",
+        "dissent_topics",
+        "synced_at"
+      ],
+      "count_header": "0-0/6",
+      "has_data": true
+    },
+    "consensus_agent_positions": {
+      "status": 200,
+      "columns": [
+        "id",
+        "debate_id",
+        "round_number",
+        "agent_id",
+        "agent_name",
+        "agent_role",
+        "position_text",
+        "confidence",
+        "consensus_score",
+        "supporting_points",
+        "objections_raised",
+        "logical_fallacies",
+        "synced_at"
+      ],
+      "count_header": "0-0/24",
+      "has_data": true
+    },
+    "reductio_absurdum_proofs": {
+      "status": 404,
+      "columns": [],
+      "count_header": "unknown",
+      "has_data": false
+    }
+  },
+  "sqlite": {
+    "agent_calls": {
+      "count": 85,
+      "columns": [
+        "id",
+        "session_id",
+        "round_id",
+        "round_number",
+        "phase",
+        "agent_slot",
+        "node",
+        "engine",
+        "model_name",
+        "role_label",
+        "system_prompt",
+        "user_prompt",
+        "response",
+        "status",
+        "tokens_in",
+        "tokens_out",
+        "latency_ms",
+        "quality_score",
+        "intervention_type",
+        "error_message",
+        "retry_count",
+        "keep_alive_used",
+        "reputation_impact",
+        "started_at",
+        "completed_at"
+      ]
+    },
+    "agent_reputation": {
+      "count": 11,
+      "columns": [
+        "id",
+        "agent_slot",
+        "model_name",
+        "engine",
+        "domain",
+        "reputation_score",
+        "argument_survival_rate",
+        "dialectic_independence",
+        "technical_precision",
+        "total_debates",
+        "last_updated"
+      ]
+    },
+    "config_profiles": {
+      "count": 0,
+      "columns": [
+        "id",
+        "name",
+        "description",
+        "config",
+        "is_default",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "consensus_agent_positions": {
+      "count": 0,
+      "columns": [
+        "id",
+        "debate_id",
+        "round_id",
+        "agent_id",
+        "agent_name",
+        "agent_role",
+        "position_text",
+        "confidence",
+        "consensus_score",
+        "supporting_points",
+        "objections_raised",
+        "logical_fallacies",
+        "created_at"
+      ]
+    },
+    "consensus_debates": {
+      "count": 0,
+      "columns": [
+        "id",
+        "topic",
+        "status",
+        "total_agents",
+        "max_rounds",
+        "consensus_score",
+        "final_consensus",
+        "bias_analysis",
+        "transcript_path",
+        "total_tokens_in",
+        "total_tokens_out",
+        "total_latency_ms",
+        "created_at",
+        "completed_at"
+      ]
+    },
+    "consensus_patterns": {
+      "count": 0,
+      "columns": [
+        "id",
+        "topic_hash",
+        "mode",
+        "consensus_level",
+        "debate_count",
+        "avg_rounds_to_convergence",
+        "avg_tokens_per_debate",
+        "success_rate",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "consensus_rounds": {
+      "count": 0,
+      "columns": [
+        "id",
+        "debate_id",
+        "round_number",
+        "round_type",
+        "global_consensus_score",
+        "converged",
+        "dissent_topics",
+        "created_at"
+      ]
+    },
+    "cross_references": {
+      "count": 18,
+      "columns": [
+        "id",
+        "consumer_call_id",
+        "source_call_id",
+        "context_type"
+      ]
+    },
+    "daily_metrics_snapshot": {
+      "count": 0,
+      "columns": [
+        "id",
+        "date",
+        "total_debates_completed",
+        "total_debates_failed",
+        "total_turns_executed",
+        "total_tokens_generated",
+        "total_cost_usd",
+        "avg_debate_duration_seconds",
+        "unique_topics_count",
+        "active_models_count",
+        "created_at"
+      ]
+    },
+    "debates_aggregate": {
+      "count": 1,
+      "columns": [
+        "id",
+        "debate_type",
+        "topic_text",
+        "topic_hash",
+        "mode",
+        "status",
+        "consensus_level",
+        "rounds_executed",
+        "total_tokens_in",
+        "total_tokens_out",
+        "total_latency_ms",
+        "estimated_cost_usd",
+        "started_at",
+        "completed_at",
+        "duration_seconds",
+        "has_tribunal_verdict",
+        "has_reductio_proofs",
+        "unique_models_count",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "model_performance": {
+      "count": 3,
+      "columns": [
+        "id",
+        "model_name",
+        "provider",
+        "engine",
+        "agent_role",
+        "total_turns",
+        "avg_tokens_out",
+        "avg_latency_ms",
+        "avg_quality_score",
+        "tsa_score_avg",
+        "iid_score_avg",
+        "pvt_score_avg",
+        "efficiency_score_avg",
+        "success_rate",
+        "last_updated"
+      ]
+    },
+    "model_reputation": {
+      "count": 4,
+      "columns": [
+        "id",
+        "model",
+        "provider",
+        "role",
+        "tsa_score",
+        "iid_score",
+        "pvt_score",
+        "efficiency_score",
+        "reputation_score",
+        "total_debates",
+        "total_turns",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "prompt_response_cache": {
+      "count": 0,
+      "columns": [
+        "id",
+        "cache_key",
+        "engine",
+        "model",
+        "node",
+        "temperature",
+        "max_tokens",
+        "prompt_hash",
+        "prompt_embedding",
+        "response_text",
+        "tokens_in",
+        "tokens_out",
+        "latency_ms",
+        "hit_count",
+        "similarity_threshold",
+        "created_at",
+        "last_accessed_at",
+        "expires_at"
+      ]
+    },
+    "reductio_absurdum_proofs": {
+      "count": 0,
+      "columns": [
+        "id",
+        "debate_id",
+        "iteration_number",
+        "proposition",
+        "extreme_case",
+        "contradiction",
+        "is_valid",
+        "confidence_score",
+        "questioning_agent",
+        "challenged_agent",
+        "consensus_areas",
+        "weak_assumptions",
+        "unquestioned_premises",
+        "overall_complacency_risk",
+        "recommendations",
+        "created_at"
+      ]
+    },
+    "rounds": {
+      "count": 6,
+      "columns": [
+        "id",
+        "session_id",
+        "round_number",
+        "status",
+        "convergence_status",
+        "convergence_detail",
+        "started_at",
+        "completed_at"
+      ]
+    },
+    "sequential_debate_turns": {
+      "count": 15,
+      "columns": [
+        "id",
+        "debate_id",
+        "turn_number",
+        "agent_id",
+        "agent_name",
+        "agent_role",
+        "model",
+        "provider",
+        "node",
+        "engine",
+        "prompt_sent",
+        "response_received",
+        "tokens_in",
+        "tokens_out",
+        "latency_ms",
+        "status",
+        "error_message",
+        "started_at",
+        "completed_at"
+      ]
+    },
+    "sequential_debates": {
+      "count": 5,
+      "columns": [
+        "id",
+        "topic",
+        "mode",
+        "status",
+        "total_turns",
+        "total_tokens_in",
+        "total_tokens_out",
+        "total_latency_ms",
+        "final_verdict",
+        "structured_report",
+        "transcript_path",
+        "created_at",
+        "completed_at",
+        "paused_at",
+        "pause_reason"
+      ]
+    },
+    "sessions": {
+      "count": 4,
+      "columns": [
+        "id",
+        "title",
+        "query",
+        "status",
+        "consensus_level",
+        "rounds_executed",
+        "max_rounds",
+        "final_summary",
+        "tribunal_verdict",
+        "config_snapshot",
+        "node_origin",
+        "total_tokens_in",
+        "total_tokens_out",
+        "estimated_cost_usd",
+        "elevated_to_cloud",
+        "elevation_reason",
+        "started_at",
+        "completed_at",
+        "created_at"
+      ]
+    },
+    "supabase_sync_queue": {
+      "count": 0,
+      "columns": [
+        "id",
+        "kind",
+        "debate_id",
+        "payload",
+        "status",
+        "retry_count",
+        "next_attempt_at",
+        "last_error",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "system_events": {
+      "count": 1,
+      "columns": [
+        "id",
+        "session_id",
+        "debate_id",
+        "event_type",
+        "severity",
+        "message",
+        "detail",
+        "created_at"
+      ]
+    },
+    "topics_trending": {
+      "count": 0,
+      "columns": [
+        "id",
+        "date",
+        "topic_hash",
+        "topic_text",
+        "debate_count",
+        "total_turns",
+        "avg_consensus_level",
+        "avg_duration_seconds",
+        "unique_models_count",
+        "created_at",
+        "updated_at"
+      ]
+    }
+  }
+}

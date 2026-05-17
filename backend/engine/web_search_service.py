@@ -109,7 +109,7 @@ class WebSearchService:
 
         Args:
             topic: Tema del debate
-            sites: Lista de sitios a consultar (default: chatgpt, gemini)
+            sites: Lista de sitios a consultar (default: wikipedia, duckduckgo)
             timeout_per_site: Timeout en segundos por sitio
 
         Returns:
@@ -117,12 +117,24 @@ class WebSearchService:
         """
         from datetime import UTC, datetime
 
+        # Simple HTTP-based search sources (no browser needed)
+        HTTP_SOURCES = {
+            "wikipedia": {
+                "label": "Wikipedia",
+                "url": "https://en.wikipedia.org/api/rest_v1/page/summary/{topic}",
+            },
+            "duckduckgo": {
+                "label": "DuckDuckGo",
+                "url": "https://html.duckduckgo.com/html/?q={query}",
+            },
+        }
+
         if sites is None:
-            # Default: usar ChatGPT y Gemini como fuentes principales
-            sites = ["chatgpt", "gemini"]
+            # Default: usar fuentes HTTP simples (sin browser)
+            sites = ["wikipedia", "duckduckgo"]
 
         # Filtrar solo sitios configurados y disponibles
-        available_sites = [s for s in sites if s in SITE_CONFIGS]
+        available_sites = [s for s in sites if s in SITE_CONFIGS or s in HTTP_SOURCES]
         if not available_sites:
             logger.warning("web_search.no_available_sites", requested=sites)
             return WebContext(
@@ -142,6 +154,21 @@ class WebSearchService:
 
         # Lanzar búsquedas en paralelo
         async def search_one(site: str) -> WebSearchResult:
+            # HTTP-based search (simple, fast, no browser)
+            if site in HTTP_SOURCES:
+                return await self._search_http(site, HTTP_SOURCES[site], topic, query)
+
+            # Browser-based search (Playwright)
+            if site not in SITE_CONFIGS:
+                return WebSearchResult(
+                    site=site,
+                    site_label=site,
+                    query=query,
+                    response="",
+                    success=False,
+                    error=f"Unknown site: {site}",
+                )
+
             try:
                 response = await asyncio.wait_for(
                     self.web_agent.query(site, query),
@@ -228,6 +255,96 @@ class WebSearchService:
         )
 
         return web_context
+
+    async def _search_http(
+        self,
+        site: str,
+        config: Dict[str, str],
+        topic: str,
+        query: str,
+    ) -> WebSearchResult:
+        """Busqueda HTTP simple (sin browser)"""
+        import httpx
+
+        label = config["label"]
+        url = config["url"]
+
+        headers = {
+            "User-Agent": "SynapseCouncil/2.0 (Research Bot; +https://github.com/OscarFeMa/SynapseCode)",
+            "Accept": "application/json, text/html, text/plain",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0, headers=headers) as client:
+                if site == "wikipedia":
+                    # Wikipedia summary API
+                    search_url = url.format(topic=topic.replace(" ", "_"))
+                    resp = await client.get(search_url)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        text = data.get("extract", "")
+                        if text:
+                            return WebSearchResult(
+                                site=site,
+                                site_label=label,
+                                query=query,
+                                response=text[:2000],
+                                success=True,
+                            )
+                    return WebSearchResult(
+                        site=site,
+                        site_label=label,
+                        query=query,
+                        response="",
+                        success=False,
+                        error=f"No article found (HTTP {resp.status_code})",
+                    )
+
+                elif site == "duckduckgo":
+                    # DuckDuckGo Instant Answer API (no HTML parsing needed)
+                    ddg_url = f"https://api.duckduckgo.com/?q={query.replace(' ', '+')}&format=json&no_html=1"
+                    resp = await client.get(ddg_url)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        abstract = data.get("Abstract", "")
+                        summary = data.get("AbstractText", "")
+                        related = data.get("RelatedTopics", [])
+
+                        results = []
+                        if abstract:
+                            results.append(f"**{abstract}**")
+                        if summary:
+                            results.append(summary)
+                        for topic in related[:3]:
+                            if "Text" in topic and "Text" in topic:
+                                results.append(topic["Text"])
+
+                        if results:
+                            return WebSearchResult(
+                                site=site,
+                                site_label=label,
+                                query=query,
+                                response="\n\n".join(results)[:2000],
+                                success=True,
+                            )
+                    return WebSearchResult(
+                        site=site,
+                        site_label=label,
+                        query=query,
+                        response="",
+                        success=False,
+                        error=f"Search failed (HTTP {resp.status_code})",
+                    )
+
+        except Exception as e:
+            return WebSearchResult(
+                site=site,
+                site_label=label,
+                query=query,
+                response="",
+                success=False,
+                error=str(e),
+            )
 
     def format_web_context_for_prompt(self, web_context: WebContext) -> str:
         """

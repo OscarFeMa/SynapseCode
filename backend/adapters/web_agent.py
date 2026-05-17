@@ -159,7 +159,7 @@ class WebAgentClient:
         """Lanza navegador persistente con configuraciones anti-detección"""
         from playwright.async_api import async_playwright
 
-        p = await async_playwright().__aenter__()
+        p = await async_playwright().start()
 
         kwargs = dict(
             headless=self.headless,
@@ -241,7 +241,7 @@ class WebAgentClient:
             return response
         finally:
             await browser.close()
-            await p.__aexit__(None, None, None)
+            await p.stop()
 
     # Métodos específicos para compatibilidad hacia atrás
     async def query_chatgpt(self, prompt: str) -> str:
