@@ -8,7 +8,8 @@ import {
   Trash2, 
   Loader2,
   MessageSquare,
-  Hash
+  Hash,
+  Globe,
 } from 'lucide-react'
 import { useSessionList } from '../../hooks/useSession'
 import { deleteSession } from '../../hooks/useSession'
@@ -144,6 +145,12 @@ export function SessionList() {
                       {session.rounds_executed > 0 && (
                         <span>
                           {session.rounds_executed} ronda{session.rounds_executed > 1 ? 's' : ''}
+                        </span>
+                      )}
+                      {session.web_context && (
+                        <span className="flex items-center gap-1 text-cyan-400">
+                          <Globe size={12} />
+                          Web
                         </span>
                       )}
                     </div>

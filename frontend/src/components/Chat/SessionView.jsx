@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Loader2, RefreshCw, Clock, Hash, DollarSign } from 'lucide-react'
+import { ArrowLeft, Loader2, RefreshCw, Clock, Hash, DollarSign, Globe, ChevronDown, ChevronUp } from 'lucide-react'
 import { useSession } from '../../hooks/useSession'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { useSessionStore, useWebSocketStore, useUIStore } from '../../store/useStore'
@@ -16,6 +16,7 @@ export function SessionView() {
   const { agentTokens } = useWebSocketStore()
   const { setCurrentSession } = useSessionStore()
   const { showTribunalPanel } = useUIStore()
+  const [showWebResults, setShowWebResults] = useState(false)
   
   // Set current session in store
   useEffect(() => {
@@ -185,6 +186,47 @@ export function SessionView() {
               <h3 className="text-xs font-medium text-slate-500 uppercase mb-2">Consulta</h3>
               <p className="text-slate-200">{session?.query}</p>
             </div>
+            
+            {/* Web Search Results */}
+            {session?.web_context && (
+              <div className="p-4 bg-slate-900 rounded-lg border border-cyan-500/30">
+                <button
+                  onClick={() => setShowWebResults(!showWebResults)}
+                  className="w-full flex items-center justify-between text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <Globe size={16} className="text-cyan-400" />
+                    <h3 className="text-sm font-semibold text-cyan-400">
+                      Búsqueda Web ({session.web_context.searches?.filter(s => s.success).length || 0} fuentes)
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs">
+                      {new Date(session.web_context.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  {showWebResults ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+                
+                {showWebResults && (
+                  <div className="mt-4 space-y-4 max-h-96 overflow-y-auto">
+                    {session.web_context.searches?.map((result, i) => (
+                      <div key={i} className={`p-3 rounded-lg border ${result.success ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-slate-200">{result.site_label}</span>
+                          <span className={`px-2 py-0.5 rounded text-xs ${result.success ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                            {result.success ? '✅ Disponible' : '❌ Error'}
+                          </span>
+                        </div>
+                        {result.success ? (
+                          <p className="text-sm text-slate-300 whitespace-pre-wrap">{result.response?.slice(0, 1500)}{result.response?.length > 1500 ? '...' : ''}</p>
+                        ) : (
+                          <p className="text-sm text-red-400">{result.error}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* Phase: Analysis */}
             <section>
