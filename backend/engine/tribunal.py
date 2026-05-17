@@ -77,6 +77,7 @@ class TribunalCouncil:
         self.reductio_engine = get_reductio_absurdum_engine()  # Motor de Reducción al Absurdo
         self.role_configs = build_tribunal_config(settings)
         self.MAGISTRATES = {role: role_config.primary for role, role_config in self.role_configs.items()}
+        self.MAGISTRATE_ROLES = self.MAGISTRATES
 
     def get_role_config(self, role: str) -> TribunalRoleConfig:
         return self.role_configs[role]

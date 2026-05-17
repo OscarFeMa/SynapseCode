@@ -4,7 +4,7 @@ Cliente async para DeepSeek API (OpenAI-compatible)
 """
 
 import json
-from typing import AsyncGenerator, Optional
+from typing import Any, AsyncGenerator, Dict, Optional
 
 import httpx
 import structlog
@@ -87,3 +87,24 @@ class DeepSeekClient:
         except Exception as e:
             logger.error("deepseek.request_failed", error=str(e))
             yield f"[Error DeepSeek: {str(e)}]"
+
+    async def health_check(self) -> Dict[str, Any]:
+        """Verifica si la API key es valida listando modelos"""
+        if not self.api_key:
+            return {"status": "unconfigured", "error": "DEEPSEEK_API_KEY no configurada"}
+        try:
+            headers = {"Authorization": f"Bearer {self.api_key}"}
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.get(f"{settings.DEEPSEEK_BASE_URL}/models", headers=headers)
+                if r.status_code == 200:
+                    data = r.json()
+                    return {
+                        "status": "online",
+                        "models_available": len(data.get("data", [])),
+                    }
+                elif r.status_code == 401:
+                    return {"status": "error", "error": "API key invalida"}
+                else:
+                    return {"status": "error", "error": f"HTTP {r.status_code}"}
+        except Exception as e:
+            return {"status": "error", "error": str(e)[:80]}
