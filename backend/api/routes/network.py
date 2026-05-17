@@ -3,7 +3,7 @@ Synapse Council v2.0 - Network API
 Endpoints para gestión del descubrimiento P2P
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/v1/network", tags=["network"])
 
 
 @router.get("/peers")
-async def get_peers() -> Dict[str, Any]:
+async def get_peers() -> dict[str, Any]:
     """Obtiene la lista de nodos activos descubiertos en la red local"""
     return {
         "status": "active" if node_discoverer.is_running else "inactive",

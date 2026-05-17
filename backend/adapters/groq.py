@@ -5,7 +5,8 @@ Cliente async para Groq Cloud API (OpenAI-compatible)
 
 import json
 import time
-from typing import Any, AsyncGenerator, Dict, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
 import httpx
 import structlog
@@ -32,10 +33,10 @@ def _get_semantic_cache():
 class GroqClient:
     """Cliente async para Groq Cloud (Inferencia Ultra-rápida)"""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         self.api_key = api_key or settings.GROQ_API_KEY
         self.base_url = "https://api.groq.com/openai/v1/chat/completions"
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     @property
     def client(self) -> httpx.AsyncClient:
@@ -150,7 +151,7 @@ class GroqClient:
             logger.error("groq.request_failed", error=str(e))
             raise
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """Verifica si la API key es valida listando modelos"""
         if not self.api_key:
             return {"status": "unconfigured", "error": "GROQ_API_KEY no configurada"}

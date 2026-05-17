@@ -4,7 +4,7 @@ Sin impacto en funcionalidad principal.
 """
 
 import time
-from typing import Any, Dict
+from typing import Any
 
 import structlog
 from fastapi import APIRouter
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/v1/debug")
 
 
 @router.get("/system")
-async def system_debug() -> Dict[str, Any]:
+async def system_debug() -> dict[str, Any]:
     """
     Estado de circuit breakers y motores.
     Útil para diagnóstico de problemas sin revisar logs.
@@ -59,7 +59,7 @@ async def system_debug() -> Dict[str, Any]:
 
 
 @router.get("/health-detailed")
-async def health_detailed() -> Dict[str, Any]:
+async def health_detailed() -> dict[str, Any]:
     """
     Health check detallado con información adicional.
     """
@@ -75,7 +75,7 @@ async def health_detailed() -> Dict[str, Any]:
                 conn.execute(text("SELECT 1"))
                 db_status = "ok"
         except Exception as db_error:
-            db_status = f"error: {str(db_error)}"
+            db_status = f"error: {db_error!s}"
 
         return {
             "status": "ok" if db_status == "ok" else "degraded",
@@ -90,7 +90,7 @@ async def health_detailed() -> Dict[str, Any]:
 
 
 @router.get("/config")
-async def debug_config() -> Dict[str, Any]:
+async def debug_config() -> dict[str, Any]:
     """
     Configuración no sensible del sistema.
     """

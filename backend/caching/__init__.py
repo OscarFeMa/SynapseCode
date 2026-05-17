@@ -4,4 +4,4 @@ SynapseCode Caching Module
 
 from backend.caching.semantic_cache import SemanticCacheService, semantic_cache
 
-__all__ = ["semantic_cache", "SemanticCacheService"]
+__all__ = ["SemanticCacheService", "semantic_cache"]

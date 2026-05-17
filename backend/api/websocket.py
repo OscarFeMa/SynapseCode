@@ -5,9 +5,10 @@ Gestiona conexiones WebSocket y streaming de eventos en tiempo real
 
 import asyncio
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Callable, Dict, Optional, Set
+from typing import Any
 
 import structlog
 from fastapi import WebSocket, WebSocketDisconnect
@@ -26,7 +27,7 @@ class WebSocketEvent:
     type: str
     session_id: str
     timestamp: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
 
     def to_json(self) -> str:
         return json.dumps(
@@ -48,13 +49,13 @@ class WebSocketManager:
 
     def __init__(self):
         # session_id -> set de WebSockets conectados
-        self.active_connections: Dict[str, Set[WebSocket]] = {}
+        self.active_connections: dict[str, set[WebSocket]] = {}
         # Callbacks para eventos globales (opcional)
-        self.event_callbacks: Dict[str, list] = {}
+        self.event_callbacks: dict[str, list] = {}
         # Referencias fuertes para evitar Garbage Collection de tareas asíncronas
-        self.background_tasks: Set[asyncio.Task] = set()
+        self.background_tasks: set[asyncio.Task] = set()
         # Buffer de token streaming por sesión/evento/rol
-        self.token_buffers: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        self.token_buffers: dict[str, dict[str, dict[str, Any]]] = {}
         self.token_flush_delay_seconds: float = 0.05
 
     async def connect(self, websocket: WebSocket, session_id: str):
@@ -103,8 +104,8 @@ class WebSocketManager:
         self,
         session_id: str,
         event_type: str,
-        payload: Dict[str, Any],
-        target: Optional[WebSocket] = None,
+        payload: dict[str, Any],
+        target: WebSocket | None = None,
     ):
         """
         Envía evento a cliente(s).
@@ -148,10 +149,10 @@ class WebSocketManager:
                 for conn in disconnected:
                     self.active_connections[session_id].discard(conn)
 
-    def _should_buffer_token_event(self, event_type: str, payload: Dict[str, Any]) -> bool:
+    def _should_buffer_token_event(self, event_type: str, payload: dict[str, Any]) -> bool:
         return event_type.endswith("_token") and isinstance(payload.get("token"), str)
 
-    async def _buffer_token_event(self, session_id: str, event_type: str, payload: Dict[str, Any]) -> None:
+    async def _buffer_token_event(self, session_id: str, event_type: str, payload: dict[str, Any]) -> None:
         role = str(payload.get("role", "default"))
         session_buffers = self.token_buffers.setdefault(session_id, {})
         buffer_key = f"{event_type}:{role}"
@@ -218,8 +219,8 @@ class WebSocketManager:
         self,
         session_id: str,
         event_type: str,
-        payload: Dict[str, Any],
-        target: Optional[WebSocket] = None,
+        payload: dict[str, Any],
+        target: WebSocket | None = None,
     ) -> None:
         event = WebSocketEvent(
             type=event_type,
@@ -253,12 +254,12 @@ class WebSocketManager:
             for conn in disconnected:
                 self.active_connections[session_id].discard(conn)
 
-    async def broadcast_to_all(self, event_type: str, payload: Dict[str, Any]):
+    async def broadcast_to_all(self, event_type: str, payload: dict[str, Any]):
         """Broadcast a TODAS las sesiones (uso con cautela)"""
         for session_id in list(self.active_connections.keys()):
             await self.send_event(session_id, event_type, payload)
 
-    def get_session_stats(self, session_id: str) -> Dict[str, Any]:
+    def get_session_stats(self, session_id: str) -> dict[str, Any]:
         """Obtiene estadísticas de conexiones para una sesión"""
         connections = self.active_connections.get(session_id, set())
         return {
@@ -267,7 +268,7 @@ class WebSocketManager:
             "connected": len(connections) > 0,
         }
 
-    def get_all_stats(self) -> Dict[str, Any]:
+    def get_all_stats(self) -> dict[str, Any]:
         """Obtiene estadísticas globales de WebSockets"""
         return {
             "total_sessions": len(self.active_connections),
@@ -281,7 +282,7 @@ class WebSocketManager:
         Retorna función que puede llamarse asíncronamente desde el motor.
         """
 
-        def callback(event_type: str, payload: Dict[str, Any]):
+        def callback(event_type: str, payload: dict[str, Any]):
             # Usar task_manager para mejor manejo de errores y métricas
             # Nota: task_manager.submit requiere await, pero este callback es sync
             # Creamos task manualmente pero con mejor gestión de errores

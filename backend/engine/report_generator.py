@@ -6,7 +6,7 @@ Genera informes HTML profesionales y vendibles para debates completados.
 import json
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 
@@ -80,10 +80,10 @@ def _get_quality_badge(score: float) -> tuple[str, str]:
 
 
 def generate_professional_report(
-    debate_data: Dict[str, Any],
-    turns: List[Dict[str, Any]],
+    debate_data: dict[str, Any],
+    turns: list[dict[str, Any]],
     verdict: str = "",
-    structured_report: Optional[Dict[str, Any]] = None,
+    structured_report: dict[str, Any] | None = None,
 ) -> str:
     """
     Genera un informe HTML profesional y vendible para un debate.
@@ -891,10 +891,10 @@ def generate_professional_report(
 
 def save_report(
     debate_id: str,
-    debate_data: Dict[str, Any],
-    turns: List[Dict[str, Any]],
+    debate_data: dict[str, Any],
+    turns: list[dict[str, Any]],
     verdict: str = "",
-    structured_report: Optional[Dict[str, Any]] = None,
+    structured_report: dict[str, Any] | None = None,
 ) -> str:
     """
     Genera y guarda un informe HTML profesional.
@@ -914,7 +914,7 @@ def save_report(
     return filepath
 
 
-def generate_report_from_db(debate_id: str) -> Optional[str]:
+def generate_report_from_db(debate_id: str) -> str | None:
     """
     Genera un informe HTML desde la base de datos.
 
@@ -965,7 +965,7 @@ def generate_report_from_db(debate_id: str) -> Optional[str]:
         return None
 
 
-def _generate_bar_chart_svg(labels: List[str], data: List[int], colors: List[str], title: str) -> str:
+def _generate_bar_chart_svg(labels: list[str], data: list[int], colors: list[str], title: str) -> str:
     """Genera un gráfico de barras como SVG inline para PDF"""
     if not data:
         return ""
@@ -993,7 +993,7 @@ def _generate_bar_chart_svg(labels: List[str], data: List[int], colors: List[str
     </svg>"""
 
 
-def _generate_line_chart_svg(labels: List[str], data: List[int], color: str, title: str) -> str:
+def _generate_line_chart_svg(labels: list[str], data: list[int], color: str, title: str) -> str:
     """Genera un gráfico de línea como SVG inline para PDF"""
     if not data:
         return ""
@@ -1038,7 +1038,7 @@ def _generate_line_chart_svg(labels: List[str], data: List[int], color: str, tit
     </svg>"""
 
 
-def _generate_bar_chart_svg_light(labels: List[str], data: List[int], colors: List[str], title: str) -> str:
+def _generate_bar_chart_svg_light(labels: list[str], data: list[int], colors: list[str], title: str) -> str:
     """Genera un gráfico de barras como SVG inline para PDF (tema claro)"""
     if not data:
         return ""
@@ -1078,7 +1078,7 @@ def _generate_bar_chart_svg_light(labels: List[str], data: List[int], colors: Li
     </svg>"""
 
 
-def _generate_line_chart_svg_light(labels: List[str], data: List[int], color: str, title: str) -> str:
+def _generate_line_chart_svg_light(labels: list[str], data: list[int], color: str, title: str) -> str:
     """Genera un gráfico de línea como SVG inline para PDF (tema claro)"""
     if not data:
         return ""
@@ -1133,10 +1133,10 @@ def _generate_line_chart_svg_light(labels: List[str], data: List[int], color: st
 
 
 def generate_pdf_report(
-    debate_data: Dict[str, Any],
-    turns: List[Dict[str, Any]],
+    debate_data: dict[str, Any],
+    turns: list[dict[str, Any]],
     verdict: str = "",
-    structured_report: Optional[Dict[str, Any]] = None,
+    structured_report: dict[str, Any] | None = None,
 ) -> bytes:
     """
     Genera un PDF profesional optimizado para impresión.
@@ -1650,10 +1650,10 @@ def generate_pdf_report(
 
 def save_pdf_report(
     debate_id: str,
-    debate_data: Dict[str, Any],
-    turns: List[Dict[str, Any]],
+    debate_data: dict[str, Any],
+    turns: list[dict[str, Any]],
     verdict: str = "",
-    structured_report: Optional[Dict[str, Any]] = None,
+    structured_report: dict[str, Any] | None = None,
 ) -> str:
     """
     Genera y guarda un PDF profesional.
@@ -1673,7 +1673,7 @@ def save_pdf_report(
     return filepath
 
 
-def generate_pdf_from_db(debate_id: str) -> Optional[str]:
+def generate_pdf_from_db(debate_id: str) -> str | None:
     """
     Genera un PDF desde la base de datos.
 

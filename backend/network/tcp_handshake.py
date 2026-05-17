@@ -6,7 +6,7 @@ Establece conexión directa TCP entre Master y Worker con autenticación.
 import json
 import logging
 import socket
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +24,10 @@ class TCPHandshake:
         """
         self.role = role
         self.secret_token = secret_token
-        self.tcp_socket: Optional[socket.socket] = None
-        self.peer_info: Optional[Dict[str, Any]] = None
+        self.tcp_socket: socket.socket | None = None
+        self.peer_info: dict[str, Any] | None = None
 
-    def connect_to_master(self, master_ip: str, port: int = 54322, worker_info: Dict[str, Any] = None) -> bool:
+    def connect_to_master(self, master_ip: str, port: int = 54322, worker_info: dict[str, Any] = None) -> bool:
         """
         Worker se conecta al Master vía TCP.
 
@@ -71,7 +71,7 @@ class TCPHandshake:
             logger.error(f"Error conectando al Master: {e}")
             return False
 
-    def accept_worker(self, port: int = 54322) -> Optional[Dict[str, Any]]:
+    def accept_worker(self, port: int = 54322) -> dict[str, Any] | None:
         """
         Master acepta conexión de un Worker.
 
@@ -140,7 +140,7 @@ class TCPHandshake:
         finally:
             server_socket.close()
 
-    def send_command(self, command: str) -> Optional[str]:
+    def send_command(self, command: str) -> str | None:
         """
         Envía un comando al peer y retorna la respuesta.
 
@@ -190,6 +190,6 @@ class TCPHandshake:
         """Verifica si hay conexión TCP activa."""
         return self.tcp_socket is not None
 
-    def get_peer_info(self) -> Optional[Dict[str, Any]]:
+    def get_peer_info(self) -> dict[str, Any] | None:
         """Retorna información del peer."""
         return self.peer_info

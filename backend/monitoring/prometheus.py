@@ -5,7 +5,6 @@ Prometheus-style in-process metrics for Synapse Council.
 from __future__ import annotations
 
 from threading import Lock
-from typing import Dict, Optional, Tuple
 
 HTTP_DURATION_BUCKETS = (
     0.005,
@@ -22,11 +21,11 @@ HTTP_DURATION_BUCKETS = (
 )
 
 
-def _labels_key(labels: Dict[str, str]) -> Tuple[Tuple[str, str], ...]:
+def _labels_key(labels: dict[str, str]) -> tuple[tuple[str, str], ...]:
     return tuple(sorted((key, str(value)) for key, value in labels.items()))
 
 
-def _format_labels(labels: Tuple[Tuple[str, str], ...]) -> str:
+def _format_labels(labels: tuple[tuple[str, str], ...]) -> str:
     if not labels:
         return ""
     rendered = ",".join(f'{key}="{value}"' for key, value in labels)
@@ -36,9 +35,9 @@ def _format_labels(labels: Tuple[Tuple[str, str], ...]) -> str:
 class PrometheusMetricsRegistry:
     def __init__(self) -> None:
         self._lock = Lock()
-        self._counters: Dict[str, Dict[Tuple[Tuple[str, str], ...], float]] = {}
-        self._gauges: Dict[str, Dict[Tuple[Tuple[str, str], ...], float]] = {}
-        self._histograms: Dict[str, Dict[str, object]] = {}
+        self._counters: dict[str, dict[tuple[tuple[str, str], ...], float]] = {}
+        self._gauges: dict[str, dict[tuple[tuple[str, str], ...], float]] = {}
+        self._histograms: dict[str, dict[str, object]] = {}
 
     def inc_counter(self, name: str, amount: float = 1.0, **labels: str) -> None:
         with self._lock:
@@ -146,7 +145,7 @@ def record_prompt_cache_miss(cache_type: str) -> None:
     registry.inc_counter("synapse_prompt_cache_misses_total", cache_type=cache_type)
 
 
-def record_debate_completed(total_tokens_out: int, total_latency_ms: int, mode: Optional[str] = None) -> None:
+def record_debate_completed(total_tokens_out: int, total_latency_ms: int, mode: str | None = None) -> None:
     labels = {"mode": mode or "unknown"}
     registry.inc_counter("synapse_debates_completed_total", **labels)
     registry.inc_counter(

@@ -4,7 +4,6 @@ Rate limiting, CORS, seguridad.
 """
 
 import time
-from typing import Dict
 
 import structlog
 from fastapi import Request
@@ -26,7 +25,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
         self.burst_size = burst_size
-        self.requests: Dict[str, list] = {}  # IP → list of timestamps
+        self.requests: dict[str, list] = {}  # IP → list of timestamps
         self._last_cleanup: float = time.time()
         self._cleanup_interval: float = 300.0  # Limpiar IPs inactivas cada 5 min
 

@@ -3,7 +3,7 @@ SynapseCode - Cache Management API
 Endpoints para administrar la caché semántica
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, HTTPException
@@ -30,8 +30,8 @@ class CacheStatsResponse(BaseModel):
 class CacheInvalidateRequest(BaseModel):
     """Modelo de solicitud para invalidar caché"""
 
-    model: Optional[str] = None
-    engine: Optional[str] = None
+    model: str | None = None
+    engine: str | None = None
 
 
 class CacheInvalidateResponse(BaseModel):
@@ -58,7 +58,7 @@ async def get_cache_stats() -> CacheStatsResponse:
         return CacheStatsResponse(**stats)
     except Exception as e:
         logger.error("cache.stats_failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to get cache stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get cache stats: {e!s}")
 
 
 @router.post("/invalidate", response_model=CacheInvalidateResponse)
@@ -77,7 +77,7 @@ async def invalidate_cache(request: CacheInvalidateRequest) -> CacheInvalidateRe
         return CacheInvalidateResponse(count=count, message=message)
     except Exception as e:
         logger.error("cache.invalidate_failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to invalidate cache: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to invalidate cache: {e!s}")
 
 
 @router.post("/cleanup", response_model=CacheCleanupResponse)
@@ -90,11 +90,11 @@ async def cleanup_cache() -> CacheCleanupResponse:
         return CacheCleanupResponse(count=count, message=f"Cleaned up {count} expired cache entries")
     except Exception as e:
         logger.error("cache.cleanup_failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to cleanup cache: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to cleanup cache: {e!s}")
 
 
 @router.get("/health")
-async def cache_health() -> Dict[str, Any]:
+async def cache_health() -> dict[str, Any]:
     """
     Health check del servicio de caché.
     """

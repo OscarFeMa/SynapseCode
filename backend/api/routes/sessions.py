@@ -2,7 +2,7 @@
 Synapse Council v2.0 - Sessions API
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -23,8 +23,8 @@ session_manager = SessionManager()
 
 class CreateSessionRequest(BaseModel):
     query: str
-    title: Optional[str] = None
-    max_rounds: Optional[int] = 1
+    title: str | None = None
+    max_rounds: int | None = 1
 
 
 class SessionResponse(BaseModel):
@@ -35,9 +35,9 @@ class SessionResponse(BaseModel):
 
 
 class SessionDetailResponse(BaseModel):
-    session: Dict[str, Any]
-    rounds: List[Dict[str, Any]]
-    agent_calls: Dict[str, List[Dict[str, Any]]]
+    session: dict[str, Any]
+    rounds: list[dict[str, Any]]
+    agent_calls: dict[str, list[dict[str, Any]]]
 
 
 @router.post("", response_model=SessionResponse)
@@ -88,7 +88,7 @@ async def create_session(
                 await websocket_manager.send_event(
                     session_id=session_id,
                     event_type="session_error",
-                    payload={"error": f"Critical failure: {str(outer_e)}"},
+                    payload={"error": f"Critical failure: {outer_e!s}"},
                 )
 
         background_tasks.add_task(run_session_async, session.id)
@@ -118,7 +118,7 @@ async def get_session(session_id: str, db_session: AsyncSession = Depends(get_db
 
 @router.get("")
 async def list_sessions(
-    status: Optional[str] = None,
+    status: str | None = None,
     limit: int = 50,
     db_session: AsyncSession = Depends(get_db_session),
 ):

@@ -3,8 +3,6 @@ Quality Monitor - Evaluación de calidad de respuestas de agentes.
 Filtra respuestas de baja calidad del contexto.
 """
 
-from typing import List, Tuple
-
 import structlog
 
 logger = structlog.get_logger()
@@ -27,7 +25,7 @@ class QualityMonitor:
         "moderator": ["veredicto", "fundamento", "conclusión"],
     }
 
-    def evaluate(self, content: str, role: str) -> Tuple[float, List[str]]:
+    def evaluate(self, content: str, role: str) -> tuple[float, list[str]]:
         """
         Evalúa calidad de una respuesta.
 
@@ -139,7 +137,7 @@ class QualityMonitor:
 quality_monitor = QualityMonitor()
 
 
-def evaluate_response(content: str, role: str) -> Tuple[float, List[str]]:
+def evaluate_response(content: str, role: str) -> tuple[float, list[str]]:
     """Helper simple para evaluar una respuesta."""
     try:
         return quality_monitor.evaluate(content, role)

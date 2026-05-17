@@ -17,10 +17,11 @@ Por:
 
 import asyncio
 import functools
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Optional
 
 import structlog
 
@@ -46,9 +47,9 @@ class TaskInfo:
     context: str
     created_at: datetime
     status: TaskStatus = TaskStatus.PENDING
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    error: Optional[str] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error: str | None = None
     retry_count: int = 0
     max_retries: int = 0
 
@@ -59,7 +60,7 @@ class TaskConfig:
 
     max_retries: int = 0
     retry_delay_seconds: float = 1.0
-    timeout_seconds: Optional[float] = None
+    timeout_seconds: float | None = None
     log_success: bool = True
     log_failure: bool = True
     propagate_errors: bool = False  # Si True, re-lanza excepciones
@@ -108,7 +109,7 @@ class BackgroundTaskManager:
         self,
         max_concurrent: int = 20,
         queue_size: int = 1000,
-        default_config: Optional[TaskConfig] = None,
+        default_config: TaskConfig | None = None,
     ):
         if self._initialized:
             return
@@ -121,11 +122,11 @@ class BackgroundTaskManager:
         # Estado interno
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._queue: asyncio.Queue = asyncio.Queue(maxsize=queue_size)
-        self._tasks: Dict[str, asyncio.Task] = {}
-        self._task_info: Dict[str, TaskInfo] = {}
+        self._tasks: dict[str, asyncio.Task] = {}
+        self._task_info: dict[str, TaskInfo] = {}
         self._task_counter = 0
         self._shutdown = False
-        self._worker_task: Optional[asyncio.Task] = None
+        self._worker_task: asyncio.Task | None = None
 
         # Métricas
         self._metrics = {
@@ -184,8 +185,8 @@ class BackgroundTaskManager:
         self,
         coro: Callable[[], Any],
         context: str = "unnamed",
-        config: Optional[TaskConfig] = None,
-        task_id: Optional[str] = None,
+        config: TaskConfig | None = None,
+        task_id: str | None = None,
     ) -> str:
         """
         Sube una tarea para ejecución en background.
@@ -245,11 +246,11 @@ class BackgroundTaskManager:
         """
         return await self.submit(coro, context, config=self.default_config)
 
-    def get_task_status(self, task_id: str) -> Optional[TaskInfo]:
+    def get_task_status(self, task_id: str) -> TaskInfo | None:
         """Obtiene el estado de una tarea"""
         return self._task_info.get(task_id)
 
-    def list_active_tasks(self, context_filter: Optional[str] = None) -> List[TaskInfo]:
+    def list_active_tasks(self, context_filter: str | None = None) -> list[TaskInfo]:
         """
         Lista tareas activas (pending o running).
 
@@ -267,7 +268,7 @@ class BackgroundTaskManager:
 
         return active
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Obtiene métricas del manager"""
         return {
             **self._metrics,
@@ -314,7 +315,7 @@ class BackgroundTaskManager:
         task_info.started_at = datetime.now()
 
         attempt = 0
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         while attempt <= config.max_retries:
             attempt += 1
@@ -408,7 +409,7 @@ class BackgroundTaskManager:
         if config.propagate_errors and last_error:
             raise last_error
 
-    def _get_duration_ms(self, task_info: TaskInfo) -> Optional[int]:
+    def _get_duration_ms(self, task_info: TaskInfo) -> int | None:
         """Calcula duración de una tarea en ms"""
         if task_info.started_at and task_info.completed_at:
             delta = task_info.completed_at - task_info.started_at
@@ -425,7 +426,7 @@ def background_task(
     context: str = "decorated_task",
     max_retries: int = 0,
     retry_delay: float = 1.0,
-    timeout: Optional[float] = None,
+    timeout: float | None = None,
     log_success: bool = False,
 ):
     """

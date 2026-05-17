@@ -6,7 +6,7 @@ Caché semántica de respuestas usando embeddings y similitud coseno
 import hashlib
 import json
 from datetime import UTC, datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import structlog
@@ -59,7 +59,7 @@ class SemanticCacheService:
                 self._enabled = False
         return self._embedding_model
 
-    def _generate_embedding(self, text: str) -> Optional[List[float]]:
+    def _generate_embedding(self, text: str) -> list[float] | None:
         """Genera embedding del texto usando sentence-transformers"""
         if not self._enabled:
             return None
@@ -75,7 +75,7 @@ class SemanticCacheService:
             logger.error("semantic_cache.embedding_failed", error=str(e))
             return None
 
-    def _cosine_similarity(self, embedding1: List[float], embedding2: List[float]) -> float:
+    def _cosine_similarity(self, embedding1: list[float], embedding2: list[float]) -> float:
         """Calcula similitud coseno entre dos embeddings"""
         try:
             vec1 = np.array(embedding1)
@@ -88,7 +88,7 @@ class SemanticCacheService:
             logger.error("semantic_cache.similarity_failed", error=str(e))
             return 0.0
 
-    def _generate_cache_key(self, prompt: str, model: str, temperature: float, max_tokens: Optional[int]) -> str:
+    def _generate_cache_key(self, prompt: str, model: str, temperature: float, max_tokens: int | None) -> str:
         """Genera clave única para caché basada en configuración"""
         key_parts = [
             prompt,
@@ -106,8 +106,8 @@ class SemanticCacheService:
         engine: str,
         node: str = "LOCAL",
         temperature: float = 0.0,
-        max_tokens: Optional[int] = None,
-    ) -> Optional[Dict[str, Any]]:
+        max_tokens: int | None = None,
+    ) -> dict[str, Any] | None:
         """
         Busca respuesta en caché semántica.
         Devuelve la respuesta más similar si supera el threshold.
@@ -208,7 +208,7 @@ class SemanticCacheService:
         engine: str,
         node: str = "LOCAL",
         temperature: float = 0.0,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         tokens_in: int = 0,
         tokens_out: int = 0,
         latency_ms: int = 0,
@@ -280,7 +280,7 @@ class SemanticCacheService:
             logger.error("semantic_cache.set_failed", error=str(e))
             return False
 
-    async def invalidate(self, model: Optional[str] = None, engine: Optional[str] = None) -> int:
+    async def invalidate(self, model: str | None = None, engine: str | None = None) -> int:
         """
         Invalida entradas de caché por modelo/engine.
         Devuelve número de entradas eliminadas.
@@ -342,7 +342,7 @@ class SemanticCacheService:
             logger.error("semantic_cache.cleanup_failed", error=str(e))
             return 0
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """
         Devuelve estadísticas de la caché.
         """

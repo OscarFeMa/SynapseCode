@@ -10,8 +10,9 @@ Ejecución configurable por rol, con preferencia local y fallback opcional.
 
 import asyncio
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,11 +51,11 @@ class TribunalVerdict:
     verdict_text: str
     consensus_reached: bool
     iterations_required: int
-    magistrate_opinions: Dict[str, MagistrateOpinion]
+    magistrate_opinions: dict[str, MagistrateOpinion]
     evidence_score: int
     risk_score: int
     alignment_score: int
-    dissent_areas: Optional[str] = None
+    dissent_areas: str | None = None
 
 
 class TribunalCouncil:
@@ -92,10 +93,10 @@ class TribunalCouncil:
         phase: str,
         prompt: str,
         db_session: AsyncSession,
-        on_event: Optional[Callable[[str, Any], None]] = None,
+        on_event: Callable[[str, Any], None] | None = None,
     ) -> AgentResult:
         """Calls a magistrate using primary config, then configured fallbacks."""
-        last_result: Optional[AgentResult] = None
+        last_result: AgentResult | None = None
         role_config = self.get_role_config(role)
 
         for attempt, config in enumerate(role_config.chain, start=1):
@@ -162,8 +163,8 @@ class TribunalCouncil:
         local_synthesis: str,
         cloud_synthesis: str,
         db_session: AsyncSession,
-        on_event: Optional[Callable[[str, Any], None]] = None,
-        web_context: Optional[str] = None,
+        on_event: Callable[[str, Any], None] | None = None,
+        web_context: str | None = None,
     ) -> TribunalVerdict:
         """
         Emite veredicto mediante Protocolo de Consenso Forzado
@@ -178,7 +179,7 @@ class TribunalCouncil:
         if on_event:
             on_event("tribunal_started", {"round_number": round_number})
 
-        opinions_history: Dict[str, list] = {
+        opinions_history: dict[str, list] = {
             "evidence": [],
             "risk": [],
             "alignment": [],
@@ -511,7 +512,7 @@ Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} itera
         if on_event:
             on_event("tribunal_started", {"round_number": round_number})
 
-        opinions_history: Dict[str, list] = {
+        opinions_history: dict[str, list] = {
             "evidence": [],
             "risk": [],
             "alignment": [],
@@ -814,9 +815,9 @@ Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} itera
     async def _run_magistrate_self_challenge(
         self,
         session_id: str,
-        opinions_history: Dict[str, list],
+        opinions_history: dict[str, list],
         iteration: int,
-        on_event: Optional[Callable[[str, Any], None]] = None,
+        on_event: Callable[[str, Any], None] | None = None,
     ):
         """
         FASE DE AUTO-CUESTIONAMIENTO (Ronda 2 del Tribunal)

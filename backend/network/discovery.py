@@ -9,7 +9,7 @@ import json
 import platform
 import socket
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 
@@ -44,14 +44,14 @@ class NodeDiscoverer:
     """Gestor principal de descubrimiento P2P"""
 
     def __init__(self):
-        self.peers: Dict[str, Dict[str, Any]] = {}
+        self.peers: dict[str, dict[str, Any]] = {}
         self.peer_ttl = settings.DISCOVERY_INTERVAL * 3
         self.is_running = False
-        self._broadcast_task: Optional[asyncio.Task] = None
-        self._transport: Optional[asyncio.DatagramTransport] = None
+        self._broadcast_task: asyncio.Task | None = None
+        self._transport: asyncio.DatagramTransport | None = None
         self.node_id = f"{settings.NODE_ROLE.lower()}-{int(time.time())}"
 
-    def handle_beacon(self, message: Dict[str, Any], sender_ip: str):
+    def handle_beacon(self, message: dict[str, Any], sender_ip: str):
         """Procesa un beacon recibido (valida magic string)"""
         # Validar que sea nuestro protocolo
         if message.get("magic") != DISCOVERY_MAGIC:
@@ -85,7 +85,7 @@ class NodeDiscoverer:
                 logger.info("network.worker_linked", ip=sender_ip)
                 settings.update_worker_host(sender_ip)
 
-    def _get_broadcast_addresses(self) -> List[str]:
+    def _get_broadcast_addresses(self) -> list[str]:
         """Obtiene todas las direcciones de broadcast posibles"""
         addresses = [BROADCAST_ADDR]  # Broadcast global
 

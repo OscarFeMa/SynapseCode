@@ -5,7 +5,7 @@ Gestiona agregaciones de datos para análisis histórico de debates
 
 import hashlib
 from datetime import UTC, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy import and_, func, select
@@ -35,7 +35,7 @@ class WarehouseManager:
     """
 
     def __init__(self):
-        self._hash_cache: Dict[str, str] = {}
+        self._hash_cache: dict[str, str] = {}
 
     def _hash_topic(self, topic: str) -> str:
         """Genera hash SHA256 del topic para agrupación"""
@@ -376,7 +376,7 @@ class WarehouseManager:
             pattern.success_rate = (pattern.success_rate * pattern.debate_count + success) / total_debates
             pattern.updated_at = datetime.now(UTC)
 
-    async def _update_model_performance(self, db: AsyncSession, turns: List[SequentialDebateTurn]):
+    async def _update_model_performance(self, db: AsyncSession, turns: list[SequentialDebateTurn]):
         """Actualiza tabla model_performance desde turns"""
         for turn in turns:
             # Buscar registro existente
@@ -411,7 +411,7 @@ class WarehouseManager:
                 perf.success_rate = (perf.success_rate * perf.total_turns + success) / total_turns
                 perf.last_updated = datetime.now(UTC)
 
-    async def _recalculate_model_performance(self, db: AsyncSession, turns: List[SequentialDebateTurn]):
+    async def _recalculate_model_performance(self, db: AsyncSession, turns: list[SequentialDebateTurn]):
         """Recalcula modelos afectados desde turns para que el reproceso sea idempotente."""
         affected_keys = {(turn.model, turn.agent_role) for turn in turns}
 
@@ -527,7 +527,7 @@ class WarehouseManager:
         snapshot.unique_topics_count = len({item.topic_hash for item in matching})
         snapshot.active_models_count = max(item.unique_models_count for item in matching)
 
-    def _consensus_to_float(self, consensus_level: Optional[str]) -> Optional[float]:
+    def _consensus_to_float(self, consensus_level: str | None) -> float | None:
         """Convierte consensus_level string a float 0-1"""
         if not consensus_level:
             return None
@@ -538,7 +538,7 @@ class WarehouseManager:
         }
         return mapping.get(consensus_level, None)
 
-    async def sync_to_supabase(self, table_name: str, data: Dict[str, Any]) -> bool:
+    async def sync_to_supabase(self, table_name: str, data: dict[str, Any]) -> bool:
         """
         Sincroniza datos a Supabase usando el queue existente.
         """
@@ -558,7 +558,7 @@ class WarehouseManager:
             logger.error("warehouse.sync_failed", table=table_name, error=str(e))
             return False
 
-    async def backfill_historical_data(self) -> Dict[str, int]:
+    async def backfill_historical_data(self) -> dict[str, int]:
         """
         Procesa todos los debates históricos para poblar el warehouse.
         Útil para inicializar el warehouse con datos existentes.

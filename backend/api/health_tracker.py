@@ -6,7 +6,7 @@ Mantiene estado persistente entre health checks:
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -15,13 +15,13 @@ class ServiceHealthState:
 
     name: str
     status: str = "unknown"
-    last_error: Optional[str] = None
+    last_error: str | None = None
     consecutive_failures: int = 0
     total_checks: int = 0
     total_failures: int = 0
-    first_check_time: Optional[float] = None
-    last_check_time: Optional[float] = None
-    last_ok_time: Optional[float] = None
+    first_check_time: float | None = None
+    last_check_time: float | None = None
+    last_ok_time: float | None = None
     uptime_seconds: float = 0.0
     avg_response_ms: float = 0.0
     _response_times: list = field(default_factory=list)
@@ -36,7 +36,7 @@ class ServiceHealthState:
     def is_healthy(self) -> bool:
         return self.status in ("healthy", "online", "available", "skipped")
 
-    def record_check(self, status: str, error: Optional[str] = None, response_ms: float = 0.0):
+    def record_check(self, status: str, error: str | None = None, response_ms: float = 0.0):
         now = time.time()
         self.total_checks += 1
         self.last_check_time = now
@@ -58,7 +58,7 @@ class ServiceHealthState:
             self.total_failures += 1
             self.last_error = error
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "status": self.status,
             "lastError": self.last_error,
@@ -76,7 +76,7 @@ class HealthStateTracker:
     """Singleton que mantiene estado de salud de todos los servicios"""
 
     _instance: Optional["HealthStateTracker"] = None
-    _states: Dict[str, ServiceHealthState] = {}
+    _states: dict[str, ServiceHealthState] = {}
 
     def __new__(cls):
         if cls._instance is None:
@@ -92,16 +92,16 @@ class HealthStateTracker:
         self,
         service_name: str,
         status: str,
-        error: Optional[str] = None,
+        error: str | None = None,
         response_ms: float = 0.0,
     ):
         state = self.get_state(service_name)
         state.record_check(status, error, response_ms)
 
-    def get_all_states(self) -> Dict[str, Dict[str, Any]]:
+    def get_all_states(self) -> dict[str, dict[str, Any]]:
         return {name: state.to_dict() for name, state in self._states.items()}
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         total = len(self._states)
         healthy = sum(1 for s in self._states.values() if s.is_healthy)
         degraded = sum(1 for s in self._states.values() if s.consecutive_failures > 0 and s.status != "skipped")

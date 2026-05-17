@@ -8,8 +8,9 @@ Controla el flujo de una ronda de debate:
 """
 
 import uuid
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -134,9 +135,9 @@ class RoundController:
         query: str,
         db_session: AsyncSession,
         max_rounds: int = 3,
-        previous_context: Optional[str] = None,
-        on_event: Optional[Callable[[str, Any], None]] = None,
-    ) -> Dict[str, Any]:
+        previous_context: str | None = None,
+        on_event: Callable[[str, Any], None] | None = None,
+    ) -> dict[str, Any]:
         """
         Ejecuta una ronda completa de debate (Fases 1-3, Tribunal en Fase 2)
 
@@ -322,9 +323,9 @@ class RoundController:
         round_number: int,
         query: str,
         db_session: AsyncSession,
-        previous_context: Optional[str] = None,
-        on_event: Optional[Callable] = None,
-    ) -> Dict[str, AgentResult]:
+        previous_context: str | None = None,
+        on_event: Callable | None = None,
+    ) -> dict[str, AgentResult]:
         """Fase 1: Ejecuta 4 analistas en paralelo"""
 
         # Construir prompts
@@ -386,10 +387,10 @@ class RoundController:
         session_id: str,
         round_id: str,
         round_number: int,
-        analysis_results: Dict[str, AgentResult],
+        analysis_results: dict[str, AgentResult],
         db_session: AsyncSession,
-        on_event: Optional[Callable] = None,
-    ) -> Dict[str, AgentResult]:
+        on_event: Callable | None = None,
+    ) -> dict[str, AgentResult]:
         """Fase 2: Crítica con cruce híbrido"""
 
         # Construir configs de críticos según mapeo
@@ -420,7 +421,7 @@ class RoundController:
 
         # Construir prompts con el cruce
         prompts = {}
-        critique_sources: Dict[str, str] = {}
+        critique_sources: dict[str, str] = {}
         for config in critique_configs:
             target_slot = self.CRITIQUE_MAPPING[config.slot][0]
             target_analysis = analysis_results.get(target_slot)
@@ -493,11 +494,11 @@ class RoundController:
         round_id: str,
         round_number: int,
         query: str,
-        analysis_results: Dict[str, AgentResult],
-        critique_results: Dict[str, AgentResult],
+        analysis_results: dict[str, AgentResult],
+        critique_results: dict[str, AgentResult],
         db_session: AsyncSession,
-        on_event: Optional[Callable] = None,
-    ) -> Dict[str, AgentResult]:
+        on_event: Callable | None = None,
+    ) -> dict[str, AgentResult]:
         """Fase 3: Síntesis por nodo"""
 
         # Separar por nodo

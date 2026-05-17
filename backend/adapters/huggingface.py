@@ -10,7 +10,8 @@ Se mantiene el adapter para compatibilidad, pero no hay endpoints
 gratuitos funcionales actualmente.
 """
 
-from typing import Any, AsyncGenerator, Dict, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
 import structlog
 
@@ -23,13 +24,13 @@ logger = structlog.get_logger()
 class HuggingFaceClient:
     """Cliente informativo - HuggingFace free Inference API no disponible"""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         self.api_key = api_key or settings.HF_TOKEN
 
-    def list_free_models(self) -> Dict[str, str]:
+    def list_free_models(self) -> dict[str, str]:
         return {}
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         if not self.api_key:
             return {
                 "status": "unconfigured",

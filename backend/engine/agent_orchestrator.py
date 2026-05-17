@@ -5,9 +5,9 @@ Orquesta llamadas a agentes con paralelismo, persistencia y cross-references
 
 import asyncio
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Dict, List, Optional
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,11 +47,11 @@ class AgentResult:
     slot: str
     node: str
     status: str  # COMPLETED, FAILED, TIMEOUT
-    response: Optional[str] = None
+    response: str | None = None
     tokens_in: int = 0
     tokens_out: int = 0
     latency_ms: int = 0
-    error_message: Optional[str] = None
+    error_message: str | None = None
     reputation_score: float = 0.5  # Score EMA del modelo+rol
     model: str = ""
     role: str = ""
@@ -140,7 +140,7 @@ class AgentOrchestrator:
         system_prompt: str,
         user_prompt: str,
         db_session: AsyncSession,
-        on_token: Optional[Callable[[str], None]] = None,
+        on_token: Callable[[str], None] | None = None,
     ) -> AgentResult:
         """
         Llama a un agente individual con persistencia completa
@@ -442,11 +442,11 @@ class AgentOrchestrator:
         round_id: str,
         round_number: int,
         phase: str,
-        agent_configs: List[AgentConfig],
-        prompts: Dict[str, tuple],  # {slot: (system_prompt, user_prompt)}
+        agent_configs: list[AgentConfig],
+        prompts: dict[str, tuple],  # {slot: (system_prompt, user_prompt)}
         db_session: AsyncSession,
-        on_agent_token: Optional[Callable[[str, str], None]] = None,  # (slot, token)
-    ) -> Dict[str, AgentResult]:
+        on_agent_token: Callable[[str, str], None] | None = None,  # (slot, token)
+    ) -> dict[str, AgentResult]:
         """
         Llama múltiples agentes en PARALELO con asyncio.gather().
         Retorna dict: {slot: AgentResult}
@@ -476,13 +476,13 @@ class AgentOrchestrator:
         tasks = [_call_one(cfg) for cfg in agent_configs]
         results = await asyncio.gather(*tasks)
 
-        output: Dict[str, AgentResult] = {slot: res for slot, res in results}
+        output: dict[str, AgentResult] = {slot: res for slot, res in results}
         return output
 
     async def create_cross_references(
         self,
         consumer_call_id: str,
-        source_call_ids: List[str],
+        source_call_ids: list[str],
         context_type: str,
         db_session: AsyncSession,
     ):
@@ -507,7 +507,7 @@ class AgentOrchestrator:
             type=context_type,
         )
 
-    def check_failure_threshold(self, results: Dict[str, AgentResult], threshold_percent: float = 0.5) -> bool:
+    def check_failure_threshold(self, results: dict[str, AgentResult], threshold_percent: float = 0.5) -> bool:
         """
         Verifica si se superó el umbral de fallos (>50% por defecto)
         Retorna True si se debe abortar la sesión

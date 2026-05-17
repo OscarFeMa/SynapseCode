@@ -5,7 +5,7 @@ Endpoints para debate secuencial multi-modelo
 
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
 from pydantic import BaseModel
@@ -41,9 +41,9 @@ class DebateRequest(BaseModel):
 
     topic: str
     mode: str = "standard"  # standard, local_only, custom
-    max_turns: Optional[int] = None
+    max_turns: int | None = None
     include_cloud: bool = True
-    agents: Optional[List[Dict[str, Any]]] = None  # Configuración personalizada de agentes
+    agents: list[dict[str, Any]] | None = None  # Configuración personalizada de agentes
 
 
 class DebateAgentResponse(BaseModel):
@@ -60,8 +60,8 @@ class DebateAgentResponse(BaseModel):
     tokens_out: int
     latency_ms: int
     status: str
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
+    started_at: datetime | None
+    completed_at: datetime | None
 
 
 class DebateResponse(BaseModel):
@@ -70,13 +70,13 @@ class DebateResponse(BaseModel):
     session_id: str
     topic: str
     status: str
-    turns: List[DebateAgentResponse]
-    final_verdict: Optional[str]
+    turns: list[DebateAgentResponse]
+    final_verdict: str | None
     total_tokens_in: int
     total_tokens_out: int
     total_latency_ms: int
     created_at: datetime
-    completed_at: Optional[datetime]
+    completed_at: datetime | None
 
 
 class DebateStatusResponse(BaseModel):
@@ -84,7 +84,7 @@ class DebateStatusResponse(BaseModel):
 
     session_id: str
     status: str
-    current_turn: Optional[int]
+    current_turn: int | None
     total_turns: int
     topic: str
 
@@ -94,24 +94,24 @@ class DebateCreateResponse(BaseModel):
     topic: str
     status: str
     mode: str
-    total_turns: Optional[int] = None
-    max_iterations: Optional[int] = None
-    total_agents: Optional[int] = None
-    features: Optional[List[str]] = None
+    total_turns: int | None = None
+    max_iterations: int | None = None
+    total_agents: int | None = None
+    features: list[str] | None = None
 
 
 class DebateContinueRequest(BaseModel):
     """Request para continuar un debate existente"""
 
-    agents: Optional[List[Dict[str, Any]]] = None
-    max_additional_turns: Optional[int] = None
-    continuation_prompt: Optional[str] = None
+    agents: list[dict[str, Any]] | None = None
+    max_additional_turns: int | None = None
+    continuation_prompt: str | None = None
 
 
 class DebatePauseRequest(BaseModel):
     """Request para pausar un debate"""
 
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class DebateResumeResponse(BaseModel):
@@ -119,8 +119,8 @@ class DebateResumeResponse(BaseModel):
     topic: str
     status: str
     turns_completed: int
-    paused_at: Optional[datetime] = None
-    pause_reason: Optional[str] = None
+    paused_at: datetime | None = None
+    pause_reason: str | None = None
 
 
 class DebateTranscriptResponse(BaseModel):
@@ -130,13 +130,13 @@ class DebateTranscriptResponse(BaseModel):
 
 class DebateReportResponse(BaseModel):
     session_id: str
-    structured_report: Dict[str, Any]
+    structured_report: dict[str, Any]
     source: str
 
 
 class DebateListResponse(BaseModel):
     count: int
-    sessions: List[Dict[str, Any]]
+    sessions: list[dict[str, Any]]
 
 
 @router.get("/list", response_model=DebateListResponse)
@@ -292,7 +292,7 @@ async def list_debate_history(limit: int = 50):
 
 
 @router.get("/reputation")
-async def list_reputations(min_turns: int = 1) -> Dict[str, Any]:
+async def list_reputations(min_turns: int = 1) -> dict[str, Any]:
     """
     Lista reputaciones de todos los modelos.
     Requiere: AGENT_REPUTATION_ENABLED=true en .env
@@ -304,11 +304,11 @@ async def list_reputations(min_turns: int = 1) -> Dict[str, Any]:
         return {"status": "ok", "count": len(reps), "reputations": reps}
     except Exception as e:
         # logger.error("reputation.list_error", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Error listing reputations: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error listing reputations: {e!s}")
 
 
 @router.get("/reputation/{model}/{role}")
-async def get_reputation(model: str, role: str) -> Dict[str, Any]:
+async def get_reputation(model: str, role: str) -> dict[str, Any]:
     """
     Obtiene reputación específica de un modelo para un rol.
     """
@@ -325,7 +325,7 @@ async def get_reputation(model: str, role: str) -> Dict[str, Any]:
         raise
     except Exception as e:
         # logger.error("reputation.get_error", model=model, role=role, error=str(e))
-        raise HTTPException(status_code=500, detail=f"Error getting reputation: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting reputation: {e!s}")
 
 
 @router.post("/create", status_code=202, response_model=DebateCreateResponse)
@@ -760,7 +760,7 @@ class ConsensusRequest(BaseModel):
     """Request para crear debate de consenso"""
 
     topic: str
-    max_rounds: Optional[int] = 5
+    max_rounds: int | None = 5
 
 
 @router.post("/consensus/create", status_code=202, response_model=DebateCreateResponse)
@@ -806,8 +806,8 @@ class IterativeDebateRequest(BaseModel):
 
     topic: str
     mode: str = "iterative"
-    max_iterations: Optional[int] = 3
-    agents: Optional[List[Dict[str, Any]]] = None
+    max_iterations: int | None = 3
+    agents: list[dict[str, Any]] | None = None
 
 
 @router.post("/create/iterative", status_code=202, response_model=DebateCreateResponse)
@@ -963,7 +963,7 @@ def _build_clean_turns(session) -> list:
     return turns
 
 
-def _serialize_turn(turn) -> Dict[str, Any]:
+def _serialize_turn(turn) -> dict[str, Any]:
     """Serializa un turno a formato estructurado uniforme."""
     if hasattr(turn, "turn_number"):
         role_value = turn.agent.role.value if hasattr(turn.agent.role, "value") else str(turn.agent.role)
@@ -1016,7 +1016,7 @@ def _serialize_turn(turn) -> Dict[str, Any]:
     }
 
 
-def _serialize_iterations(session) -> List[Dict[str, Any]]:
+def _serialize_iterations(session) -> list[dict[str, Any]]:
     """Serializa iteraciones si existen en memoria."""
     iterations = []
     for iteration in getattr(session, "iterations", []) or []:
@@ -1045,7 +1045,7 @@ def _serialize_iterations(session) -> List[Dict[str, Any]]:
     return iterations
 
 
-def _build_structured_export_from_session(session) -> Dict[str, Any]:
+def _build_structured_export_from_session(session) -> dict[str, Any]:
     """Construye exportación estructurada enriquecida desde sesión en memoria."""
     serialized_turns = [_serialize_turn(turn) for turn in session.turns if turn.status.startswith("completed")]
     total_tokens_out = sum(turn["metrics"]["tokens_out"] for turn in serialized_turns)
@@ -1079,7 +1079,7 @@ def _build_structured_export_from_session(session) -> Dict[str, Any]:
     return export
 
 
-def _build_structured_export_from_db(session_id: str, debate_data: Dict[str, Any]) -> Dict[str, Any]:
+def _build_structured_export_from_db(session_id: str, debate_data: dict[str, Any]) -> dict[str, Any]:
     """Construye exportación estructurada enriquecida desde datos persistidos."""
     serialized_turns = [
         _serialize_turn(turn)

@@ -12,9 +12,9 @@ from backend.adapters.web_agent import WebAgentClient
 
 __all__ = [
     "BaseOpenAICompatibleClient",
-    "OllamaClient",
-    "LMStudioClient",
     "JanClient",
+    "LMStudioClient",
+    "OllamaClient",
     "OpenRouterClient",
     "WebAgentClient",
 ]

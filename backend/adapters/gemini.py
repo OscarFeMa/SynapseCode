@@ -5,7 +5,8 @@ Cliente async para Google Gemini API (REST)
 
 import json
 import time
-from typing import Any, AsyncGenerator, Dict, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
 import httpx
 import structlog
@@ -32,10 +33,10 @@ def _get_semantic_cache():
 class GeminiClient:
     """Cliente async para Google Gemini (AI Studio)"""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         self.api_key = api_key or settings.GEMINI_API_KEY
         self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     @property
     def client(self) -> httpx.AsyncClient:
@@ -192,7 +193,7 @@ class GeminiClient:
             logger.error("gemini.request_failed", error=str(e))
             raise
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """Verifica si la API key es valida listando modelos disponibles"""
         if not self.api_key:
             return {"status": "unconfigured", "error": "GEMINI_API_KEY no configurada"}

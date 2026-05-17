@@ -8,7 +8,8 @@ import asyncio
 import json
 import time
 from abc import ABC, abstractmethod
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
 import httpx
 import structlog
@@ -39,15 +40,15 @@ class BaseOpenAICompatibleClient(ABC):
         base_url: str,
         timeout: int = 120,
         max_retries: int = 2,
-        api_key: Optional[str] = None,
-        extra_headers: Optional[Dict[str, str]] = None,
+        api_key: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ):
         self.base_url = base_url
         self.timeout = timeout
         self.max_retries = max_retries
         self.api_key = api_key
         self.extra_headers = extra_headers or {}
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     @property
     def client(self) -> httpx.AsyncClient:
@@ -62,11 +63,11 @@ class BaseOpenAICompatibleClient(ABC):
             await self._client.aclose()
 
     @abstractmethod
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """Verifica conexión con el servicio"""
         ...
 
-    def _build_headers(self) -> Dict[str, str]:
+    def _build_headers(self) -> dict[str, str]:
         """Construye headers para la petición"""
         headers = {"Content-Type": "application/json"}
         if self.api_key:
@@ -77,9 +78,9 @@ class BaseOpenAICompatibleClient(ABC):
     async def chat_completion(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         stream: bool = True,
     ) -> AsyncGenerator[str, None]:
         """
@@ -231,7 +232,7 @@ class BaseOpenAICompatibleClient(ABC):
         model: str,
         prompt: str,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
     ) -> str:
         """Text completion simple (convierte a chat format)"""
         messages = [{"role": "user", "content": prompt}]
@@ -240,7 +241,7 @@ class BaseOpenAICompatibleClient(ABC):
             result += token
         return result
 
-    async def _check_models_endpoint(self) -> Dict[str, Any]:
+    async def _check_models_endpoint(self) -> dict[str, Any]:
         """Helper para verificar /v1/models (compartido entre servicios)"""
         try:
             # Usar un timeout corto específico para health check sin usar el persistente

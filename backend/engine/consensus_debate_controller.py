@@ -7,10 +7,11 @@ import asyncio
 import os
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -49,10 +50,10 @@ class AgentPosition:
     agent: DebateAgent
     position: str = ""  # Argumento principal
     confidence: float = 0.0  # 0-1 confianza en posición
-    supporting_points: List[str] = field(default_factory=list)
-    objections_raised: List[str] = field(default_factory=list)
-    responses_to_objections: Dict[int, str] = field(default_factory=dict)  # turn -> response
-    logical_fallacies_detected: List[Dict[str, Any]] = field(default_factory=list)
+    supporting_points: list[str] = field(default_factory=list)
+    objections_raised: list[str] = field(default_factory=list)
+    responses_to_objections: dict[int, str] = field(default_factory=dict)  # turn -> response
+    logical_fallacies_detected: list[dict[str, Any]] = field(default_factory=list)
     consensus_score: float = 0.0  # Qué tan alineado con consenso final
 
 
@@ -63,7 +64,7 @@ class CrossValidation:
     evaluator_agent: str
     evaluated_agent: str
     validation_score: float  # 0-1 validez de argumentos
-    identified_fallacies: List[str]
+    identified_fallacies: list[str]
     agreement_level: float  # 0-1 nivel de acuerdo
     constructive_feedback: str
 
@@ -74,10 +75,10 @@ class ConsensusRoundData:
 
     round_number: int
     round_type: ConsensusStatus
-    positions: Dict[str, AgentPosition] = field(default_factory=dict)  # agent_id -> position
-    validations: List[CrossValidation] = field(default_factory=list)
+    positions: dict[str, AgentPosition] = field(default_factory=dict)  # agent_id -> position
+    validations: list[CrossValidation] = field(default_factory=list)
     global_consensus_score: float = 0.0  # Métrica de consenso grupal
-    dissent_topics: List[str] = field(default_factory=list)
+    dissent_topics: list[str] = field(default_factory=list)
     converged: bool = False
 
 
@@ -88,14 +89,14 @@ class ConsensusSession:
     id: str
     topic: str
     status: str = "created"
-    agents: List[DebateAgent] = field(default_factory=list)
-    rounds: List[ConsensusRoundData] = field(default_factory=list)
-    final_consensus: Optional[str] = None
+    agents: list[DebateAgent] = field(default_factory=list)
+    rounds: list[ConsensusRoundData] = field(default_factory=list)
+    final_consensus: str | None = None
     consensus_score: float = 0.0  # Score final 0-1
-    bias_analysis: Optional[Dict[str, Any]] = None
+    bias_analysis: dict[str, Any] | None = None
     created_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
-    transcript_path: Optional[str] = None
+    completed_at: datetime | None = None
+    transcript_path: str | None = None
     total_tokens_in: int = 0
     total_tokens_out: int = 0
     total_latency_ms: int = 0
@@ -118,7 +119,7 @@ class ConsensusDebateController:
         if settings.OPENROUTER_API_KEY:
             self.openrouter = OpenRouterClient(api_key=settings.OPENROUTER_API_KEY)
         self.supabase_sync = SupabaseSyncService()
-        self.active_sessions: Dict[str, ConsensusSession] = {}
+        self.active_sessions: dict[str, ConsensusSession] = {}
 
         # Umbrales de consenso
         self.CONSENSUS_THRESHOLD = 0.75  # 75% acuerdo = consenso
@@ -128,9 +129,9 @@ class ConsensusDebateController:
     async def create_consensus_debate(
         self,
         topic: str,
-        agents_config: List[DebateAgent],
-        on_round_complete: Optional[Callable[[ConsensusRoundData], None]] = None,
-        on_consensus_update: Optional[Callable[[float, str], None]] = None,
+        agents_config: list[DebateAgent],
+        on_round_complete: Callable[[ConsensusRoundData], None] | None = None,
+        on_consensus_update: Callable[[float, str], None] | None = None,
     ) -> ConsensusSession:
         """Crea y ejecuta un debate de consenso con ID autogenerado"""
         session_id = str(uuid.uuid4())
@@ -146,9 +147,9 @@ class ConsensusDebateController:
         self,
         session_id: str,
         topic: str,
-        agents_config: List[DebateAgent],
-        on_round_complete: Optional[Callable[[ConsensusRoundData], None]] = None,
-        on_consensus_update: Optional[Callable[[float, str], None]] = None,
+        agents_config: list[DebateAgent],
+        on_round_complete: Callable[[ConsensusRoundData], None] | None = None,
+        on_consensus_update: Callable[[float, str], None] | None = None,
     ) -> ConsensusSession:
         """Crea y ejecuta un debate de consenso con ID proporcionado"""
 
@@ -276,7 +277,7 @@ class ConsensusDebateController:
 
         return session
 
-    async def _run_proposal_round(self, session: ConsensusSession, agents: List[DebateAgent]) -> ConsensusRoundData:
+    async def _run_proposal_round(self, session: ConsensusSession, agents: list[DebateAgent]) -> ConsensusRoundData:
         """
         Ronda 1: Cada agente presenta su posición inicial sobre el tema.
         """
@@ -922,7 +923,7 @@ Máximo 400 palabras.
         self,
         session: ConsensusSession,
         original: AgentPosition,
-        validations: List[CrossValidation],
+        validations: list[CrossValidation],
         synthesis: str,
     ) -> AgentPosition:
         """Genera posición refinada tras considerar feedback"""
@@ -1031,8 +1032,8 @@ Máximo 350 palabras.
 
     def _calculate_consensus_score(
         self,
-        positions: Dict[str, AgentPosition],
-        validations: Optional[List[CrossValidation]] = None,
+        positions: dict[str, AgentPosition],
+        validations: list[CrossValidation] | None = None,
     ) -> float:
         """
         Calcula el score de consenso grupal.
@@ -1100,7 +1101,7 @@ Máximo 350 palabras.
 
         return min(1.0, max(0.0, consensus_score))
 
-    def _identify_dissent_topics(self, validations: List[CrossValidation]) -> List[str]:
+    def _identify_dissent_topics(self, validations: list[CrossValidation]) -> list[str]:
         """Identifica temas donde hay disenso significativo"""
 
         # Agrupar por nivel de acuerdo bajo
@@ -1169,7 +1170,7 @@ Máximo 350 palabras.
 
         return consensus_doc
 
-    def _analyze_biases(self, session: ConsensusSession) -> Dict[str, Any]:
+    def _analyze_biases(self, session: ConsensusSession) -> dict[str, Any]:
         """Analiza sesgos detectados en todo el debate"""
 
         bias_analysis = {
@@ -1391,13 +1392,13 @@ Máximo 350 palabras.
 
         return filepath
 
-    def get_session(self, session_id: str) -> Optional[ConsensusSession]:
+    def get_session(self, session_id: str) -> ConsensusSession | None:
         """Obtiene una sesión de consenso activa"""
         return self.active_sessions.get(session_id)
 
 
 # Configuración predefinida para debates de consenso
-def get_consensus_debate_config(topic: str) -> List[DebateAgent]:
+def get_consensus_debate_config(topic: str) -> list[DebateAgent]:
     """
     Configuración para debate de consenso con 4 agentes diversos.
     """

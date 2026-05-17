@@ -5,7 +5,6 @@ y usarlos como coeficientes en tiempo real.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
 import structlog
 from sqlalchemy import select
@@ -45,7 +44,7 @@ class ReputationQueryService:
     """
 
     def __init__(self):
-        self._cache: Dict[str, ModelReputationScore] = {}
+        self._cache: dict[str, ModelReputationScore] = {}
         self._loaded = False
 
     async def _load_cache(self):
@@ -88,17 +87,17 @@ class ReputationQueryService:
         # Default
         return ModelReputationScore(model=model, provider="unknown", role=role)
 
-    async def get_all_scores(self) -> List[ModelReputationScore]:
+    async def get_all_scores(self) -> list[ModelReputationScore]:
         """Retorna todos los scores ordenados por reputation_score"""
         await self._load_cache()
         return sorted(self._cache.values(), key=lambda s: s.reputation_score, reverse=True)
 
     async def get_weighted_response(
         self,
-        responses: List[Dict[str, str]],
-        models: List[str],
-        roles: List[str],
-    ) -> Dict[str, float]:
+        responses: list[dict[str, str]],
+        models: list[str],
+        roles: list[str],
+    ) -> dict[str, float]:
         """
         Calcula pesos para cada respuesta basados en reputación.
         Args:
@@ -120,7 +119,7 @@ class ReputationQueryService:
         normalized = [w / total for w in weights]
         return {f"{m}:{r}": w for (m, r), w in zip(zip(models, roles), normalized)}
 
-    def format_reputation_context(self, scores: List[ModelReputationScore]) -> str:
+    def format_reputation_context(self, scores: list[ModelReputationScore]) -> str:
         """Formatea scores como contexto para prompts del tribunal"""
         if not scores:
             return ""
@@ -150,7 +149,7 @@ class ReputationQueryService:
 
 
 # Singleton
-_reputation_query_service: Optional[ReputationQueryService] = None
+_reputation_query_service: ReputationQueryService | None = None
 
 
 def get_reputation_service() -> ReputationQueryService:

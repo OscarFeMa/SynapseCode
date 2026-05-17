@@ -5,9 +5,10 @@ Gestiona el ciclo de vida completo de una sesión de debate
 
 import asyncio
 import uuid
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -63,9 +64,9 @@ class SessionManager:
         self,
         query: str,
         db_session: AsyncSession,
-        title: Optional[str] = None,
+        title: str | None = None,
         max_rounds: int = None,
-        config: Optional[Dict] = None,
+        config: dict | None = None,
     ) -> Session:
         """
         Crea una nueva sesión de debate
@@ -111,7 +112,7 @@ class SessionManager:
         self,
         session_id: str,
         db_session: AsyncSession,
-        on_event: Optional[Callable[[str, Any], None]] = None,
+        on_event: Callable[[str, Any], None] | None = None,
     ) -> Session:
         """
         Ejecuta una sesión completa de debate con múltiples rondas (Fase 2+)
@@ -141,7 +142,7 @@ class SessionManager:
         )
 
         # Historial de síntesis para evaluación de convergencia (stateless)
-        syntheses_history: List[Tuple[str, str]] = []
+        syntheses_history: list[tuple[str, str]] = []
 
         all_round_results = []
         final_tribunal_verdict = None
@@ -348,7 +349,7 @@ class SessionManager:
                 session_id=session_id,
                 event_type="SESSION_FAILED",
                 severity="ERROR",
-                message=f"Session execution failed: {str(e)}",
+                message=f"Session execution failed: {e!s}",
                 detail={"error": str(e)},
             )
             db_session.add(error_event)
@@ -361,7 +362,7 @@ class SessionManager:
             )
             raise
 
-    async def get_session_detail(self, session_id: str, db_session: AsyncSession) -> Dict[str, Any]:
+    async def get_session_detail(self, session_id: str, db_session: AsyncSession) -> dict[str, Any]:
         """
         Obtiene detalle completo de una sesión con todas sus rondas y llamadas
         """
@@ -467,10 +468,10 @@ class SessionManager:
     async def list_sessions(
         self,
         db_session: AsyncSession,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Lista sesiones con filtros opcionales"""
         query = select(Session)
 
@@ -496,7 +497,7 @@ class SessionManager:
             for s in sessions
         ]
 
-    def _build_round_context(self, round_result: Dict[str, Any]) -> str:
+    def _build_round_context(self, round_result: dict[str, Any]) -> str:
         """
         Construye contexto resumido de ronda previa para rondas posteriores.
         Limitado a ~1000 tokens aproximadamente.
@@ -530,8 +531,8 @@ class SessionManager:
 
     def _compile_final_summary(
         self,
-        all_round_results: List[Dict[str, Any]],
-        final_tribunal_verdict: Optional[Dict[str, Any]],
+        all_round_results: list[dict[str, Any]],
+        final_tribunal_verdict: dict[str, Any] | None,
     ) -> str:
         """
         Compila el resumen final de la sesión con todas las rondas y el veredicto del Tribunal.

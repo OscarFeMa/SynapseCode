@@ -13,10 +13,11 @@ import asyncio
 import os
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from typing import Any, Protocol
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -102,13 +103,13 @@ class DebateSessionBase:
     id: str
     topic: str
     status: DebateStatus = DebateStatus.CREATED
-    agents: List[AgentConfig] = field(default_factory=list)
+    agents: list[AgentConfig] = field(default_factory=list)
     metrics: DebateMetrics = field(default_factory=DebateMetrics)
     created_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
-    transcript_path: Optional[str] = None
-    final_summary: Optional[str] = None
-    error_message: Optional[str] = None
+    completed_at: datetime | None = None
+    transcript_path: str | None = None
+    final_summary: str | None = None
+    error_message: str | None = None
 
 
 # ============================================================================
@@ -119,7 +120,7 @@ class DebateSessionBase:
 class EventCallback(Protocol):
     """Protocolo para callbacks de eventos de debate"""
 
-    async def __call__(self, event_type: str, data: Dict[str, Any]) -> None: ...
+    async def __call__(self, event_type: str, data: dict[str, Any]) -> None: ...
 
 
 # ============================================================================
@@ -167,9 +168,9 @@ class BaseDebateController(ABC):
     async def create_debate(
         self,
         topic: str,
-        agents_config: List[AgentConfig],
+        agents_config: list[AgentConfig],
         max_rounds: int = 3,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> DebateSessionBase:
         """
         Crea una nueva sesión de debate.
@@ -214,8 +215,8 @@ class BaseDebateController(ABC):
     async def run_debate(
         self,
         session: DebateSessionBase,
-        db_session: Optional[AsyncSession] = None,
-        on_event: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+        db_session: AsyncSession | None = None,
+        on_event: Callable[[str, dict[str, Any]], None] | None = None,
     ) -> DebateSessionBase:
         """
         Ejecuta un debate completo.
@@ -318,8 +319,8 @@ class BaseDebateController(ABC):
     async def _execute_debate(
         self,
         session: DebateSessionBase,
-        db_session: Optional[AsyncSession],
-        on_event: Optional[Callable[[str, Dict[str, Any]], None]],
+        db_session: AsyncSession | None,
+        on_event: Callable[[str, dict[str, Any]], None] | None,
     ) -> None:
         """
         Lógica específica de ejecución del debate.
@@ -345,9 +346,9 @@ class BaseDebateController(ABC):
 
     async def _emit_event(
         self,
-        callback: Optional[Callable[[str, Dict[str, Any]], None]],
+        callback: Callable[[str, dict[str, Any]], None] | None,
         event_type: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> None:
         """
         Emite un evento al callback si está disponible.
@@ -372,7 +373,7 @@ class BaseDebateController(ABC):
             return int(delta.total_seconds() * 1000)
         return 0
 
-    async def _initialize_transcript(self, session: DebateSessionBase, metadata: Dict[str, Any]) -> None:
+    async def _initialize_transcript(self, session: DebateSessionBase, metadata: dict[str, Any]) -> None:
         """Inicializa archivo de transcript"""
         if session.transcript_path is None:
             return
@@ -400,7 +401,7 @@ class BaseDebateController(ABC):
 
         await self._write_transcript(session.transcript_path, transcript)
 
-    async def _append_turn_to_transcript(self, session: DebateSessionBase, turn_data: Dict[str, Any]) -> None:
+    async def _append_turn_to_transcript(self, session: DebateSessionBase, turn_data: dict[str, Any]) -> None:
         """Añade un turno al transcript existente"""
         if session.transcript_path is None:
             return
@@ -456,7 +457,7 @@ class BaseDebateController(ABC):
         except Exception as e:
             self.logger.warning("debate.transcript_finalize_failed", session_id=session.id, error=str(e))
 
-    async def _read_transcript(self, path: str) -> Dict[str, Any]:
+    async def _read_transcript(self, path: str) -> dict[str, Any]:
         """Lee transcript desde archivo"""
         import aiofiles
 
@@ -466,7 +467,7 @@ class BaseDebateController(ABC):
 
             return json.loads(content)
 
-    async def _write_transcript(self, path: str, data: Dict[str, Any]) -> None:
+    async def _write_transcript(self, path: str, data: dict[str, Any]) -> None:
         """Escribe transcript a archivo"""
         import json
 
@@ -542,7 +543,7 @@ class DebateControllerError(Exception):
 class AgentExecutionError(DebateControllerError):
     """Error en la ejecución de un agente"""
 
-    def __init__(self, agent_id: str, message: str, original_error: Optional[Exception] = None):
+    def __init__(self, agent_id: str, message: str, original_error: Exception | None = None):
         self.agent_id = agent_id
         self.original_error = original_error
         super().__init__(f"Agent {agent_id}: {message}")

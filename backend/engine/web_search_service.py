@@ -6,7 +6,7 @@ Los resultados se inyectan como contexto en los prompts de los agentes.
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 
@@ -26,7 +26,7 @@ class WebSearchResult:
     query: str
     response: str
     success: bool = True
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass
@@ -34,11 +34,11 @@ class WebContext:
     """Contexto web completo para un debate"""
 
     topic: str
-    searches: List[WebSearchResult] = field(default_factory=list)
+    searches: list[WebSearchResult] = field(default_factory=list)
     summary: str = ""
     timestamp: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "topic": self.topic,
             "searches": [
@@ -57,7 +57,7 @@ class WebContext:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WebContext":
+    def from_dict(cls, data: dict[str, Any]) -> "WebContext":
         ctx = cls(
             topic=data.get("topic", ""),
             summary=data.get("summary", ""),
@@ -101,7 +101,7 @@ class WebSearchService:
     async def search_for_debate(
         self,
         topic: str,
-        sites: Optional[List[str]] = None,
+        sites: list[str] | None = None,
         timeout_per_site: int = 60,
     ) -> WebContext:
         """
@@ -418,7 +418,7 @@ class WebSearchService:
 
 
 # Singleton
-_web_search_service: Optional[WebSearchService] = None
+_web_search_service: WebSearchService | None = None
 
 
 def get_web_search_service() -> WebSearchService:

@@ -5,7 +5,8 @@ Cliente async para Ollama API (usa formato nativo, no OpenAI-compatible)
 
 import asyncio
 import json
-from typing import Any, AsyncGenerator, Dict, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
 import httpx
 import structlog
@@ -22,12 +23,12 @@ class OllamaClient:
 
     SERVICE_NAME = "ollama"
 
-    def __init__(self, base_url: Optional[str] = None):
+    def __init__(self, base_url: str | None = None):
         self.base_url = base_url or settings.OLLAMA_BASE_URL
         self.timeout = settings.OLLAMA_TIMEOUT_SECONDS
         self.max_retries = settings.OLLAMA_MAX_RETRIES
         self.keep_alive = settings.OLLAMA_KEEP_ALIVE
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     @property
     def client(self) -> httpx.AsyncClient:
@@ -39,7 +40,7 @@ class OllamaClient:
         """No cerramos individualmente - gestión centralizada en shutdown"""
         pass
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """Verifica conexión con Ollama y lista modelos disponibles"""
         try:
             client = self.client
@@ -91,7 +92,7 @@ class OllamaClient:
                 logger.warning("ollama.ensure.pull_failed", model=model, error=str(e))
                 # Continuar de todas formas, Ollama puede cargar on-demand
 
-    async def warm_model(self, model: str, keep_alive: Optional[int] = None) -> bool:
+    async def warm_model(self, model: str, keep_alive: int | None = None) -> bool:
         """
         Precarga un modelo en memoria sin generar contenido útil.
         Reintenta hasta 2 veces en caso de HTTP 500 (GPU loading race).
@@ -218,9 +219,9 @@ class OllamaClient:
         self,
         model: str,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         stream: bool = True,
-        options: Optional[Dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
     ) -> AsyncGenerator[str, None]:
         """
         Genera texto con Ollama
@@ -360,7 +361,7 @@ class OllamaClient:
         except Exception as e:
             raise e
 
-    async def pull_model(self, model: str) -> AsyncGenerator[Dict[str, Any], None]:
+    async def pull_model(self, model: str) -> AsyncGenerator[dict[str, Any], None]:
         """
         Descarga un modelo de Ollama Library o Cloud.
         Yields progreso de descarga.

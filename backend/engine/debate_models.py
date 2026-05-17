@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class AgentRole(Enum):
@@ -45,8 +45,8 @@ class DebateTurn:
     tokens_out: int = 0
     latency_ms: int = 0
     quality_score: float = 1.0
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     status: str = "pending"  # pending, running, completed, failed
 
 
@@ -68,12 +68,12 @@ class IteracionDebate:
 
     iteration_number: int
     phase: str  # analysis, criticism, validation, consensus
-    turns: List[DebateTurn] = field(default_factory=list)
-    cruzamientos: List[CruzamientoCritico] = field(default_factory=list)
-    consensus_points: List[str] = field(default_factory=list)
-    disagreement_points: List[str] = field(default_factory=list)
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    turns: list[DebateTurn] = field(default_factory=list)
+    cruzamientos: list[CruzamientoCritico] = field(default_factory=list)
+    consensus_points: list[str] = field(default_factory=list)
+    disagreement_points: list[str] = field(default_factory=list)
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
     def get_context_summary(self) -> str:
         summary = []
@@ -88,22 +88,22 @@ class DebateSession:
 
     id: str
     topic: str
-    turns: List[DebateTurn] = field(default_factory=list)
-    iterations: List[IteracionDebate] = field(default_factory=list)
-    context_history: List[Dict[str, Any]] = field(default_factory=list)
+    turns: list[DebateTurn] = field(default_factory=list)
+    iterations: list[IteracionDebate] = field(default_factory=list)
+    context_history: list[dict[str, Any]] = field(default_factory=list)
     status: str = "created"  # created, running, paused, completed, failed
     created_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
-    paused_at: Optional[datetime] = None
-    pause_reason: Optional[str] = None
-    final_verdict: Optional[str] = None
+    completed_at: datetime | None = None
+    paused_at: datetime | None = None
+    pause_reason: str | None = None
+    final_verdict: str | None = None
 
     # Campos para Tribunal y Convergence (v2.1)
-    tribunal_verdict: Optional[Dict[str, Any]] = None
+    tribunal_verdict: dict[str, Any] | None = None
     consensus_score: float = 0.0
     convergence_level: str = "UNKNOWN"
-    structured_report: Optional[Dict[str, Any]] = None
-    web_context: Optional[Dict[str, Any]] = None  # Contexto de búsqueda web
+    structured_report: dict[str, Any] | None = None
+    web_context: dict[str, Any] | None = None  # Contexto de búsqueda web
 
     # Configuración de iteraciones
     current_iteration: int = 0

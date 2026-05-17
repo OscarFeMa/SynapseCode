@@ -56,7 +56,7 @@ async def check_rdp():
             return False
 
     except Exception as e:
-        print(f"    [ERROR] RDP: Error al verificar ({str(e)})")
+        print(f"    [ERROR] RDP: Error al verificar ({e!s})")
         return False
 
 

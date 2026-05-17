@@ -13,7 +13,6 @@ Objetivo: Evitar que el debate colapse prematuramente en consenso sin pensar cr�
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Tuple
 
 import structlog
 
@@ -26,7 +25,7 @@ class AbsurdumProof:
 
     proposition: str  # Proposición original
     extreme_case: str  # Caso extremo derivado
-    contradiction: Optional[str]  # Contradicción encontrada o None
+    contradiction: str | None  # Contradicción encontrada o None
     is_valid: bool  # ¿La proposición resiste al absurdo?
     confidence_score: float  # 0.0-1.0
     questioning_agent: str  # Agente que planteó el desafío
@@ -38,12 +37,12 @@ class AbsurdumProof:
 class ComplacencyScan:
     """Análisis de complacencia en el debate actual"""
 
-    consensus_areas: List[str]  # Áreas donde hay acuerdo
-    weak_assumptions: List[str]  # Supuestos no validados
-    unquestioned_premises: List[str]  # Premisas no cuestionadas
+    consensus_areas: list[str]  # Áreas donde hay acuerdo
+    weak_assumptions: list[str]  # Supuestos no validados
+    unquestioned_premises: list[str]  # Premisas no cuestionadas
     overall_complacency_risk: float = 0.0  # 0.0-1.0, nivel de riesgo de complacencia
-    absurdum_proofs: List[AbsurdumProof] = field(default_factory=list)
-    recommendations: List[str] = field(default_factory=list)
+    absurdum_proofs: list[AbsurdumProof] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
 
 class ReductioAbsurdumEngine:
@@ -82,13 +81,13 @@ class ReductioAbsurdumEngine:
     ]
 
     def __init__(self):
-        self.proofs_history: List[AbsurdumProof] = []
-        self.complacency_history: List[ComplacencyScan] = []
+        self.proofs_history: list[AbsurdumProof] = []
+        self.complacency_history: list[ComplacencyScan] = []
 
     def analyze_consensus_points(
         self,
-        consensus_points: List[str],
-        dissent_points: List[str],
+        consensus_points: list[str],
+        dissent_points: list[str],
         debate_history: str,
         iteration_number: int,
     ) -> ComplacencyScan:
@@ -165,10 +164,10 @@ class ReductioAbsurdumEngine:
 
     def _detect_weak_assumptions(
         self,
-        consensus_points: List[str],
-        dissent_points: List[str],
+        consensus_points: list[str],
+        dissent_points: list[str],
         iteration_number: int,
-    ) -> List[str]:
+    ) -> list[str]:
         """Detecta puntos de consenso que podrían ser supuestos débiles"""
 
         weak = []
@@ -198,7 +197,7 @@ class ReductioAbsurdumEngine:
 
         return list(dict.fromkeys(weak))  # Eliminar duplicados manteniendo orden
 
-    def _detect_unquestioned_premises(self, consensus_points: List[str], debate_history: str) -> List[str]:
+    def _detect_unquestioned_premises(self, consensus_points: list[str], debate_history: str) -> list[str]:
         """Detecta premisas que no han sido cuestionadas explícitamente"""
 
         unquestioned = []
@@ -243,9 +242,9 @@ class ReductioAbsurdumEngine:
 
     def _calculate_complacency_risk(
         self,
-        consensus_areas: List[str],
-        weak_assumptions: List[str],
-        unquestioned_premises: List[str],
+        consensus_areas: list[str],
+        weak_assumptions: list[str],
+        unquestioned_premises: list[str],
         iteration_number: int,
     ) -> float:
         """
@@ -391,7 +390,7 @@ Sé honesto y crítico. Un buen magistrado reconoce sus sesgos."""
 
         return prompt
 
-    def extract_propositions_from_text(self, text: str) -> List[str]:
+    def extract_propositions_from_text(self, text: str) -> list[str]:
         """Extrae proposiciones principales de un texto de debate"""
 
         propositions = []
@@ -414,7 +413,7 @@ Sé honesto y crítico. Un buen magistrado reconoce sus sesgos."""
 
         return propositions[:5]  # Top 5 proposiciones más importantes
 
-    def rank_propositions_by_robustness(self, propositions: List[str]) -> List[Tuple[str, float]]:
+    def rank_propositions_by_robustness(self, propositions: list[str]) -> list[tuple[str, float]]:
         """
         Ordena proposiciones por robustez (qué tan resistentes son al cuestionamiento).
 
@@ -465,12 +464,12 @@ Sé honesto y crítico. Un buen magistrado reconoce sus sesgos."""
     async def run_absurdum_challenge_phase(
         self,
         topic: str,
-        consensus_points: List[str],
+        consensus_points: list[str],
         debate_history: str,
         challenging_agent,  # DebateAgent
         target_agent,  # DebateAgent
         generate_func,  # Función para generar respuesta
-    ) -> Optional[AbsurdumProof]:
+    ) -> AbsurdumProof | None:
         """
         Ejecuta una fase de desafío usando reducción al absurdo.
 

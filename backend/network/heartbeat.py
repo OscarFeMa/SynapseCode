@@ -8,8 +8,8 @@ import logging
 import socket
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +33,11 @@ class HeartbeatManager:
         self.last_heartbeat = None
         self.heartbeat_thread = None
         self.tcp_socket = None
-        self.peer_ip: Optional[str] = None
-        self.on_heartbeat_received: Optional[Callable] = None
-        self.on_connection_lost: Optional[Callable] = None
+        self.peer_ip: str | None = None
+        self.on_heartbeat_received: Callable | None = None
+        self.on_connection_lost: Callable | None = None
 
-    def start(self, peer_ip: Optional[str] = None):
+    def start(self, peer_ip: str | None = None):
         """
         Inicia el sistema de heartbeat.
 
@@ -188,10 +188,10 @@ class HeartbeatManager:
         elapsed = (datetime.now() - self.last_heartbeat).total_seconds()
         return elapsed < self.timeout
 
-    def get_last_heartbeat_time(self) -> Optional[datetime]:
+    def get_last_heartbeat_time(self) -> datetime | None:
         """Retorna el timestamp del último heartbeat."""
         return self.last_heartbeat
 
-    def get_peer_ip(self) -> Optional[str]:
+    def get_peer_ip(self) -> str | None:
         """Retorna la IP del peer."""
         return self.peer_ip

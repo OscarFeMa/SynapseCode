@@ -6,7 +6,7 @@ Intenta lanzarlos vía WinRM, RDP + script, o alerta al usuario.
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 
@@ -22,12 +22,12 @@ class WorkerService:
 
     name: str
     port: int
-    alt_ports: List[int] = field(default_factory=list)
+    alt_ports: list[int] = field(default_factory=list)
     process_name: str = ""
     winrm_command: str = ""
     rdp_script: str = ""
     is_running: bool = False
-    running_on_port: Optional[int] = None
+    running_on_port: int | None = None
 
 
 # Definición de servicios conocidos
@@ -64,12 +64,12 @@ class WorkerServiceManager:
     """
 
     def __init__(self):
-        self._worker_ip: Optional[str] = None
-        self._services: Dict[str, WorkerService] = {k: WorkerService(**v.__dict__) for k, v in SERVICES.items()}
-        self._check_cache: Dict[str, Dict[str, Any]] = {}
+        self._worker_ip: str | None = None
+        self._services: dict[str, WorkerService] = {k: WorkerService(**v.__dict__) for k, v in SERVICES.items()}
+        self._check_cache: dict[str, dict[str, Any]] = {}
         self._cache_ttl = 15  # segundos
 
-    async def resolve_worker_ip(self) -> Optional[str]:
+    async def resolve_worker_ip(self) -> str | None:
         """Resuelve la IP del Worker"""
         if self._worker_ip:
             return self._worker_ip
@@ -103,7 +103,7 @@ class WorkerServiceManager:
         except Exception:
             return False
 
-    async def check_all_services(self) -> Dict[str, Dict[str, Any]]:
+    async def check_all_services(self) -> dict[str, dict[str, Any]]:
         """Verifica el estado de todos los servicios en el Worker"""
         import time
 
@@ -160,7 +160,7 @@ class WorkerServiceManager:
     def _get_cache_time(self) -> float:
         return getattr(self, "_cache_timestamp", 0.0)
 
-    async def launch_service_winrm(self, service_name: str) -> Dict[str, Any]:
+    async def launch_service_winrm(self, service_name: str) -> dict[str, Any]:
         """
         Intenta lanzar un servicio vía WinRM.
         Requiere: Worker en TrustedHosts y WinRM habilitado.
@@ -210,7 +210,7 @@ class WorkerServiceManager:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def launch_service_rdp(self, service_name: str) -> Dict[str, Any]:
+    async def launch_service_rdp(self, service_name: str) -> dict[str, Any]:
         """
         Intenta lanzar un servicio conectando vía RDP al Worker.
         La conexión RDP despierta la máquina; los servicios deben estar
@@ -244,7 +244,7 @@ class WorkerServiceManager:
             logger.error("worker_launcher.rdp_launch_failed", service=service_name, error=str(e))
             return {"success": False, "error": str(e)}
 
-    async def ensure_service_running(self, service_name: str) -> Dict[str, Any]:
+    async def ensure_service_running(self, service_name: str) -> dict[str, Any]:
         """
         Asegura que un servicio esté corriendo.
         Intenta: WinRM (si disponible) -> RDP -> Alerta
@@ -319,7 +319,7 @@ class WorkerServiceManager:
             "rdp_result": rdp_result,
         }
 
-    async def ensure_all_services(self) -> Dict[str, Dict[str, Any]]:
+    async def ensure_all_services(self) -> dict[str, dict[str, Any]]:
         """Asegura que todos los servicios estén corriendo"""
         status = await self.check_all_services()
         results = {}
@@ -337,7 +337,7 @@ class WorkerServiceManager:
 
         return results
 
-    def get_status_summary(self, status: Dict[str, Dict[str, Any]]) -> str:
+    def get_status_summary(self, status: dict[str, dict[str, Any]]) -> str:
         """Genera resumen legible del estado de servicios"""
         lines = ["=== Worker Services Status ==="]
         for name, info in status.items():

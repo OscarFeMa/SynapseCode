@@ -10,7 +10,7 @@ import socket
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
 
@@ -26,9 +26,9 @@ class RDPConnectionResult:
 
     success: bool
     message: str
-    ip: Optional[str] = None
-    duration_ms: Optional[int] = None
-    timestamp: Optional[datetime] = None
+    ip: str | None = None
+    duration_ms: int | None = None
+    timestamp: datetime | None = None
 
 
 class RDPSecurityError(Exception):
@@ -47,7 +47,7 @@ class RDPManager:
     """Gestiona la auto-conexión RDP a nodos Worker (versión segura)"""
 
     # Rate limiting en memoria (simple, para single-instance)
-    _last_wake_attempt: Dict[str, datetime] = {}
+    _last_wake_attempt: dict[str, datetime] = {}
 
     @staticmethod
     def _sanitize_hostname(hostname: str) -> str:
@@ -95,7 +95,7 @@ class RDPManager:
         RDPManager._last_wake_attempt[identifier] = now
 
     @staticmethod
-    def get_ip_by_hostname(hostname: str) -> Optional[str]:
+    def get_ip_by_hostname(hostname: str) -> str | None:
         """
         Obtiene la IP a partir del nombre del equipo.
         Método seguro: sin shell=True, solo socket resolution.
@@ -120,7 +120,7 @@ class RDPManager:
 
     @staticmethod
     async def connect_to_worker_async(
-        hostname: str, username: str, password: str, rate_limit_id: Optional[str] = None
+        hostname: str, username: str, password: str, rate_limit_id: str | None = None
     ) -> RDPConnectionResult:
         """
         Inyecta credenciales y abre el escritorio remoto (versión async).
@@ -187,7 +187,7 @@ class RDPManager:
             logger.error("rdp_manager.security_error", error=str(e))
             return RDPConnectionResult(
                 success=False,
-                message=f"Error de seguridad: {str(e)}",
+                message=f"Error de seguridad: {e!s}",
                 timestamp=start_time,
             )
         except RDPRateLimitError as e:
@@ -197,12 +197,12 @@ class RDPManager:
             logger.error("rdp_manager.exception", error=str(e))
             return RDPConnectionResult(
                 success=False,
-                message=f"Error inesperado: {str(e)}",
+                message=f"Error inesperado: {e!s}",
                 timestamp=start_time,
             )
 
     @staticmethod
-    def _execute_rdp_sync(ip: str, username: str, password: str) -> Dict[str, Any]:
+    def _execute_rdp_sync(ip: str, username: str, password: str) -> dict[str, Any]:
         """
         Ejecuta comandos RDP de forma síncrona (para correr en executor).
         Seguro: usa listas en lugar de shell=True.
@@ -268,10 +268,10 @@ class RDPManager:
             }
         except Exception as e:
             logger.error("rdp_manager.command_error", ip=ip, error=str(e))
-            return {"success": False, "message": f"Error ejecutando RDP: {str(e)}"}
+            return {"success": False, "message": f"Error ejecutando RDP: {e!s}"}
 
     @staticmethod
-    def connect_to_worker(hostname: str, username: str, password: str) -> Dict[str, Any]:
+    def connect_to_worker(hostname: str, username: str, password: str) -> dict[str, Any]:
         """
         Método síncrono (legacy) para compatibilidad.
         Recomendado: usar connect_to_worker_async().
@@ -307,4 +307,4 @@ class RDPManager:
 
 
 # Backwards compatibility
-__all__ = ["RDPManager", "RDPConnectionResult", "RDPSecurityError", "RDPRateLimitError"]
+__all__ = ["RDPConnectionResult", "RDPManager", "RDPRateLimitError", "RDPSecurityError"]

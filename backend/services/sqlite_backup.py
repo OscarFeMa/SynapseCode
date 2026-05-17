@@ -8,7 +8,7 @@ import shutil
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 import structlog
@@ -107,7 +107,7 @@ class SQLiteBackupService:
             logger.error("supabase_storage.bucket_check_failed", error=str(e))
             return False
 
-    async def create_backup(self) -> Dict[str, Any]:
+    async def create_backup(self) -> dict[str, Any]:
         """
         Crea un backup de la base de datos SQLite y lo sube a Supabase Storage.
 
@@ -192,7 +192,7 @@ class SQLiteBackupService:
                 except OSError:
                     pass
 
-    async def list_backups(self, limit: int = 20) -> List[Dict[str, Any]]:
+    async def list_backups(self, limit: int = 20) -> list[dict[str, Any]]:
         """
         Lista los backups disponibles en Supabase Storage.
 
@@ -240,7 +240,7 @@ class SQLiteBackupService:
             logger.error("supabase_storage.list_exception", error=str(e))
             return []
 
-    async def delete_backup(self, filename: str) -> Dict[str, Any]:
+    async def delete_backup(self, filename: str) -> dict[str, Any]:
         """
         Elimina un backup especifico de Supabase Storage.
 
@@ -270,7 +270,7 @@ class SQLiteBackupService:
             logger.error("supabase_storage.delete_exception", error=str(e))
             return {"success": False, "error": str(e)}
 
-    async def restore_backup(self, filename: str) -> Dict[str, Any]:
+    async def restore_backup(self, filename: str) -> dict[str, Any]:
         """
         Descarga un backup de Supabase Storage (no restaura automaticamente).
 
@@ -322,7 +322,7 @@ class SQLiteBackupService:
 
 
 # Singleton instance
-_backup_service: Optional[SQLiteBackupService] = None
+_backup_service: SQLiteBackupService | None = None
 
 
 def get_backup_service() -> SQLiteBackupService:

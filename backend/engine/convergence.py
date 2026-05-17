@@ -11,7 +11,7 @@ Heurísticas:
 
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import structlog
 
@@ -26,8 +26,8 @@ class ConvergenceResult:
     consensus_level: str  # CONSENSUS_REACHED | PARTIAL_CONSENSUS | DIVERGENT
     similarity_score: float  # 0.0 - 1.0
     should_stop: bool
-    focus_for_next_round: Optional[str]
-    detail: Dict[str, Any]
+    focus_for_next_round: str | None
+    detail: dict[str, Any]
 
 
 class ConvergenceEvaluator:
@@ -50,8 +50,8 @@ class ConvergenceEvaluator:
         cloud_synthesis: str,
         round_number: int,
         max_rounds: int = MAX_ROUNDS_DEFAULT,
-        tribunal_verdict: Optional[Dict] = None,
-        previous_syntheses: Optional[List[Tuple[str, str]]] = None,
+        tribunal_verdict: dict | None = None,
+        previous_syntheses: list[tuple[str, str]] | None = None,
     ) -> ConvergenceResult:
         """
         Evalúa convergencia entre síntesis local y cloud.
@@ -178,7 +178,7 @@ class ConvergenceEvaluator:
 
         return intersection / union if union > 0 else 0.0
 
-    def _extract_key_points(self, text: str) -> List[str]:
+    def _extract_key_points(self, text: str) -> list[str]:
         """Extrae puntos clave del texto (líneas con bullets o numeración)"""
         if not text:
             return []
@@ -204,7 +204,7 @@ class ConvergenceEvaluator:
 
         return points
 
-    def _calculate_point_agreement(self, local_points: List[str], cloud_points: List[str]) -> float:
+    def _calculate_point_agreement(self, local_points: list[str], cloud_points: list[str]) -> float:
         """Calcula ratio de acuerdo entre puntos clave"""
         if not local_points or not cloud_points:
             return 0.0
@@ -232,9 +232,9 @@ class ConvergenceEvaluator:
         self,
         local_synthesis: str,
         cloud_synthesis: str,
-        local_points: List[str],
-        cloud_points: List[str],
-    ) -> List[str]:
+        local_points: list[str],
+        cloud_points: list[str],
+    ) -> list[str]:
         """Identifica áreas donde hay disenso explícito"""
         dissent = []
 
@@ -282,7 +282,7 @@ class ConvergenceEvaluator:
         self,
         current_local: str,
         current_cloud: str,
-        previous_syntheses: List[Tuple[str, str]],
+        previous_syntheses: list[tuple[str, str]],
     ) -> float:
         """Evalúa estabilidad respecto a rondas previas"""
         if not previous_syntheses:
@@ -323,7 +323,7 @@ class ConvergenceEvaluator:
         # Continuar en otros casos
         return False
 
-    def _generate_focus(self, dissent_areas: List[str], round_number: int) -> str:
+    def _generate_focus(self, dissent_areas: list[str], round_number: int) -> str:
         """Genera instrucciones de foco para siguiente ronda"""
         if not dissent_areas:
             return "Profundizar en aspectos no resueltos"

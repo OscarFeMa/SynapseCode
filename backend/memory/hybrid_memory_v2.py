@@ -6,7 +6,7 @@ Si Supabase falla, el sistema continúa sin interrupciones.
 
 import asyncio
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -33,7 +33,7 @@ class HybridMemoryV2:
     def __init__(self):
         self.supabase = get_supabase_service()
         self._queue: asyncio.Queue = asyncio.Queue()
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._enabled: bool = self.supabase.enabled
         self._stats = {"queued": 0, "synced": 0, "failed": 0}
 
@@ -129,7 +129,7 @@ class HybridMemoryV2:
                 logger.error("hybrid_memory_v2.worker_error", error=str(e))
                 await asyncio.sleep(1)  # Evitar spam de errores
 
-    def _build_data(self, session, session_id: str, mode: str) -> Dict[str, Any]:
+    def _build_data(self, session, session_id: str, mode: str) -> dict[str, Any]:
         """Construye payload para Supabase."""
         return {
             "id": session_id,
@@ -155,7 +155,7 @@ class HybridMemoryV2:
             ],
         }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Retorna estadísticas de sincronización."""
         return {
             "enabled": self._enabled,
@@ -170,7 +170,7 @@ class HybridMemoryV2:
             )
             return len(result.scalars().all())
 
-    async def dequeue_persistent_item(self) -> Optional[SupabaseSyncQueueItem]:
+    async def dequeue_persistent_item(self) -> SupabaseSyncQueueItem | None:
         """Obtiene el próximo item elegible de la cola persistente."""
         async with AsyncSessionLocal() as db_session:
             result = await db_session.execute(
@@ -239,7 +239,7 @@ class HybridMemoryV2:
 
 
 # Instancia global
-hybrid_memory_v2: Optional[HybridMemoryV2] = None
+hybrid_memory_v2: HybridMemoryV2 | None = None
 
 
 def get_hybrid_memory_v2() -> HybridMemoryV2:

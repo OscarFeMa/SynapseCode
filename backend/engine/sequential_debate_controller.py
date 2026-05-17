@@ -8,8 +8,9 @@ import hashlib
 import json
 import os
 import uuid
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -101,7 +102,7 @@ class SequentialDebateController:
     def __init__(self):
         self.local_manager = LocalEngineManager()
         self._openrouter = None  # Lazy init
-        self.active_sessions: Dict[str, DebateSession] = {}
+        self.active_sessions: dict[str, DebateSession] = {}
         self.tribunal = TribunalCouncil()
         self.convergence_evaluator = ConvergenceEvaluator()
         self.reductio_engine = get_reductio_absurdum_engine()  # Motor de reducción al absurdo
@@ -113,7 +114,7 @@ class SequentialDebateController:
             self._openrouter = OpenRouterClient()
         return self._openrouter
 
-    def _find_next_preload_model(self, agents_config: List[DebateAgent], current_index: int) -> Optional[str]:
+    def _find_next_preload_model(self, agents_config: list[DebateAgent], current_index: int) -> str | None:
         """Busca el próximo modelo local de Ollama distinto al turno actual para precarga."""
         current_model = agents_config[current_index].model if current_index < len(agents_config) else None
         for next_agent in agents_config[current_index + 1 :]:
@@ -136,7 +137,7 @@ class SequentialDebateController:
         cache_key = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
         return cache_key, prompt_hash
 
-    async def _get_cached_response(self, agent: DebateAgent, prompt: str) -> Optional[Dict[str, Any]]:
+    async def _get_cached_response(self, agent: DebateAgent, prompt: str) -> dict[str, Any] | None:
         cache_key, _ = self._build_prompt_cache_key(agent, prompt)
         async with AsyncSessionLocal() as db_session:
             cached = await db_session.scalar(
@@ -159,7 +160,7 @@ class SequentialDebateController:
                 "cache_hit": True,
             }
 
-    async def _store_cached_response(self, agent: DebateAgent, prompt: str, response: Dict[str, Any]) -> None:
+    async def _store_cached_response(self, agent: DebateAgent, prompt: str, response: dict[str, Any]) -> None:
         cache_key, prompt_hash = self._build_prompt_cache_key(agent, prompt)
         async with AsyncSessionLocal() as db_session:
             existing = await db_session.scalar(
@@ -194,11 +195,11 @@ class SequentialDebateController:
     async def create_debate(
         self,
         topic: str,
-        agents_config: List[DebateAgent],
-        on_turn_start: Optional[Callable[[DebateTurn], None]] = None,
-        on_turn_complete: Optional[Callable[[DebateTurn], None]] = None,
-        on_model_load: Optional[Callable[[str, str], None]] = None,
-        on_model_unload: Optional[Callable[[str, str], None]] = None,
+        agents_config: list[DebateAgent],
+        on_turn_start: Callable[[DebateTurn], None] | None = None,
+        on_turn_complete: Callable[[DebateTurn], None] | None = None,
+        on_model_load: Callable[[str, str], None] | None = None,
+        on_model_unload: Callable[[str, str], None] | None = None,
         mode: str = "standard",
     ) -> DebateSession:
         """Crea y ejecuta un debate secuencial con ID autogenerado"""
@@ -218,11 +219,11 @@ class SequentialDebateController:
         self,
         session_id: str,
         topic: str,
-        agents_config: List[DebateAgent],
-        on_turn_start: Optional[Callable[[DebateTurn], None]] = None,
-        on_turn_complete: Optional[Callable[[DebateTurn], None]] = None,
-        on_model_load: Optional[Callable[[str, str], None]] = None,
-        on_model_unload: Optional[Callable[[str, str], None]] = None,
+        agents_config: list[DebateAgent],
+        on_turn_start: Callable[[DebateTurn], None] | None = None,
+        on_turn_complete: Callable[[DebateTurn], None] | None = None,
+        on_model_load: Callable[[str, str], None] | None = None,
+        on_model_unload: Callable[[str, str], None] | None = None,
         mode: str = "standard",
     ) -> DebateSession:
         """Crea y ejecuta un debate secuencial con un ID proporcionado"""
@@ -491,7 +492,7 @@ class SequentialDebateController:
 
                         except Exception as fallback_error:
                             turn.status = "failed"
-                            turn.response_received = f"[ERROR Cloud: {str(e)}]\n[ERROR Fallback: {str(fallback_error)}]"
+                            turn.response_received = f"[ERROR Cloud: {e!s}]\n[ERROR Fallback: {fallback_error!s}]"
                             logger.error(
                                 "sequential_debate.fallback_failed",
                                 session_id=session_id,
@@ -570,7 +571,7 @@ class SequentialDebateController:
                             )
                         except Exception as fallback_error:
                             turn.status = "failed"
-                            turn.response_received = f"[ERROR Local: {str(e)}]\n[ERROR Fallback: {str(fallback_error)}]"
+                            turn.response_received = f"[ERROR Local: {e!s}]\n[ERROR Fallback: {fallback_error!s}]"
                             logger.error(
                                 "sequential_debate.local_fallback_failed",
                                 session_id=session_id,
@@ -933,8 +934,8 @@ class SequentialDebateController:
         self,
         agent: DebateAgent,
         prompt: str,
-        on_model_unload: Optional[Callable[[str, str], None]] = None,
-    ) -> Dict[str, Any]:
+        on_model_unload: Callable[[str, str], None] | None = None,
+    ) -> dict[str, Any]:
         """Ejecuta agente local con Ollama"""
         cached_response = await self._get_cached_response(agent, prompt)
         if cached_response:
@@ -1007,7 +1008,7 @@ class SequentialDebateController:
         await self._store_cached_response(agent, prompt, result)
         return result
 
-    async def _run_cloud_agent(self, agent: DebateAgent, prompt: str) -> Dict[str, Any]:
+    async def _run_cloud_agent(self, agent: DebateAgent, prompt: str) -> dict[str, Any]:
         """
         Ejecuta agente cloud según su engine: groq, gemini, deepseek, openrouter.
         Hace fallback a OpenRouter si el engine específico no está disponible.
@@ -1150,7 +1151,7 @@ class SequentialDebateController:
 
         return "\n".join(verdict_lines)
 
-    async def _run_tribunal(self, session: DebateSession, db_session: AsyncSession) -> Optional[Dict[str, Any]]:
+    async def _run_tribunal(self, session: DebateSession, db_session: AsyncSession) -> dict[str, Any] | None:
         """
         Ejecuta el Tribunal de Magistrados sobre el debate completado.
 
@@ -1223,7 +1224,7 @@ class SequentialDebateController:
             )
             return None
 
-    async def _generate_structured_report(self, session: DebateSession) -> Dict[str, Any]:
+    async def _generate_structured_report(self, session: DebateSession) -> dict[str, Any]:
         """
         Genera un informe estructurado JSON resumiendo el debate.
         Utiliza un modelo local rápido para la extracción.
@@ -1249,10 +1250,10 @@ class SequentialDebateController:
         self,
         session_id: str,
         topic: str,
-        history: List[str],
+        history: list[str],
         total_turns: int,
         completed_turns: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Genera un informe estructurado a partir del historial textual del debate."""
         fallback_report = {
             "summary": f"Debate sobre {topic} con {total_turns} turnos.",
@@ -1341,7 +1342,7 @@ JSON:"""
             )
             return fallback_report
 
-    async def generate_structured_report_for_debate(self, session_id: str) -> Optional[Dict[str, Any]]:
+    async def generate_structured_report_for_debate(self, session_id: str) -> dict[str, Any] | None:
         """
         Regenera y persiste el structured_report para debates completados que no lo tengan.
         Sirve como backfill para reportes históricos.
@@ -1482,7 +1483,7 @@ JSON:"""
 
         return filepath
 
-    async def get_debate_from_db(self, session_id: str) -> Optional[Dict[str, Any]]:
+    async def get_debate_from_db(self, session_id: str) -> dict[str, Any] | None:
         """Recupera un debate completo de la base de datos"""
         try:
             async with AsyncSessionLocal() as db_session:
@@ -1540,7 +1541,7 @@ JSON:"""
             logger.error("sequential_debate.db_read_error", session_id=session_id, error=str(e))
             return None
 
-    async def list_debates_from_db(self, limit: int = 50) -> List[Dict[str, Any]]:
+    async def list_debates_from_db(self, limit: int = 50) -> list[dict[str, Any]]:
         """Lista debates históricos de la base de datos"""
         try:
             async with AsyncSessionLocal() as db_session:
@@ -1637,25 +1638,25 @@ JSON:"""
                 error=str(e),
             )
 
-    def get_session(self, session_id: str) -> Optional[DebateSession]:
+    def get_session(self, session_id: str) -> DebateSession | None:
         """Obtiene una sesión de debate activa"""
         return self.active_sessions.get(session_id)
 
-    def list_sessions(self) -> List[DebateSession]:
+    def list_sessions(self) -> list[DebateSession]:
         """Lista todas las sesiones de debate"""
         return list(self.active_sessions.values())
 
     async def continue_debate(
         self,
         session_id: str,
-        agents_config: Optional[List[DebateAgent]] = None,
-        max_additional_turns: Optional[int] = None,
-        continuation_prompt: Optional[str] = None,
-        on_turn_start: Optional[Callable[[DebateTurn], None]] = None,
-        on_turn_complete: Optional[Callable[[DebateTurn], None]] = None,
-        on_model_load: Optional[Callable[[str, str], None]] = None,
-        on_model_unload: Optional[Callable[[str, str], None]] = None,
-    ) -> Optional[DebateSession]:
+        agents_config: list[DebateAgent] | None = None,
+        max_additional_turns: int | None = None,
+        continuation_prompt: str | None = None,
+        on_turn_start: Callable[[DebateTurn], None] | None = None,
+        on_turn_complete: Callable[[DebateTurn], None] | None = None,
+        on_model_load: Callable[[str, str], None] | None = None,
+        on_model_unload: Callable[[str, str], None] | None = None,
+    ) -> DebateSession | None:
         """
         Continua un debate existente con nuevos turnos.
 
@@ -1796,7 +1797,7 @@ JSON:"""
 
                 except Exception as e:
                     turn.status = "failed"
-                    turn.response_received = f"[ERROR: {str(e)}]"
+                    turn.response_received = f"[ERROR: {e!s}]"
                     logger.error(
                         "sequential_debate.continuation_turn_failed",
                         session_id=session_id,
@@ -1938,7 +1939,7 @@ JSON:"""
                 pass
             return None
 
-    async def _reconstruct_session_from_db(self, debate_data: Dict[str, Any]) -> DebateSession:
+    async def _reconstruct_session_from_db(self, debate_data: dict[str, Any]) -> DebateSession:
         """Reconstruye una DebateSession desde datos de la base de datos"""
         session = DebateSession(
             id=debate_data["id"],
@@ -1979,7 +1980,7 @@ JSON:"""
 
         return session
 
-    def _extract_agents_from_session(self, session: DebateSession) -> List[DebateAgent]:
+    def _extract_agents_from_session(self, session: DebateSession) -> list[DebateAgent]:
         """Extrae la configuracion de agentes desde los turnos existentes"""
         seen_ids = set()
         agents = []
@@ -1992,8 +1993,8 @@ JSON:"""
     async def pause_debate(
         self,
         session_id: str,
-        reason: Optional[str] = None,
-    ) -> Optional[DebateSession]:
+        reason: str | None = None,
+    ) -> DebateSession | None:
         """
         Pausa un debate en ejecucion.
 
@@ -2049,11 +2050,11 @@ JSON:"""
     async def resume_debate(
         self,
         session_id: str,
-        on_turn_start: Optional[Callable[[DebateTurn], None]] = None,
-        on_turn_complete: Optional[Callable[[DebateTurn], None]] = None,
-        on_model_load: Optional[Callable[[str, str], None]] = None,
-        on_model_unload: Optional[Callable[[str, str], None]] = None,
-    ) -> Optional[DebateSession]:
+        on_turn_start: Callable[[DebateTurn], None] | None = None,
+        on_turn_complete: Callable[[DebateTurn], None] | None = None,
+        on_model_load: Callable[[str, str], None] | None = None,
+        on_model_unload: Callable[[str, str], None] | None = None,
+    ) -> DebateSession | None:
         """
         Reanuda un debate pausado desde donde se quedo.
 
@@ -2201,7 +2202,7 @@ JSON:"""
 
                 except Exception as e:
                     turn.status = "failed"
-                    turn.response_received = f"[ERROR: {str(e)}]"
+                    turn.response_received = f"[ERROR: {e!s}]"
                     logger.error(
                         "sequential_debate.resume_turn_failed",
                         session_id=session_id,
@@ -2346,10 +2347,10 @@ JSON:"""
         self,
         session_id: str,
         topic: str,
-        agents_config: List[DebateAgent],
+        agents_config: list[DebateAgent],
         max_iterations: int = 3,
-        on_iteration_complete: Optional[Callable[[IteracionDebate], None]] = None,
-        on_cruzamiento: Optional[Callable[[CruzamientoCritico], None]] = None,
+        on_iteration_complete: Callable[[IteracionDebate], None] | None = None,
+        on_cruzamiento: Callable[[CruzamientoCritico], None] | None = None,
         mode: str = "iterative",
     ) -> DebateSession:
         """
@@ -2483,7 +2484,7 @@ JSON:"""
         self,
         session: DebateSession,
         iteration: IteracionDebate,
-        agents_config: List[DebateAgent],
+        agents_config: list[DebateAgent],
         iteration_num: int,
     ):
         """Ejecuta la fase de análisis donde cada agente presenta su perspectiva"""
@@ -2550,7 +2551,7 @@ JSON:"""
 
             except Exception as e:
                 turn.status = "failed"
-                turn.response_received = f"[Error: {str(e)}]"
+                turn.response_received = f"[Error: {e!s}]"
                 logger.error(
                     "sequential_debate.analysis_turn_failed",
                     session_id=session.id,
@@ -2562,8 +2563,8 @@ JSON:"""
         self,
         session: DebateSession,
         iteration: IteracionDebate,
-        agents_config: List[DebateAgent],
-        on_cruzamiento: Optional[Callable[[CruzamientoCritico], None]],
+        agents_config: list[DebateAgent],
+        on_cruzamiento: Callable[[CruzamientoCritico], None] | None,
     ):
         """Ejecuta fase de cruzamientos críticos entre agentes"""
 
@@ -2627,7 +2628,7 @@ JSON:"""
         self,
         session: DebateSession,
         iteration: IteracionDebate,
-        agents_config: List[DebateAgent],
+        agents_config: list[DebateAgent],
         iteration_num: int,
     ):
         """
@@ -2766,7 +2767,7 @@ JSON:"""
         self,
         session: DebateSession,
         iteration: IteracionDebate,
-        agents_config: List[DebateAgent],
+        agents_config: list[DebateAgent],
     ):
         """Fase de validación donde agentes verifican argumentos"""
 
@@ -2839,7 +2840,7 @@ Responde de manera concisa y constructiva."""
         self,
         session: DebateSession,
         iteration: IteracionDebate,
-        agents_config: List[DebateAgent],
+        agents_config: list[DebateAgent],
     ):
         """Fase final de búsqueda de consenso"""
 
@@ -3002,7 +3003,7 @@ Tu respuesta debe ser concisa (150-250 tokens) y enfocada en este argumento espe
 
 
 # Configuraciones predefinidas de debates
-def get_standard_debate_config(topic: str) -> List[DebateAgent]:
+def get_standard_debate_config(topic: str) -> list[DebateAgent]:
     """Configuración estándar: 3 locales + 1 cloud"""
     return [
         # 1. Análisis inicial - Meta (llama3)
@@ -3068,7 +3069,7 @@ def get_standard_debate_config(topic: str) -> List[DebateAgent]:
     ]
 
 
-def get_local_only_config(topic: str) -> List[DebateAgent]:
+def get_local_only_config(topic: str) -> list[DebateAgent]:
     """Configuración solo local: 4 modelos distintos"""
     return [
         DebateAgent(
@@ -3123,7 +3124,7 @@ def get_local_only_config(topic: str) -> List[DebateAgent]:
     ]
 
 
-def get_cloud_ollama_config(topic: str) -> List[DebateAgent]:
+def get_cloud_ollama_config(topic: str) -> list[DebateAgent]:
     """Configuración que usa modelos grandes vía Ollama Cloud en el Master"""
     return [
         DebateAgent(

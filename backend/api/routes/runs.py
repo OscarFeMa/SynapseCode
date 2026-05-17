@@ -3,7 +3,7 @@ Synapse Council - Unified Runs API
 Read-only compatibility layer across classic sessions and sequential debates.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/runs", tags=["Runs"])
 session_manager = SessionManager()
 
 
-def _normalize_sequential_summary(debate: Dict[str, Any], source: str = "database") -> Dict[str, Any]:
+def _normalize_sequential_summary(debate: dict[str, Any], source: str = "database") -> dict[str, Any]:
     return {
         "id": debate.get("id") or debate.get("session_id"),
         "type": "sequential_debate",
@@ -33,7 +33,7 @@ def _normalize_sequential_summary(debate: Dict[str, Any], source: str = "databas
     }
 
 
-def _normalize_classic_summary(session: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_classic_summary(session: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": session.get("id"),
         "type": "classic_session",
@@ -49,7 +49,7 @@ def _normalize_classic_summary(session: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _normalize_active_session(session: Any, run_type: str) -> Dict[str, Any]:
+def _normalize_active_session(session: Any, run_type: str) -> dict[str, Any]:
     turns = getattr(session, "turns", []) or []
     completed_turns = [turn for turn in turns if getattr(turn, "status", None) == "completed"]
     return {
@@ -72,9 +72,9 @@ def _normalize_active_session(session: Any, run_type: str) -> Dict[str, Any]:
 async def list_runs(
     limit: int = 50,
     db_session: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Lista ejecuciones de debate con un contrato comun minimo."""
-    runs: List[Dict[str, Any]] = []
+    runs: list[dict[str, Any]] = []
 
     for session in debate_controller.list_sessions():
         runs.append(_normalize_active_session(session, "sequential_debate"))
@@ -96,7 +96,7 @@ async def list_runs(
 async def get_run(
     run_id: str,
     db_session: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Obtiene una ejecucion por ID desde memoria o base de datos."""
     active = debate_controller.get_session(run_id)
     if active:

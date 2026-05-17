@@ -6,7 +6,6 @@ Orquestador de alta densidad con cruce recursivo y agentes multinodo.
 import asyncio
 import uuid
 from datetime import datetime
-from typing import Dict
 
 import structlog
 
@@ -34,7 +33,7 @@ class UltraDebateController:
     def __init__(self):
         self.orchestrator = AgentOrchestrator()
         self.tribunal = TribunalCouncil()
-        self.active_sessions: Dict[str, DebateSession] = {}
+        self.active_sessions: dict[str, DebateSession] = {}
 
     async def create_ultra_debate(self, topic: str) -> str:
         """Inicia un debate de ultra-alta densidad con ID autogenerado"""

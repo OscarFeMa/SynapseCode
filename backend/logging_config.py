@@ -6,7 +6,6 @@ Rotating file handlers + console output + structured logging
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -24,7 +23,7 @@ _active_handlers = []
 
 def setup_logging(
     log_level: str = "INFO",
-    log_dir: Optional[Path] = None,
+    log_dir: Path | None = None,
     max_bytes: int = MAX_LOG_SIZE_BYTES,
     backup_count: int = BACKUP_COUNT,
     console: bool = True,

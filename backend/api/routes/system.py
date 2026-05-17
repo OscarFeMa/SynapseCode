@@ -5,7 +5,6 @@ Endpoints para configuración, métricas, chat directo y wake-on-RDP
 
 import time
 from datetime import datetime
-from typing import Optional
 
 import psutil
 import structlog
@@ -66,22 +65,22 @@ async def require_admin_access(request: Request) -> None:
 class SettingsRequest(BaseModel):
     """Request para actualizar configuración"""
 
-    openrouterKey: Optional[str] = None
-    geminiKey: Optional[str] = None
-    groqKey: Optional[str] = None
-    deepseekKey: Optional[str] = None
-    ollamaUrl: Optional[str] = None
-    lmStudioUrl: Optional[str] = None
-    janUrl: Optional[str] = None
-    workerHost: Optional[str] = None
-    workerOllamaPort: Optional[int] = None
-    workerLmStudioPort: Optional[int] = None
-    workerJanPort: Optional[int] = None
-    discoveryPort: Optional[int] = None
-    discoveryInterval: Optional[int] = None
-    webAgentEnabled: Optional[bool] = None
-    supabaseEnabled: Optional[bool] = None
-    agentReputationEnabled: Optional[bool] = None
+    openrouterKey: str | None = None
+    geminiKey: str | None = None
+    groqKey: str | None = None
+    deepseekKey: str | None = None
+    ollamaUrl: str | None = None
+    lmStudioUrl: str | None = None
+    janUrl: str | None = None
+    workerHost: str | None = None
+    workerOllamaPort: int | None = None
+    workerLmStudioPort: int | None = None
+    workerJanPort: int | None = None
+    discoveryPort: int | None = None
+    discoveryInterval: int | None = None
+    webAgentEnabled: bool | None = None
+    supabaseEnabled: bool | None = None
+    agentReputationEnabled: bool | None = None
 
 
 class DirectChatRequest(BaseModel):
@@ -97,12 +96,12 @@ class DirectChatRequest(BaseModel):
 class WakeWorkerRequest(BaseModel):
     """Request para despertar o conectar al Worker por RDP (manual)"""
 
-    hostname: Optional[str] = Field(
+    hostname: str | None = Field(
         default=None,
         description="Hostname del Worker (usa config si no se proporciona)",
     )
-    username: Optional[str] = Field(default=None, description="Usuario RDP (usa config si no se proporciona)")
-    password: Optional[str] = Field(default=None, description="Contraseña RDP (usa config si no se proporciona)")
+    username: str | None = Field(default=None, description="Usuario RDP (usa config si no se proporciona)")
+    password: str | None = Field(default=None, description="Contraseña RDP (usa config si no se proporciona)")
 
 
 @router.get("/settings", dependencies=[Depends(require_admin_access)])
@@ -664,7 +663,7 @@ async def wake_worker_endpoint(req: WakeWorkerRequest, request: Request):
         }
 
     except RDPSecurityError as e:
-        raise HTTPException(status_code=400, detail=f"Error de seguridad: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error de seguridad: {e!s}")
     except RDPRateLimitError as e:
         raise HTTPException(status_code=429, detail=str(e))
 
@@ -706,7 +705,7 @@ async def wake_worker_auto_endpoint(request: Request):
     except RDPRateLimitError as e:
         raise HTTPException(status_code=429, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error inesperado: {e!s}")
 
 
 @router.get("/rdp-status", dependencies=[Depends(require_admin_access)])
@@ -730,7 +729,7 @@ async def rdp_status_endpoint():
 
 class WorkerServicesResponse(BaseModel):
     services: dict
-    worker_ip: Optional[str] = None
+    worker_ip: str | None = None
 
 
 class WorkerLaunchRequest(BaseModel):
@@ -785,20 +784,20 @@ async def launch_worker_service(req: WorkerLaunchRequest):
 
 class BackupResponse(BaseModel):
     success: bool
-    filename: Optional[str] = None
-    bucket: Optional[str] = None
-    size_bytes: Optional[int] = None
-    timestamp: Optional[str] = None
-    url: Optional[str] = None
-    error: Optional[str] = None
-    reason: Optional[str] = None
+    filename: str | None = None
+    bucket: str | None = None
+    size_bytes: int | None = None
+    timestamp: str | None = None
+    url: str | None = None
+    error: str | None = None
+    reason: str | None = None
 
 
 class BackupListItem(BaseModel):
     name: str
     size: int
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 @router.post("/backup/create", dependencies=[Depends(require_admin_access)])

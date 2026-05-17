@@ -3,8 +3,6 @@ Synapse Council v2.0 - Prompts System
 System prompts para cada rol de agente
 """
 
-from typing import Dict, Optional
-
 
 class PromptBuilder:
     """Constructor de prompts para cada fase del debate"""
@@ -280,7 +278,7 @@ FORMATO DE RESPUESTA:
         query: str,
         role_label: str,
         max_tokens: int = 1000,
-        context: Optional[str] = None,
+        context: str | None = None,
     ) -> str:
         """Construye prompt para analistas"""
 
@@ -333,8 +331,8 @@ FORMATO DE RESPUESTA:
         cls,
         node: str,  # LOCAL o CLOUD
         query: str,
-        analyses: Dict[str, str],
-        critiques: Dict[str, str],
+        analyses: dict[str, str],
+        critiques: dict[str, str],
         max_tokens: int = 2000,
         role_label: str = "Sintetizador",
     ) -> str:
@@ -538,11 +536,11 @@ FORMATO DE RESPUESTA:
         query: str,
         local_synthesis: str,
         cloud_synthesis: str,
-        evidence_input: Optional[str] = None,
-        risk_input: Optional[str] = None,
+        evidence_input: str | None = None,
+        risk_input: str | None = None,
         iteration: int = 1,
         max_tokens: int = 1500,
-        web_context: Optional[str] = None,
+        web_context: str | None = None,
     ) -> str:
         """Construye prompt para magistrados del Tribunal"""
 

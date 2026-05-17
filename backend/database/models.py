@@ -14,7 +14,6 @@ Tablas:
 
 import uuid
 from datetime import UTC, datetime
-from typing import List, Optional
 
 from sqlalchemy import (
     JSON,
@@ -56,32 +55,32 @@ class Session(Base):
     __tablename__ = "sessions"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
-    title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
     query: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="CREATED"
     )  # CREATED|RUNNING|COMPLETED|FAILED|CONSENSUS_NOT_REACHED
-    consensus_level: Mapped[Optional[str]] = mapped_column(
+    consensus_level: Mapped[str | None] = mapped_column(
         String(30), nullable=True
     )  # CONSENSUS_REACHED|PARTIAL_CONSENSUS|DIVERGENT
     rounds_executed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     max_rounds: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
-    final_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    tribunal_verdict: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    final_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tribunal_verdict: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     config_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
     node_origin: Mapped[str] = mapped_column(String(10), nullable=False, default="MASTER")  # MASTER|WORKER
     total_tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     estimated_cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     elevated_to_cloud: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    elevation_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    elevation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
 
     # Relaciones
-    rounds: Mapped[List["Round"]] = relationship(back_populates="session", cascade="all, delete-orphan")
-    agent_calls: Mapped[List["AgentCall"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    rounds: Mapped[list["Round"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    agent_calls: Mapped[list["AgentCall"]] = relationship(back_populates="session", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("idx_sessions_status", "status"),
@@ -102,16 +101,16 @@ class Round(Base):
     session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), nullable=False)
     round_number: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)  # RUNNING|COMPLETED|FAILED
-    convergence_status: Mapped[Optional[str]] = mapped_column(
+    convergence_status: Mapped[str | None] = mapped_column(
         String(30), nullable=True
     )  # CONSENSUS_REACHED|PARTIAL_CONSENSUS|DIVERGENT
-    convergence_detail: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    convergence_detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relaciones
     session: Mapped["Session"] = relationship(back_populates="rounds")
-    agent_calls: Mapped[List["AgentCall"]] = relationship(back_populates="round", cascade="all, delete-orphan")
+    agent_calls: Mapped[list["AgentCall"]] = relationship(back_populates="round", cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint("session_id", "round_number", name="uix_round_session_number"),
@@ -141,21 +140,21 @@ class AgentCall(Base):
     role_label: Mapped[str] = mapped_column(String(100), nullable=False)
     system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
     user_prompt: Mapped[str] = mapped_column(Text, nullable=False)
-    response: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    response: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         String(15), nullable=False, default="PENDING"
     )  # PENDING|STREAMING|COMPLETED|FAILED|TIMEOUT|SKIPPED
-    tokens_in: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    tokens_out: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    quality_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    intervention_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tokens_in: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tokens_out: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quality_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    intervention_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     keep_alive_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    reputation_impact: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    reputation_impact: Mapped[float | None] = mapped_column(Float, nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relaciones
     session: Mapped["Session"] = relationship(back_populates="agent_calls")
@@ -205,9 +204,9 @@ class AgentReputation(Base):
     engine: Mapped[str] = mapped_column(String(20), nullable=False)  # ollama|lm_studio|jan|openrouter|web_agent
     domain: Mapped[str] = mapped_column(String(20), nullable=False)  # technical|strategy|security|creative|general
     reputation_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
-    argument_survival_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=0.0)  # TSA
-    dialectic_independence: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=0.5)  # IID
-    technical_precision: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=0.5)  # PVT
+    argument_survival_rate: Mapped[float | None] = mapped_column(Float, nullable=True, default=0.0)  # TSA
+    dialectic_independence: Mapped[float | None] = mapped_column(Float, nullable=True, default=0.5)  # IID
+    technical_precision: Mapped[float | None] = mapped_column(Float, nullable=True, default=0.5)  # PVT
     total_debates: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_updated: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
 
@@ -228,7 +227,7 @@ class ConfigProfile(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
@@ -253,17 +252,17 @@ class SequentialDebate(Base):
     total_tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    final_verdict: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    structured_report: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    transcript_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    web_context: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # Contexto de búsqueda web
-    paused_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    pause_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    final_verdict: Mapped[str | None] = mapped_column(Text, nullable=True)
+    structured_report: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    transcript_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    web_context: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # Contexto de búsqueda web
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    pause_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relaciones
-    turns: Mapped[List["SequentialDebateTurn"]] = relationship(
+    turns: Mapped[list["SequentialDebateTurn"]] = relationship(
         "SequentialDebateTurn", back_populates="debate", cascade="all, delete-orphan"
     )
 
@@ -305,11 +304,11 @@ class SequentialDebateTurn(Base):
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"
     )  # pending|running|completed|failed|completed (fallback)
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Timestamps
-    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relaciones
     debate: Mapped["SequentialDebate"] = relationship("SequentialDebate", back_populates="turns")
@@ -335,17 +334,17 @@ class ReductioAbsurdumProof(Base):
 
     proposition: Mapped[str] = mapped_column(Text, nullable=False)
     extreme_case: Mapped[str] = mapped_column(Text, nullable=False)
-    contradiction: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    contradiction: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_valid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     confidence_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     questioning_agent: Mapped[str] = mapped_column(String(100), nullable=False)
     challenged_agent: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    consensus_areas: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
-    weak_assumptions: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
-    unquestioned_premises: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    consensus_areas: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    weak_assumptions: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    unquestioned_premises: Mapped[list | None] = mapped_column(JSON, nullable=True)
     overall_complacency_risk: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
-    recommendations: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    recommendations: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
 
@@ -370,9 +369,9 @@ class PromptResponseCache(Base):
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     node: Mapped[str] = mapped_column(String(20), nullable=False)
     temperature: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
-    max_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     prompt_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    prompt_embedding: Mapped[Optional[bytes]] = mapped_column(Text, nullable=True)  # JSON array de floats
+    prompt_embedding: Mapped[bytes | None] = mapped_column(Text, nullable=True)  # JSON array de floats
     response_text: Mapped[str] = mapped_column(Text, nullable=False)
     tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -381,7 +380,7 @@ class PromptResponseCache(Base):
     similarity_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=0.85)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
     last_accessed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     __table_args__ = (
         Index("idx_prompt_cache_engine_model", "engine", "model"),
@@ -405,7 +404,7 @@ class SupabaseSyncQueueItem(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     next_attempt_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
-    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
@@ -424,12 +423,12 @@ class SystemEvent(Base):
     __tablename__ = "system_events"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
-    session_id: Mapped[Optional[str]] = mapped_column(ForeignKey("sessions.id"), nullable=True)
-    debate_id: Mapped[Optional[str]] = mapped_column(ForeignKey("sequential_debates.id"), nullable=True)
+    session_id: Mapped[str | None] = mapped_column(ForeignKey("sessions.id"), nullable=True)
+    debate_id: Mapped[str | None] = mapped_column(ForeignKey("sequential_debates.id"), nullable=True)
     event_type: Mapped[str] = mapped_column(String(50), nullable=False)
     severity: Mapped[str] = mapped_column(String(10), nullable=False)  # INFO|WARNING|ERROR|CRITICAL
     message: Mapped[str] = mapped_column(Text, nullable=False)
-    detail: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
 
     __table_args__ = (
@@ -460,14 +459,14 @@ class ConsensusDebate(Base):
     max_rounds: Mapped[int] = mapped_column(Integer, default=5)
 
     # Métricas de consenso
-    consensus_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # 0-1 score final
+    consensus_score: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0-1 score final
 
     # Resultados
-    final_consensus: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    bias_analysis: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    final_consensus: Mapped[str | None] = mapped_column(Text, nullable=True)
+    bias_analysis: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Transcripción
-    transcript_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    transcript_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Métricas
     total_tokens_in: Mapped[int] = mapped_column(Integer, default=0)
@@ -476,13 +475,13 @@ class ConsensusDebate(Base):
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relaciones
-    rounds: Mapped[List["ConsensusRound"]] = relationship(
+    rounds: Mapped[list["ConsensusRound"]] = relationship(
         "ConsensusRound", back_populates="debate", cascade="all, delete-orphan"
     )
-    agent_positions: Mapped[List["ConsensusAgentPosition"]] = relationship(
+    agent_positions: Mapped[list["ConsensusAgentPosition"]] = relationship(
         "ConsensusAgentPosition", back_populates="debate", cascade="all, delete-orphan"
     )
 
@@ -500,15 +499,15 @@ class ConsensusRound(Base):
     )  # proposal, refutation, synthesis, validation, convergence
 
     # Métricas de la ronda
-    global_consensus_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    global_consensus_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     converged: Mapped[bool] = mapped_column(Boolean, default=False)
-    dissent_topics: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    dissent_topics: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
 
     # Relaciones
     debate: Mapped["ConsensusDebate"] = relationship("ConsensusDebate", back_populates="rounds")
-    agent_positions: Mapped[List["ConsensusAgentPosition"]] = relationship(
+    agent_positions: Mapped[list["ConsensusAgentPosition"]] = relationship(
         "ConsensusAgentPosition", back_populates="round", cascade="all, delete-orphan"
     )
 
@@ -535,9 +534,9 @@ class ConsensusAgentPosition(Base):
     consensus_score: Mapped[float] = mapped_column(Float, default=0.0)  # 0-1
 
     # Datos estructurados
-    supporting_points: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
-    objections_raised: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
-    logical_fallacies: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    supporting_points: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    objections_raised: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    logical_fallacies: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
@@ -613,15 +612,15 @@ class DebateAggregate(Base):
     topic_hash: Mapped[str] = mapped_column(String(64), nullable=False)  # hash para agrupación
     mode: Mapped[str] = mapped_column(String(30), nullable=False)  # standard|ultra_crossing|classic
     status: Mapped[str] = mapped_column(String(20), nullable=False)
-    consensus_level: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    consensus_level: Mapped[str | None] = mapped_column(String(30), nullable=True)
     rounds_executed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     estimated_cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    duration_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     has_tribunal_verdict: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     has_reductio_proofs: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     unique_models_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -649,8 +648,8 @@ class TopicTrending(Base):
     topic_text: Mapped[str] = mapped_column(Text, nullable=False)
     debate_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_turns: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    avg_consensus_level: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    avg_duration_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_consensus_level: Mapped[float | None] = mapped_column(Float, nullable=True)
+    avg_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     unique_models_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
@@ -673,10 +672,10 @@ class ConsensusPattern(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     topic_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     mode: Mapped[str] = mapped_column(String(30), nullable=False)
-    consensus_level: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    consensus_level: Mapped[str | None] = mapped_column(String(30), nullable=True)
     debate_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    avg_rounds_to_convergence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    avg_tokens_per_debate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_rounds_to_convergence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    avg_tokens_per_debate: Mapped[float | None] = mapped_column(Float, nullable=True)
     success_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
@@ -704,7 +703,7 @@ class ModelPerformance(Base):
     total_turns: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     avg_tokens_out: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     avg_latency_ms: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
-    avg_quality_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_quality_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     tsa_score_avg: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
     iid_score_avg: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
     pvt_score_avg: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
@@ -734,7 +733,7 @@ class DailyMetricsSnapshot(Base):
     total_turns_executed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_tokens_generated: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
-    avg_debate_duration_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_debate_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     unique_topics_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     active_models_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)

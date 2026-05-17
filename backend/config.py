@@ -6,7 +6,7 @@ Pydantic Settings para validación de variables de entorno
 import json
 import socket
 from functools import lru_cache
-from typing import List, Optional, Union
+from typing import Union
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # ─── Rol del Nodo ─────────────────────────────────────────
     NODE_ROLE: str = Field(default="MASTER", pattern="^(MASTER|WORKER)$")
-    WORKER_HOST: Optional[str] = None  # IP dinámica - se resuelve via hostname
+    WORKER_HOST: str | None = None  # IP dinámica - se resuelve via hostname
     WORKER_HOSTNAME: str = "makederpc"  # Hostname del Worker para resolución DNS
     WORKER_OLLAMA_PORT: int = 11434
     WORKER_LM_STUDIO_PORT: int = 1234
@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     JAN_KEEP_ALIVE: int = 0
 
     # ─── OpenRouter ───────────────────────────────────────────
-    OPENROUTER_API_KEY: Optional[str] = None
+    OPENROUTER_API_KEY: str | None = None
     OPENROUTER_ENABLED: bool = True
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api"
     OPENROUTER_TIMEOUT_SECONDS: int = 90
@@ -66,15 +66,15 @@ class Settings(BaseSettings):
     OPENROUTER_APP_NAME: str = "SynapseCouncil"
 
     # ─── Google Gemini ────────────────────────────────────────
-    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: str | None = None
     GEMINI_ENABLED: bool = True
 
     # ─── Groq ─────────────────────────────────────────────────
-    GROQ_API_KEY: Optional[str] = None
+    GROQ_API_KEY: str | None = None
     GROQ_ENABLED: bool = True
 
     # ─── DeepSeek ─────────────────────────────────────────────
-    DEEPSEEK_API_KEY: Optional[str] = None
+    DEEPSEEK_API_KEY: str | None = None
     DEEPSEEK_ENABLED: bool = True
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
 
@@ -89,7 +89,7 @@ class Settings(BaseSettings):
     WEB_AGENT_CHROME_PROFILE: str = ""  # Vacío = usa perfil por defecto del usuario
 
     # ─── HuggingFace Inference API ───────────────────────────
-    HF_TOKEN: Optional[str] = None
+    HF_TOKEN: str | None = None
     HF_ENABLED: bool = True
 
     # ─── RDP Manager (Wake-on-RDP para Worker) ──────────────────
@@ -100,8 +100,8 @@ class Settings(BaseSettings):
     RDP_RATE_LIMIT_SECONDS: int = 60  # Mínimo tiempo entre wakes
 
     # ─── Supabase ─────────────────────────────────────────────
-    SUPABASE_URL: Optional[str] = None
-    SUPABASE_ANON_KEY: Optional[str] = None
+    SUPABASE_URL: str | None = None
+    SUPABASE_ANON_KEY: str | None = None
     SUPABASE_ENABLED: bool = True
     SUPABASE_PROJECT: str = "memoria-oscar"
 
@@ -168,7 +168,7 @@ class Settings(BaseSettings):
     # ─── Servidor ─────────────────────────────────────────────
     HOST: str = "0.0.0.0"  # nosec B104 - Required for multi-node communication
     PORT: int = 8000
-    CORS_ORIGINS: Union[str, List[str]] = (
+    CORS_ORIGINS: Union[str, list[str]] = (
         "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177,http://localhost:5178,http://localhost:5179,http://localhost:5180,http://localhost:8080"
     )
     LOG_LEVEL: str = "INFO"
@@ -179,19 +179,19 @@ class Settings(BaseSettings):
     RELOAD: bool = False
 
     # ─── Admin API ────────────────────────────────────────────
-    ADMIN_API_TOKEN: Optional[str] = None
+    ADMIN_API_TOKEN: str | None = None
     ADMIN_API_LOCALHOST_ONLY: bool = True
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
-    def parse_cors_origins(cls, v) -> List[str]:
+    def parse_cors_origins(cls, v) -> list[str]:
         if isinstance(v, list):
             return v
         return [origin.strip() for origin in v.split(",")]
 
     @field_validator("SUPABASE_URL", "SUPABASE_ANON_KEY", mode="before")
     @classmethod
-    def normalize_placeholder_supabase_values(cls, value: Optional[str]) -> Optional[str]:
+    def normalize_placeholder_supabase_values(cls, value: str | None) -> str | None:
         if value is None:
             return None
         if "CHANGEME" in value:
@@ -209,10 +209,10 @@ class Settings(BaseSettings):
         return self.NODE_ROLE == "MASTER"
 
     @property
-    def web_agent_sites_list(self) -> List[str]:
+    def web_agent_sites_list(self) -> list[str]:
         return [site.strip() for site in self.WEB_AGENT_SITES.split(",")]
 
-    def resolve_worker_ip(self) -> Optional[str]:
+    def resolve_worker_ip(self) -> str | None:
         """Resuelve la IP del Worker via DNS usando WORKER_HOSTNAME"""
         try:
             ip = socket.gethostbyname(self.WORKER_HOSTNAME)
@@ -220,7 +220,7 @@ class Settings(BaseSettings):
         except socket.gaierror:
             return None
 
-    def get_worker_host(self) -> Optional[str]:
+    def get_worker_host(self) -> str | None:
         """Obtiene la IP del Worker: usa WORKER_HOST si está seteada, sino resuelve dinámicamente"""
         if self.WORKER_HOST:
             return self.WORKER_HOST
@@ -262,7 +262,7 @@ class Settings(BaseSettings):
         """Limpia la cache de IP del Worker para forzar re-resolución DNS"""
         self.WORKER_HOST = None
 
-    def get_model_timeout(self, model: str, engine: str = "ollama", default: Optional[int] = None) -> int:
+    def get_model_timeout(self, model: str, engine: str = "ollama", default: int | None = None) -> int:
         """
         Obtiene el timeout en segundos para un modelo especifico.
 

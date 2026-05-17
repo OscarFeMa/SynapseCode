@@ -5,8 +5,9 @@ Implementa Protocolo Wake & Sleep para gestión de VRAM
 """
 
 import asyncio
+from collections.abc import AsyncGenerator
 from enum import Enum
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any
 
 import structlog
 
@@ -36,31 +37,31 @@ class LocalEngineManager:
     """
 
     def __init__(self):
-        self.engines: Dict[EngineType, Any] = {
+        self.engines: dict[EngineType, Any] = {
             EngineType.OLLAMA: OllamaClient(base_url=settings.worker_ollama_url),
             EngineType.LM_STUDIO: LMStudioClient(base_url=settings.worker_lm_studio_url),
             EngineType.JAN: JanClient(base_url=settings.worker_jan_url),
         }
-        self.engine_health: Dict[EngineType, bool] = {
+        self.engine_health: dict[EngineType, bool] = {
             EngineType.OLLAMA: False,
             EngineType.LM_STUDIO: False,
             EngineType.JAN: False,
         }
-        self.engine_failures: Dict[EngineType, int] = {
+        self.engine_failures: dict[EngineType, int] = {
             EngineType.OLLAMA: 0,
             EngineType.LM_STUDIO: 0,
             EngineType.JAN: 0,
         }
-        self.circuit_broken_until: Dict[EngineType, float] = {
+        self.circuit_broken_until: dict[EngineType, float] = {
             EngineType.OLLAMA: 0.0,
             EngineType.LM_STUDIO: 0.0,
             EngineType.JAN: 0.0,
         }
-        self._health_cache_time: Optional[float] = None
+        self._health_cache_time: float | None = None
         self._health_cache_duration = 30.0  # segundos
-        self._preload_tasks: Dict[str, asyncio.Task] = {}
+        self._preload_tasks: dict[str, asyncio.Task] = {}
 
-    async def health_check(self, engine_type: EngineType) -> Dict[str, Any]:
+    async def health_check(self, engine_type: EngineType) -> dict[str, Any]:
         """Verifica salud de un motor específico"""
         # Circuit breaker check
         import time
@@ -149,7 +150,7 @@ class LocalEngineManager:
             self.circuit_broken_until[engine_type] = time.time() + 60.0
             self.engine_failures[engine_type] = 0  # Reset for next time
 
-    async def check_all_health(self) -> Dict[EngineType, Dict[str, Any]]:
+    async def check_all_health(self) -> dict[EngineType, dict[str, Any]]:
         """Verifica salud de todos los motores (con caché)"""
         current_time = asyncio.get_event_loop().time()
 
@@ -175,7 +176,7 @@ class LocalEngineManager:
         self._health_cache_time = current_time
         return all_results
 
-    async def get_available_engines(self) -> List[EngineType]:
+    async def get_available_engines(self) -> list[EngineType]:
         """Retorna lista de motores disponibles"""
         await self.check_all_health()
         return [engine for engine, healthy in self.engine_health.items() if healthy]
@@ -185,9 +186,9 @@ class LocalEngineManager:
         engine_type: EngineType,
         model: str,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         stream: bool = True,
     ) -> AsyncGenerator[str, None]:
         """
@@ -291,9 +292,9 @@ class LocalEngineManager:
         self,
         engine_type: EngineType,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         stream: bool = True,
     ) -> AsyncGenerator[str, None]:
         """
@@ -343,9 +344,9 @@ class LocalEngineManager:
         agent_slot: str,
         model: str,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         stream: bool = True,
     ) -> AsyncGenerator[str, None]:
         """
@@ -383,7 +384,7 @@ class LocalEngineManager:
         # Si todos fallaron
         raise RuntimeError(f"All local engines failed. Last error: {last_error}")
 
-    def schedule_ollama_preload(self, model: Optional[str]) -> None:
+    def schedule_ollama_preload(self, model: str | None) -> None:
         """Programa una precarga en segundo plano si no existe una ya activa para el modelo."""
         if not model:
             return

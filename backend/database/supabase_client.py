@@ -4,7 +4,7 @@ Cliente para elevación de veredictos importantes a nube.
 """
 
 import asyncio
-from typing import Any, Dict, Optional
+from typing import Any
 
 import httpx
 import structlog
@@ -39,11 +39,11 @@ class SupabaseClient:
         query: str,
         final_summary: str,
         consensus_level: str,
-        tribunal_verdict: Dict[str, Any],
+        tribunal_verdict: dict[str, Any],
         rounds_executed: int,
-        config_snapshot: Dict[str, Any],
+        config_snapshot: dict[str, Any],
         elevation_reason: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Eleva veredicto a Supabase (tabla veredictos_finales).
         Retorna ID del veredicto elevado o None si falló.
@@ -125,7 +125,7 @@ class SupabaseClient:
 
         return tags[:5]  # Máximo 5 tags
 
-    def _is_notable(self, tribunal_verdict: Dict[str, Any], consensus_level: str) -> bool:
+    def _is_notable(self, tribunal_verdict: dict[str, Any], consensus_level: str) -> bool:
         """Determina si el veredicto es notable para destacar"""
         # Notable si: consenso no alcanzado, o score muy alto/bajo
         if consensus_level == "DIVERGENT":
@@ -143,7 +143,7 @@ class SupabaseClient:
 
         return False
 
-    async def check_health(self) -> Dict[str, Any]:
+    async def check_health(self) -> dict[str, Any]:
         """Verifica conectividad con Supabase"""
         if not self.enabled:
             return {"status": "disabled", "message": "Supabase not configured"}

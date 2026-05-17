@@ -13,7 +13,7 @@ Elimina duplicación de clientes HTTP en adapters.
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import httpx
 import structlog
@@ -30,7 +30,7 @@ class ClientConfig:
     max_keepalive: int = 10
     max_connections: int = 20
     retry_delay: float = 1.0
-    headers: Optional[Dict[str, str]] = None
+    headers: dict[str, str] | None = None
 
 
 class HTTPClientManager:
@@ -61,9 +61,9 @@ class HTTPClientManager:
     _lock = asyncio.Lock()
 
     # Clientes por servicio
-    _clients: Dict[str, httpx.AsyncClient] = {}
-    _configs: Dict[str, ClientConfig] = {}
-    _usage_count: Dict[str, int] = {}
+    _clients: dict[str, httpx.AsyncClient] = {}
+    _configs: dict[str, ClientConfig] = {}
+    _usage_count: dict[str, int] = {}
 
     def __new__(cls):
         if cls._instance is None:
@@ -74,8 +74,8 @@ class HTTPClientManager:
     def get_client(
         cls,
         service: str,
-        config: Optional[ClientConfig] = None,
-        base_url: Optional[str] = None,
+        config: ClientConfig | None = None,
+        base_url: str | None = None,
     ) -> httpx.AsyncClient:
         """
         Obtiene cliente HTTP para un servicio.
@@ -160,7 +160,7 @@ class HTTPClientManager:
         logger.info("http_client.all_closed", count=len(services))
 
     @classmethod
-    def get_metrics(cls) -> Dict[str, Any]:
+    def get_metrics(cls) -> dict[str, Any]:
         """Obtiene métricas de uso de clientes"""
         return {
             service: {
@@ -168,7 +168,7 @@ class HTTPClientManager:
                 "timeout": cls._configs.get(service, ClientConfig()).timeout,
                 "is_closed": cls._clients.get(service, httpx.AsyncClient()).is_closed,
             }
-            for service in cls._clients.keys()
+            for service in cls._clients
         }
 
     @classmethod
@@ -213,7 +213,7 @@ class ManagedHTTPClientMixin:
     """
 
     service_name: str = "default"
-    _client: Optional[httpx.AsyncClient] = None
+    _client: httpx.AsyncClient | None = None
 
     def _get_client(self) -> httpx.AsyncClient:
         """Obtiene cliente HTTP gestionado"""

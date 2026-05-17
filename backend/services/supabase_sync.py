@@ -4,7 +4,7 @@ Sincronización de debates con Supabase para persistencia en la nube
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 import structlog
@@ -48,7 +48,7 @@ class SupabaseSyncService:
         )
         return HTTPClientManager.get_client(self.SERVICE_NAME, config=config)
 
-    async def test_connection(self) -> Dict[str, Any]:
+    async def test_connection(self) -> dict[str, Any]:
         """Prueba conexión con Supabase"""
         if not self.enabled:
             return {"status": "disabled", "message": "Supabase not configured"}
@@ -73,7 +73,7 @@ class SupabaseSyncService:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    async def sync_debate(self, debate_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def sync_debate(self, debate_data: dict[str, Any]) -> dict[str, Any]:
         """
         Sincroniza un debate completo con Supabase.
 
@@ -195,7 +195,7 @@ class SupabaseSyncService:
             logger.error("supabase_sync.exception", debate_id=debate_id, error=str(e))
             return {"synced": False, "error": str(e)}
 
-    async def sync_consensus_debate(self, debate_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def sync_consensus_debate(self, debate_data: dict[str, Any]) -> dict[str, Any]:
         """
         Sincroniza un debate de consenso con Supabase.
         Requiere tabla 'consensus_debates' en Supabase.
@@ -327,7 +327,7 @@ class SupabaseSyncService:
             logger.error("supabase_sync.consensus_exception", debate_id=debate_id, error=str(e))
             return {"synced": False, "error": str(e)}
 
-    async def get_debate_from_cloud(self, debate_id: str) -> Optional[Dict[str, Any]]:
+    async def get_debate_from_cloud(self, debate_id: str) -> dict[str, Any] | None:
         """Recupera un debate desde Supabase"""
         if not self.enabled:
             return None
@@ -363,7 +363,7 @@ class SupabaseSyncService:
             logger.error("supabase_sync.get_failed", debate_id=debate_id, error=str(e))
             return None
 
-    async def list_debates_from_cloud(self, limit: int = 50) -> List[Dict[str, Any]]:
+    async def list_debates_from_cloud(self, limit: int = 50) -> list[dict[str, Any]]:
         """Lista debates desde Supabase"""
         if not self.enabled:
             return []
@@ -386,7 +386,7 @@ class SupabaseSyncService:
         """Cierra conexión HTTP"""
         await HTTPClientManager.close(self.SERVICE_NAME)
 
-    async def sync_reductio_proofs(self, debate_id: str, proofs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def sync_reductio_proofs(self, debate_id: str, proofs: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Sincroniza pruebas Reductio ad Absurdum con Supabase.
         Requiere tabla 'reductio_absurdum_proofs' en Supabase.
@@ -455,7 +455,7 @@ class SupabaseSyncService:
 
 
 # Singleton instance
-_supabase_service: Optional[SupabaseSyncService] = None
+_supabase_service: SupabaseSyncService | None = None
 
 
 def get_supabase_service() -> SupabaseSyncService:

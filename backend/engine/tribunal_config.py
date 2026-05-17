@@ -5,8 +5,8 @@ Keeps TribunalCouncil focused on deliberation while this module owns role
 configuration, environment overrides and fallback chains.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Dict, Iterable, List
 
 from backend.config import Settings, get_settings
 from backend.engine.agent_orchestrator import AgentConfig
@@ -18,10 +18,10 @@ TRIBUNAL_ROLES = ("evidence", "risk", "alignment")
 class TribunalRoleConfig:
     role: str
     primary: AgentConfig
-    fallbacks: List[AgentConfig]
+    fallbacks: list[AgentConfig]
 
     @property
-    def chain(self) -> List[AgentConfig]:
+    def chain(self) -> list[AgentConfig]:
         return [self.primary, *self.fallbacks]
 
 
@@ -70,9 +70,9 @@ def _local_reserve(role: str, temperature: float, max_tokens: int) -> AgentConfi
     )
 
 
-def _dedupe_chain(configs: Iterable[AgentConfig]) -> List[AgentConfig]:
+def _dedupe_chain(configs: Iterable[AgentConfig]) -> list[AgentConfig]:
     seen: set[tuple[str, str, str]] = set()
-    deduped: List[AgentConfig] = []
+    deduped: list[AgentConfig] = []
     for config in configs:
         key = (config.node, config.engine, config.model)
         if key in seen:
@@ -84,7 +84,7 @@ def _dedupe_chain(configs: Iterable[AgentConfig]) -> List[AgentConfig]:
 
 def build_tribunal_config(
     settings: Settings | None = None,
-) -> Dict[str, TribunalRoleConfig]:
+) -> dict[str, TribunalRoleConfig]:
     settings = settings or get_settings()
 
     role_specs = {
@@ -114,7 +114,7 @@ def build_tribunal_config(
         },
     }
 
-    role_configs: Dict[str, TribunalRoleConfig] = {}
+    role_configs: dict[str, TribunalRoleConfig] = {}
     for role, spec in role_specs.items():
         primary = _agent(
             slot=f"magistrate_{role}",

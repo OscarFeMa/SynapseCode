@@ -5,7 +5,7 @@ Soporta: ChatGPT, Claude, Gemini, DeepSeek, Perplexity, Grok, Mistral, Meta AI, 
 Usa playwright-stealth para evitar detección por Cloudflare y similares.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from backend.config import get_settings
 
@@ -114,7 +114,7 @@ class WebAgentClient:
         self.timeout = settings.WEB_AGENT_TIMEOUT_SECONDS
         self.session_dir = settings.WEB_AGENT_SESSION_DIR
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """Verifica disponibilidad de Playwright"""
         if not self.enabled:
             return {"status": "disabled", "message": "Web Agent disabled"}
@@ -142,7 +142,7 @@ class WebAgentClient:
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    def list_sites(self) -> Dict[str, str]:
+    def list_sites(self) -> dict[str, str]:
         """Retorna dict de sitios disponibles: {id: label}"""
         return {k: v["label"] for k, v in SITE_CONFIGS.items()}
 

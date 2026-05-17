@@ -4,7 +4,7 @@ Cliente async para DeepSeek API (OpenAI-compatible)
 """
 
 import json
-from typing import AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
 
 import httpx
 import structlog
@@ -18,10 +18,10 @@ logger = structlog.get_logger()
 class DeepSeekClient:
     """Cliente async para DeepSeek Cloud"""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         self.api_key = api_key or settings.DEEPSEEK_API_KEY
         self.base_url = f"{settings.DEEPSEEK_BASE_URL}/chat/completions"
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     @property
     def client(self) -> httpx.AsyncClient:
@@ -86,4 +86,4 @@ class DeepSeekClient:
                                 continue
         except Exception as e:
             logger.error("deepseek.request_failed", error=str(e))
-            yield f"[Error DeepSeek: {str(e)}]"
+            yield f"[Error DeepSeek: {e!s}]"

@@ -5,7 +5,7 @@ Health check inteligente con diagnostico, uptime, last_error, suggested_fix
 
 import asyncio
 import time
-from typing import Any, Dict
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, HTTPException
@@ -27,7 +27,7 @@ router = APIRouter()
 SERVER_START_TIME = time.time()
 
 
-async def check_database_health() -> Dict[str, Any]:
+async def check_database_health() -> dict[str, Any]:
     """Verifica que la base de datos local acepta consultas."""
     try:
         async with engine.connect() as conn:
@@ -37,7 +37,7 @@ async def check_database_health() -> Dict[str, Any]:
         return {"status": "unavailable", "url": settings.DATABASE_URL, "error": str(e)}
 
 
-async def check_service_health(client_class, settings_prefix: str) -> Dict[str, Any]:
+async def check_service_health(client_class, settings_prefix: str) -> dict[str, Any]:
     """Verifica el estado de un servicio de IA con diagnostico mejorado"""
     start = time.time()
     try:
@@ -133,7 +133,7 @@ def _get_suggested_fix(service: str, error: str) -> str:
     return "Revisa los logs del servidor para mas detalles"
 
 
-async def collect_dependency_health() -> Dict[str, Any]:
+async def collect_dependency_health() -> dict[str, Any]:
     """
     Recolecta salud detallada de dependencias.
     No debe usarse como liveness check porque toca servicios externos.
@@ -224,7 +224,7 @@ async def collect_dependency_health() -> Dict[str, Any]:
 
 
 @router.get("/health/live")
-async def live_check() -> Dict[str, Any]:
+async def live_check() -> dict[str, Any]:
     """Liveness check: solo confirma que el proceso FastAPI responde."""
     return {
         "status": "alive",
@@ -235,7 +235,7 @@ async def live_check() -> Dict[str, Any]:
 
 
 @router.get("/health/ready")
-async def ready_check() -> Dict[str, Any]:
+async def ready_check() -> dict[str, Any]:
     """Readiness check: valida dependencias minimas para aceptar trafico."""
     database_health = await check_database_health()
     if database_health.get("status") not in ["healthy", "online", "available"]:
@@ -251,13 +251,13 @@ async def ready_check() -> Dict[str, Any]:
 
 
 @router.get("/health/dependencies")
-async def dependency_check() -> Dict[str, Any]:
+async def dependency_check() -> dict[str, Any]:
     """Health check detallado de dependencias internas y externas."""
     return await collect_dependency_health()
 
 
 @router.get("/health")
-async def health_check() -> Dict[str, Any]:
+async def health_check() -> dict[str, Any]:
     """
     Health check completo mantenido por compatibilidad.
     Para automatizaciones use /health/live o /health/ready.
@@ -266,7 +266,7 @@ async def health_check() -> Dict[str, Any]:
 
 
 @router.get("/health/history")
-async def health_history() -> Dict[str, Any]:
+async def health_history() -> dict[str, Any]:
     """Historial de health checks con errores, uptime y tasas de fallo."""
     return {
         "serverUptimeSeconds": round(time.time() - SERVER_START_TIME, 1),

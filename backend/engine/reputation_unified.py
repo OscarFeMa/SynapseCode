@@ -12,7 +12,6 @@ import re
 from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional
 
 import structlog
 from sqlalchemy import select, update
@@ -48,7 +47,7 @@ class ReputationMetrics:
     # Datos para contexto
     total_turns: int
     successful_turns: int
-    arguments_in_verdict: List[str]
+    arguments_in_verdict: list[str]
     total_arguments: int
 
 
@@ -81,7 +80,7 @@ class TurnBasedCalculator(BaseMetricsCalculator):
         latency_ms: float,
         success: bool,
         intervention_type: str = "unknown",
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Calcula métricas basadas en un turno individual.
 
@@ -112,7 +111,7 @@ class SessionBasedCalculator(BaseMetricsCalculator):
     def __init__(self, alpha: float = 0.3):
         self.alpha = alpha
 
-    def _extract_arguments(self, text: str) -> List[str]:
+    def _extract_arguments(self, text: str) -> list[str]:
         """Extrae argumentos/puntos clave del texto"""
         if not text:
             return []
@@ -157,7 +156,7 @@ class SessionBasedCalculator(BaseMetricsCalculator):
 
         return intersection / union if union > 0 else 0.0
 
-    def _calculate_tsa(self, agent_args: List[str], verdict_args: List[str]) -> float:
+    def _calculate_tsa(self, agent_args: list[str], verdict_args: list[str]) -> float:
         """
         TSA: Tasa de Supervivencia de Argumentos
         Qué % de argumentos del agente sobrevivieron al veredicto.
@@ -174,7 +173,7 @@ class SessionBasedCalculator(BaseMetricsCalculator):
 
         return survived / len(agent_args)
 
-    def _calculate_iid(self, role: str, responses: List[str]) -> float:
+    def _calculate_iid(self, role: str, responses: list[str]) -> float:
         """
         IID: Índice de Independencia Dialéctica
         Capacidad de divergir del consenso cuando es correcto.
@@ -214,7 +213,7 @@ class SessionBasedCalculator(BaseMetricsCalculator):
         adjustment = min(independence_signals * 0.05, 0.2)
         return min(base_iid + adjustment, 1.0)
 
-    def _calculate_pvt(self, calls: List[AgentCall]) -> float:
+    def _calculate_pvt(self, calls: list[AgentCall]) -> float:
         """
         PVT: Precisión en Validación Técnica
         Basado en señales de rigor técnico en las respuestas.
@@ -245,7 +244,7 @@ class SessionBasedCalculator(BaseMetricsCalculator):
 
         return min(0.5 + (technical_signals / len(calls)) * 0.5, 1.0)
 
-    async def calculate_for_session(self, session_id: str, db_session: AsyncSession) -> Dict[str, ReputationMetrics]:
+    async def calculate_for_session(self, session_id: str, db_session: AsyncSession) -> dict[str, ReputationMetrics]:
         """
         Calcula métricas para todos los modelos de una sesión.
 
@@ -279,7 +278,7 @@ class SessionBasedCalculator(BaseMetricsCalculator):
             return {}
 
         # Agrupar por modelo
-        model_data: Dict[str, Dict] = {}
+        model_data: dict[str, dict] = {}
         for call in calls:
             if call.phase not in ["ANALYSIS", "CRITIQUE", "NODE_SYNTHESIS"]:
                 continue
@@ -539,7 +538,7 @@ class ReputationService:
     # MÉTODOS DE CONSULTA
     # -------------------------------------------------------------------------
 
-    async def get_reputation(self, model: str, role: str) -> Optional[Dict]:
+    async def get_reputation(self, model: str, role: str) -> dict | None:
         """Obtiene reputación de un modelo específico"""
         try:
             async with AsyncSessionLocal() as db:
@@ -568,7 +567,7 @@ class ReputationService:
             logger.error("reputation.get_failed", model=model, role=role, error=str(e))
             return None
 
-    async def get_best_for_role(self, role: str, candidates: List[str], min_debates: int = 3) -> Optional[str]:
+    async def get_best_for_role(self, role: str, candidates: list[str], min_debates: int = 3) -> str | None:
         """
         Obtiene el mejor modelo para un rol basado en reputación.
         """
@@ -604,7 +603,7 @@ class ReputationService:
             logger.error("reputation.get_best_failed", role=role, error=str(e))
             return None
 
-    async def list_all(self, min_turns: int = 1) -> List[Dict]:
+    async def list_all(self, min_turns: int = 1) -> list[dict]:
         """Lista todas las reputaciones"""
         try:
             async with AsyncSessionLocal() as db:
