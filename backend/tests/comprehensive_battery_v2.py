@@ -109,7 +109,7 @@ settings = get_settings()
 config_checks = [
     ("NODE_ROLE", settings.NODE_ROLE in ("MASTER", "WORKER"), f"role={settings.NODE_ROLE}"),
     ("PORT", settings.PORT == 8000, f"port={settings.PORT}"),
-    ("HOST", settings.HOST == "0.0.0.0", f"host={settings.HOST}"),
+    ("HOST", settings.HOST == "0.0.0.0", f"host={settings.HOST}"),  # nosec B104
     ("DATABASE_URL", bool(settings.DATABASE_URL), f"url={settings.DATABASE_URL[:30]}..."),
     (
         "SUPABASE_URL",
