@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Database, Trash2, RefreshCw, BarChart3 } from 'lucide-react'
+import { toast } from 'sonner'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
@@ -30,9 +31,10 @@ export function CachePage() {
     setActionLoading(action)
     try {
       await fetch(`${API_BASE}/api/v1/cache/${action}`, { method: 'POST' })
+      toast.success(action === 'invalidate' ? 'Cache invalidado' : 'Cache expirado limpiado')
       await fetchStats()
     } catch (e) {
-      console.error(`Cache ${action} failed:`, e)
+      toast.error(`Error al ${action === 'invalidate' ? 'invalidar' : 'limpiar'} el cache`)
     } finally {
       setActionLoading(null)
     }

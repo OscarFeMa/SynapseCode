@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, ChevronLeft, Zap, Users, Settings, Check } from 'lucide-react'
+import { toast } from 'sonner'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
@@ -55,10 +56,10 @@ export function NewDebatePage() {
       })
       if (!res.ok) throw new Error('Failed to create session')
       const data = await res.json()
-      navigate(`/session/${data.id}`)
+      toast.success('Debate creado exitosamente')
+      navigate(`/debates/${data.id}`)
     } catch (e) {
-      console.error('Create debate failed:', e)
-      alert('Error al crear el debate: ' + e.message)
+      toast.error('Error al crear el debate')
     } finally {
       setLoading(false)
     }

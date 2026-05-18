@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Wifi, WifiOff, Bell, Search } from 'lucide-react'
 import { useWebSocketStore } from '../../store/useStore'
 
-export function TopBar() {
+export function TopBar({ onOpenCommandPalette }) {
   const [time, setTime] = useState(new Date().toLocaleTimeString('es-ES'))
   const connected = useWebSocketStore((s) => s.connected)
 
@@ -28,8 +28,13 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-4">
-        <button className="p-2 text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-slate-800">
-          <Search className="w-4 h-4" />
+        <button
+          onClick={onOpenCommandPalette}
+          className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-500 hover:text-white hover:border-slate-600 transition-colors"
+        >
+          <Search className="w-3.5 h-3.5" />
+          <span>Buscar...</span>
+          <kbd className="ml-2 text-[10px] bg-slate-700 px-1.5 py-0.5 rounded font-mono">Ctrl+K</kbd>
         </button>
         <button className="p-2 text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-slate-800 relative">
           <Bell className="w-4 h-4" />
