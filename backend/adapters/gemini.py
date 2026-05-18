@@ -71,10 +71,7 @@ class GeminiClient:
             raise ValueError("GEMINI_API_KEY no configurada")
 
         if not self.circuit_breaker.can_execute():
-            raise RuntimeError(
-                f"Gemini circuit breaker is OPEN. "
-                f"Retry after {self.circuit_breaker.recovery_timeout}s"
-            )
+            raise RuntimeError(f"Gemini circuit breaker is OPEN. Retry after {self.circuit_breaker.recovery_timeout}s")
 
         # Convertir mensajes de formato OpenAI a Gemini
         contents = []

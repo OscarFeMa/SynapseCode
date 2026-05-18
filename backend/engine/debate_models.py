@@ -165,9 +165,7 @@ class DebateSession:
 
         # Iteraciones antiguas: resumen compacto
         old_count = total_iterations - SLIDING_WINDOW_KEEP_RECENT
-        context_parts.append(
-            f"=== RESUMEN DE {old_count} ITERACIONES ANTERIORES (contexto comprimido) ==="
-        )
+        context_parts.append(f"=== RESUMEN DE {old_count} ITERACIONES ANTERIORES (contexto comprimido) ===")
 
         for i, iteration in enumerate(self.iterations[:old_count], 1):
             summary = iteration.get_compact_summary()

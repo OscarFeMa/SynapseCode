@@ -71,10 +71,7 @@ class GroqClient:
             raise ValueError("GROQ_API_KEY no configurada")
 
         if not self.circuit_breaker.can_execute():
-            raise RuntimeError(
-                f"Groq circuit breaker is OPEN. "
-                f"Retry after {self.circuit_breaker.recovery_timeout}s"
-            )
+            raise RuntimeError(f"Groq circuit breaker is OPEN. Retry after {self.circuit_breaker.recovery_timeout}s")
 
         # Convertir messages a prompt string para cache
         prompt = json.dumps(messages)

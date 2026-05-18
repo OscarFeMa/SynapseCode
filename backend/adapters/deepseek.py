@@ -52,8 +52,7 @@ class DeepSeekClient:
 
         if not self.circuit_breaker.can_execute():
             raise RuntimeError(
-                f"DeepSeek circuit breaker is OPEN. "
-                f"Retry after {self.circuit_breaker.recovery_timeout}s"
+                f"DeepSeek circuit breaker is OPEN. Retry after {self.circuit_breaker.recovery_timeout}s"
             )
 
         payload = {
