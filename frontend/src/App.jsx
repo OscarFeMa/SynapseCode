@@ -4,11 +4,16 @@ import { ChatInput } from './components/Chat/ChatInput'
 import { SessionView } from './components/Chat/SessionView'
 import { SessionList } from './components/History/SessionList'
 import { useWebSocketStore } from './store/useStore'
+import { AppLayout } from './components/Layout/AppLayout'
+import { DashboardPage } from './pages/DashboardPage'
+import { DebatesPage } from './pages/DebatesPage'
+import { NewDebatePage } from './pages/NewDebatePage'
+import { MonitorPage } from './pages/MonitorPage'
+import { TribunalPage, ModelsPage, CachePage, HistoryPage, SettingsPage } from './pages/OtherPages'
 
 function Layout({ children }) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
-      {/* Navbar */}
       <nav className="bg-slate-900 border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
@@ -19,16 +24,21 @@ function Layout({ children }) {
               <span className="font-semibold text-white">Synapse Council</span>
               <span className="text-xs text-slate-500">v2.0</span>
             </a>
-            
             <div className="flex items-center gap-4">
-              <a 
-                href="/history" 
+              <a
+                href="/history"
                 className="text-sm text-slate-400 hover:text-white transition-colors"
               >
                 Historial
               </a>
-              <a 
-                href="/" 
+              <a
+                href="/dashboard"
+                className="text-sm text-slate-400 hover:text-white transition-colors"
+              >
+                Dashboard
+              </a>
+              <a
+                href="/"
                 className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-900 text-sm font-medium rounded-lg transition-colors"
               >
                 Nueva Consulta
@@ -37,11 +47,7 @@ function Layout({ children }) {
           </div>
         </div>
       </nav>
-      
-      {/* Main content */}
-      <main>
-        {children}
-      </main>
+      <main>{children}</main>
     </div>
   )
 }
@@ -49,12 +55,12 @@ function Layout({ children }) {
 function HomePage() {
   const navigate = useNavigate()
   const clearEvents = useWebSocketStore((state) => state.clearEvents)
-  
+
   const handleSessionCreated = (sessionId) => {
     clearEvents()
     navigate(`/session/${sessionId}`)
   }
-  
+
   return (
     <Layout>
       <div className="py-12">
@@ -65,12 +71,10 @@ function HomePage() {
 }
 
 function SessionPage() {
-  return (
-    <SessionView />
-  )
+  return <SessionView />
 }
 
-function HistoryPage() {
+function HistoryPageLegacy() {
   return (
     <Layout>
       <SessionList />
@@ -82,9 +86,77 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Legacy routes - still work */}
         <Route path="/" element={<HomePage />} />
         <Route path="/session/:sessionId" element={<SessionPage />} />
-        <Route path="/history" element={<HistoryPage />} />
+        <Route path="/history" element={<HistoryPageLegacy />} />
+
+        {/* New dashboard routes */}
+        <Route
+          path="/dashboard"
+          element={
+            <AppLayout>
+              <DashboardPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/debates"
+          element={
+            <AppLayout>
+              <DebatesPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/debates/new"
+          element={
+            <AppLayout>
+              <NewDebatePage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/monitor"
+          element={
+            <AppLayout>
+              <MonitorPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/tribunal"
+          element={
+            <AppLayout>
+              <TribunalPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/models"
+          element={
+            <AppLayout>
+              <ModelsPage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/cache"
+          element={
+            <AppLayout>
+              <CachePage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <AppLayout>
+              <SettingsPage />
+            </AppLayout>
+          }
+        />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
