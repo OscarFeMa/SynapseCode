@@ -2,7 +2,7 @@
 Synapse Council v2.0 - WebSockets
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Query, WebSocket
 
 from backend.api.websocket import handle_websocket, websocket_manager
 from backend.config import get_settings

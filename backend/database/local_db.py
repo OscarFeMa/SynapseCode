@@ -39,6 +39,7 @@ def set_sqlite_pragmas(dbapi_connection, connection_record):
     cursor.execute("PRAGMA temp_store=MEMORY")
     cursor.close()
 
+
 # Crear session factory
 AsyncSessionLocal = async_sessionmaker(
     engine,

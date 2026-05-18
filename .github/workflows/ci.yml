@@ -16,6 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Normalize line endings to LF
+        run: find . -type f -name "*.py" -exec sed -i 's/\r$//' {} +
+
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
