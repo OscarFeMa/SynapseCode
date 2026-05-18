@@ -1,18 +1,20 @@
 """
 Synapse Council v2.3 - Reductio ad Absurdum Engine
-Técnica lógica de reducción al absurdo para eliminar sesgos de complacencia en Ronda 2+.
+Tecnica logica de reduccion al absurdo para eliminar sesgos de complacencia en Ronda 2+.
 
 Principio:
-- Tomar cada conclusión/punto de acuerdo
+- Tomar cada conclusion/punto de acuerdo
 - Llevarla a sus consecuencias extremas
 - Identificar si genera contradicciones
 - Usar para refinar argumentos y detectar suposiciones no cuestionadas
 
-Objetivo: Evitar que el debate colapse prematuramente en consenso sin pensar críticamente.
+Objetivo: Evitar que el debate colapse prematuramente en consenso sin pensar criticamente.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 import structlog
 
@@ -21,28 +23,37 @@ logger = structlog.get_logger()
 
 @dataclass
 class AbsurdumProof:
-    """Resultado de aplicar reducción al absurdo a una proposición"""
+    """Resultado de aplicar reduccion al absurdo a una proposicion"""
 
-    proposition: str  # Proposición original
+    proposition: str  # Proposicion original
     extreme_case: str  # Caso extremo derivado
-    contradiction: str | None  # Contradicción encontrada o None
-    is_valid: bool  # ¿La proposición resiste al absurdo?
+    contradiction: str | None  # Contradiccion encontrada o None
+    is_valid: bool  # ¿La proposicion resiste al absurdo?
     confidence_score: float  # 0.0-1.0
-    questioning_agent: str  # Agente que planteó el desafío
+    questioning_agent: str  # Agente que planteo el desafio
     challenged_agent: str  # Agente cuyo argumento fue desafiado
     timestamp: datetime = field(default_factory=datetime.now)
+    # Campos para persistencia
+    debate_id: str | None = None
+    iteration: int | None = None
+    turn_number: int | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ComplacencyScan:
-    """Análisis de complacencia en el debate actual"""
+    """Analisis de complacencia en el debate actual"""
 
-    consensus_areas: list[str]  # Áreas donde hay acuerdo
+    consensus_areas: list[str]  # Areas donde hay acuerdo
     weak_assumptions: list[str]  # Supuestos no validados
     unquestioned_premises: list[str]  # Premisas no cuestionadas
     overall_complacency_risk: float = 0.0  # 0.0-1.0, nivel de riesgo de complacencia
     absurdum_proofs: list[AbsurdumProof] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
+
+
+# Tipo para el callback de persistencia
+PersistCallback = Callable[[AbsurdumProof], None]
 
 
 class ReductioAbsurdumEngine:
@@ -80,9 +91,14 @@ class ReductioAbsurdumEngine:
         "esto niega",
     ]
 
-    def __init__(self):
+    def __init__(self, persist_callback: PersistCallback | None = None):
         self.proofs_history: list[AbsurdumProof] = []
         self.complacency_history: list[ComplacencyScan] = []
+        self._persist_callback = persist_callback
+
+    def set_persist_callback(self, callback: PersistCallback | None) -> None:
+        """Establece el callback para persistir pruebas en BD"""
+        self._persist_callback = callback
 
     def analyze_consensus_points(
         self,
@@ -506,14 +522,14 @@ Sé honesto y crítico. Un buen magistrado reconoce sus sesgos."""
             target=target_agent.name,
         )
 
-        # Generar desafío
+        # Generar desafio
         challenge_prompt = self.generate_absurdum_challenge(target_proposition, challenging_agent.name)
 
         try:
             # Obtener respuesta del modelo
             response = await generate_func(target_agent, challenge_prompt)
 
-            # Detectar si reconoció contradicción
+            # Detectar si reconocio contradiccion
             contradiction_found = any(marker in response.lower() for marker in self.CONTRADICTION_MARKERS)
 
             proof = AbsurdumProof(
@@ -524,9 +540,19 @@ Sé honesto y crítico. Un buen magistrado reconoce sus sesgos."""
                 confidence_score=0.8 if contradiction_found else 0.6,
                 questioning_agent=challenging_agent.name,
                 challenged_agent=target_agent.name,
+                debate_id=None,  # Se establece en el controller
+                iteration=None,
+                turn_number=None,
             )
 
             self.proofs_history.append(proof)
+
+            # Persistir en BD si hay callback configurado
+            if self._persist_callback:
+                try:
+                    self._persist_callback(proof)
+                except Exception as e:
+                    logger.warning("reductio_absurdum.persist_callback_failed", error=str(e))
 
             logger.info(
                 "reductio_absurdum.proof_generated",
