@@ -47,30 +47,30 @@ export function CommandPalette({ isOpen, onClose }) {
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[20vh]">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-[#161616]/30 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Panel */}
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-lg bg-white border border-[rgba(0,0,0,0.12)] rounded-lg shadow-elevated overflow-hidden">
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 border-b border-slate-800">
-          <Search className="w-4 h-4 text-slate-500 flex-shrink-0" />
+        <div className="flex items-center gap-3 px-4 border-b border-[rgba(0,0,0,0.06)]">
+          <Search className="w-4 h-4 text-[#8A8780] flex-shrink-0" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar comando o pagina..."
-            className="flex-1 bg-transparent py-3 text-sm text-white placeholder-slate-500 outline-none"
+            className="flex-1 bg-transparent py-3 text-sm text-[#161616] placeholder-[#8A8780] outline-none"
             autoFocus
           />
-          <kbd className="text-[10px] text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded">ESC</kbd>
+          <kbd className="text-[10px] text-[#8A8780] bg-[#F5F3EE] px-1.5 py-0.5 rounded font-mono">ESC</kbd>
         </div>
 
         {/* Results */}
         <div className="max-h-72 overflow-y-auto py-2">
           {filtered.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-500">
+            <div className="px-4 py-8 text-center text-sm text-[#8A8780]">
               No se encontraron resultados para "{query}"
             </div>
           ) : (
@@ -78,12 +78,12 @@ export function CommandPalette({ isOpen, onClose }) {
               <button
                 key={cmd.id}
                 onClick={() => handleSelect(cmd)}
-                className="flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-slate-800 transition-colors"
+                className="flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-[#F5F3EE] transition-colors"
               >
-                <cmd.icon className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <span className="text-sm text-white flex-1">{cmd.label}</span>
+                <cmd.icon className="w-4 h-4 text-[#5C5C5C] flex-shrink-0" />
+                <span className="text-sm text-[#161616] flex-1">{cmd.label}</span>
                 {cmd.shortcut && (
-                  <kbd className="text-[10px] text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded font-mono">
+                  <kbd className="text-[10px] text-[#8A8780] bg-[#F5F3EE] px-1.5 py-0.5 rounded font-mono">
                     {cmd.shortcut}
                   </kbd>
                 )}
@@ -93,15 +93,12 @@ export function CommandPalette({ isOpen, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 border-t border-slate-800 text-[10px] text-slate-600 flex items-center gap-3">
+        <div className="px-4 py-2 border-t border-[rgba(0,0,0,0.06)] text-[10px] text-[#8A8780] flex items-center gap-3">
           <span>
-            <kbd className="bg-slate-800 px-1 rounded">Ctrl+K</kbd> para abrir
+            <kbd className="bg-[#F5F3EE] px-1 rounded font-mono">Ctrl+K</kbd> para abrir
           </span>
           <span>
-            <kbd className="bg-slate-800 px-1 rounded">↑↓</kbd> navegar
-          </span>
-          <span>
-            <kbd className="bg-slate-800 px-1 rounded">Enter</kbd> seleccionar
+            <kbd className="bg-[#F5F3EE] px-1 rounded font-mono">Enter</kbd> seleccionar
           </span>
         </div>
       </div>

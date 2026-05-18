@@ -11,19 +11,19 @@ import {
 import { format, subDays, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const COLORS = ['#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6']
+const COLORS = ['#23403B', '#4A7C59', '#6E8B74', '#B98B4D', '#8B3A3A']
 
-const statusColors = {
-  COMPLETED: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  FAILED: 'bg-red-500/10 text-red-400 border-red-500/20',
-  RUNNING: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  CREATED: 'bg-slate-700 text-slate-400 border-slate-600',
+const statusBadge = {
+  COMPLETED: 'badge-success',
+  FAILED: 'badge-error',
+  RUNNING: 'badge-neutral',
+  CREATED: 'badge-neutral',
 }
 
-const consensusColors = {
-  CONSENSUS_REACHED: 'text-emerald-400',
-  PARTIAL_CONSENSUS: 'text-amber-400',
-  DIVERGENT: 'text-red-400',
+const consensusText = {
+  CONSENSUS_REACHED: 'text-[#4A7C59]',
+  PARTIAL_CONSENSUS: 'text-[#B98B4D]',
+  DIVERGENT: 'text-[#8B3A3A]',
 }
 
 export function HistoryPage() {
@@ -87,14 +87,15 @@ export function HistoryPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Historico</h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <h1 className="text-3xl text-[#161616]">Historico</h1>
+          <p className="text-sm text-[#5C5C5C] mt-1">
             {total} debates en los ultimos {dateRange} dias
           </p>
+          <div className="w-8 h-0.5 bg-[#23403B] mt-3" />
         </div>
         <div className="flex items-center gap-3">
           <select
@@ -103,7 +104,7 @@ export function HistoryPage() {
               setDateRange(Number(e.target.value))
               setPage(1)
             }}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+            className="bg-white border border-[rgba(0,0,0,0.08)] rounded px-3 py-2 text-sm text-[#161616] focus:outline-none focus:border-[rgba(0,0,0,0.16)]"
           >
             <option value={7}>7 dias</option>
             <option value={30}>30 dias</option>
@@ -111,7 +112,7 @@ export function HistoryPage() {
           </select>
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white hover:bg-slate-700 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 btn-secondary text-sm"
           >
             <FileDown className="w-4 h-4" />
             CSV
@@ -125,56 +126,56 @@ export function HistoryPage() {
           icon={MessageSquare}
           label="Total Debates"
           value={stats.total}
-          color="text-amber-500"
+          accent="text-[#23403B]"
         />
         <KpiCard
           icon={Scale}
           label="Tasa Consenso"
           value={`${stats.consensusRate}%`}
-          color="text-emerald-500"
+          accent="text-[#4A7C59]"
         />
         <KpiCard
           icon={Clock}
           label="Prom. Turnos"
           value={stats.avgTurns.toFixed(1)}
-          color="text-blue-500"
+          accent="text-[#6E8B74]"
         />
         <KpiCard
           icon={TrendingUp}
           label="Prom. Tokens"
           value={formatTokens(stats.avgTokens)}
-          color="text-purple-500"
+          accent="text-[#B98B4D]"
         />
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Debates por dia */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h3 className="text-sm font-medium text-white mb-4">Debates por Dia</h3>
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card">
+          <h3 className="text-sm font-medium text-[#161616] mb-4">Debates por Dia</h3>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={trendData}>
               <defs>
                 <linearGradient id="colorDebates" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#23403B" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#23403B" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#64748b' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} allowDecimals={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#8A8780' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#8A8780' }} allowDecimals={false} />
               <Tooltip
                 contentStyle={{
-                  background: '#0f172a',
-                  border: '1px solid #1e293b',
-                  borderRadius: '8px',
+                  background: '#FFFFFF',
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  borderRadius: '6px',
                   fontSize: '12px',
                 }}
               />
               <Area
                 type="monotone"
                 dataKey="count"
-                stroke="#f59e0b"
+                stroke="#23403B"
                 fillOpacity={1}
                 fill="url(#colorDebates)"
               />
@@ -183,29 +184,29 @@ export function HistoryPage() {
         </div>
 
         {/* Tokens por dia */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h3 className="text-sm font-medium text-white mb-4">Tokens Consumidos</h3>
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card">
+          <h3 className="text-sm font-medium text-[#161616] mb-4">Tokens Consumidos</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#64748b' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#8A8780' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#8A8780' }} />
               <Tooltip
                 contentStyle={{
-                  background: '#0f172a',
-                  border: '1px solid #1e293b',
-                  borderRadius: '8px',
+                  background: '#FFFFFF',
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  borderRadius: '6px',
                   fontSize: '12px',
                 }}
               />
-              <Bar dataKey="tokens" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="tokens" fill="#6E8B74" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         {/* Distribucion de consenso */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h3 className="text-sm font-medium text-white mb-4">Distribucion de Consenso</h3>
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card">
+          <h3 className="text-sm font-medium text-[#161616] mb-4">Distribucion de Consenso</h3>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie
@@ -223,9 +224,9 @@ export function HistoryPage() {
               </Pie>
               <Tooltip
                 contentStyle={{
-                  background: '#0f172a',
-                  border: '1px solid #1e293b',
-                  borderRadius: '8px',
+                  background: '#FFFFFF',
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  borderRadius: '6px',
                   fontSize: '12px',
                 }}
               />
@@ -233,7 +234,7 @@ export function HistoryPage() {
           </ResponsiveContainer>
           <div className="flex flex-wrap justify-center gap-4 mt-2">
             {consensusData.map((d, i) => (
-              <span key={i} className="flex items-center gap-1.5 text-xs text-slate-400">
+              <span key={i} className="flex items-center gap-1.5 text-xs text-[#5C5C5C]">
                 <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS[i] }} />
                 {d.name} ({d.value})
               </span>
@@ -242,39 +243,39 @@ export function HistoryPage() {
         </div>
 
         {/* Modelos mas usados */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h3 className="text-sm font-medium text-white mb-4">Modelos mas Usados</h3>
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card">
+          <h3 className="text-sm font-medium text-[#161616] mb-4">Modelos mas Usados</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={modelData} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} />
-              <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: '#64748b' }} width={120} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <XAxis type="number" tick={{ fontSize: 11, fill: '#8A8780' }} />
+              <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: '#8A8780' }} width={120} />
               <Tooltip
                 contentStyle={{
-                  background: '#0f172a',
-                  border: '1px solid #1e293b',
-                  borderRadius: '8px',
+                  background: '#FFFFFF',
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  borderRadius: '6px',
                   fontSize: '12px',
                 }}
               />
-              <Bar dataKey="count" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="count" fill="#B98B4D" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-800">
-          <h3 className="text-sm font-medium text-white">Debates Recientes</h3>
+      <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg shadow-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-[rgba(0,0,0,0.06)]">
+          <h3 className="text-sm font-medium text-[#161616]">Debates Recientes</h3>
         </div>
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+            <Loader2 className="w-6 h-6 text-[#23403B] animate-spin" />
           </div>
         ) : debates.length === 0 ? (
-          <div className="text-center py-16 text-slate-500">
-            <Calendar className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <div className="text-center py-16 text-[#8A8780]">
+            <Calendar className="w-8 h-8 mx-auto mb-2 opacity-40" />
             <p>No hay debates en este periodo</p>
           </div>
         ) : (
@@ -282,7 +283,7 @@ export function HistoryPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-800 text-xs text-slate-500 uppercase">
+                  <tr className="border-b border-[rgba(0,0,0,0.06)] text-xs text-[#8A8780] uppercase">
                     <th className="text-left px-5 py-3 font-medium">Tema</th>
                     <th className="text-left px-5 py-3 font-medium">Estado</th>
                     <th className="text-left px-5 py-3 font-medium hidden md:table-cell">Consenso</th>
@@ -292,25 +293,25 @@ export function HistoryPage() {
                     <th className="px-5 py-3"></th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[rgba(0,0,0,0.04)]">
                   {debates.map((d) => {
                     const totalTokens =
                       (d.turns?.reduce((s, t) => s + (t.tokens_in || 0) + (t.tokens_out || 0), 0) || 0)
                     return (
-                      <tr key={d.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                      <tr key={d.id} className="hover:bg-[#F5F3EE] transition-colors">
                         <td className="px-5 py-3">
                           <Link
                             to={`/debates/${d.id}`}
-                            className="text-white hover:text-amber-400 transition-colors font-medium truncate block max-w-[250px]"
+                            className="text-[#161616] hover:text-[#23403B] transition-colors font-medium truncate block max-w-[250px]"
                           >
                             {d.topic || 'Sin titulo'}
                           </Link>
-                          <span className="text-xs text-slate-600 font-mono">{d.id}</span>
+                          <span className="text-xs text-[#8A8780] font-mono">{d.id}</span>
                         </td>
                         <td className="px-5 py-3">
                           <span
-                            className={`text-xs px-2 py-1 rounded-full border ${
-                              statusColors[d.status] || statusColors.CREATED
+                            className={`text-xs px-2.5 py-1 rounded ${
+                              statusBadge[d.status] || 'badge-neutral'
                             }`}
                           >
                             {d.status || 'CREATED'}
@@ -319,19 +320,19 @@ export function HistoryPage() {
                         <td className="px-5 py-3 hidden md:table-cell">
                           <span
                             className={`text-xs font-medium ${
-                              consensusColors[d.consensus_level] || 'text-slate-500'
+                              consensusText[d.consensus_level] || 'text-[#8A8780]'
                             }`}
                           >
                             {(d.consensus_level || '-').replace(/_/g, ' ')}
                           </span>
                         </td>
-                        <td className="px-5 py-3 text-slate-400 hidden lg:table-cell">
+                        <td className="px-5 py-3 text-[#5C5C5C] font-mono tabular-nums hidden lg:table-cell">
                           {d.turns?.length || 0}
                         </td>
-                        <td className="px-5 py-3 text-slate-400 hidden lg:table-cell">
+                        <td className="px-5 py-3 text-[#5C5C5C] font-mono tabular-nums hidden lg:table-cell">
                           {formatTokens(totalTokens)}
                         </td>
-                        <td className="px-5 py-3 text-slate-400 hidden sm:table-cell text-xs">
+                        <td className="px-5 py-3 text-[#5C5C5C] hidden sm:table-cell text-xs">
                           {d.created_at
                             ? format(parseISO(d.created_at), 'dd MMM HH:mm', { locale: es })
                             : '-'}
@@ -339,7 +340,7 @@ export function HistoryPage() {
                         <td className="px-5 py-3 text-right">
                           <Link
                             to={`/debates/${d.id}`}
-                            className="text-slate-400 hover:text-amber-400 transition-colors"
+                            className="text-[#5C5C5C] hover:text-[#23403B] transition-colors"
                           >
                             <ChevronRight className="w-4 h-4" />
                           </Link>
@@ -353,22 +354,22 @@ export function HistoryPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-5 py-3 border-t border-slate-800">
-                <span className="text-xs text-slate-500">
+              <div className="flex items-center justify-between px-5 py-3 border-t border-[rgba(0,0,0,0.06)]">
+                <span className="text-xs text-[#8A8780]">
                   Pagina {page} de {totalPages}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="p-1.5 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="p-1.5 text-[#5C5C5C] hover:text-[#161616] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="p-1.5 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="p-1.5 text-[#5C5C5C] hover:text-[#161616] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -382,15 +383,15 @@ export function HistoryPage() {
   )
 }
 
-function KpiCard({ icon: Icon, label, value, color }) {
+function KpiCard({ icon: Icon, label, value, accent }) {
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+    <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-4 shadow-card">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-slate-500">{label}</p>
-          <p className="text-xl font-bold text-white mt-1">{value}</p>
+          <p className="text-xs text-[#8A8780]">{label}</p>
+          <p className="text-xl font-serif text-[#161616] mt-1">{value}</p>
         </div>
-        <Icon className={`w-5 h-5 ${color}`} />
+        <Icon className={`w-5 h-5 ${accent}`} />
       </div>
     </div>
   )

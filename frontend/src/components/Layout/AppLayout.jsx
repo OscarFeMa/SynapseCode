@@ -7,7 +7,7 @@ export function AppLayout({ children }) {
   const { isOpen, open, close } = useCommandPalette()
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200">
+    <div className="min-h-screen bg-[#F5F3EE] text-[#161616]">
       <Sidebar onOpenCommandPalette={open} />
       <div className="ml-56 min-h-screen flex flex-col transition-all duration-300">
         <TopBar onOpenCommandPalette={open} />

@@ -1,14 +1,14 @@
 export function Skeleton({ className = '' }) {
   return (
     <div
-      className={`animate-pulse bg-slate-800 rounded ${className}`}
+      className={`animate-pulse bg-[#ECE9E2] rounded ${className}`}
     />
   )
 }
 
 export function CardSkeleton() {
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
+    <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card space-y-3">
       <Skeleton className="h-4 w-24" />
       <Skeleton className="h-8 w-16" />
       <Skeleton className="h-3 w-full" />
@@ -18,7 +18,7 @@ export function CardSkeleton() {
 
 export function TableSkeleton({ rows = 5 }) {
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+    <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card space-y-4">
       <Skeleton className="h-4 w-32" />
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex gap-4">
