@@ -26,7 +26,16 @@ Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.43) eje
 ### Reportes Profesionales
 - **HTML interactivo**: Chart.js, tema oscuro, responsive
 - **PDF imprimible**: Gráficos SVG inline, tema claro
+- **DOCX exportable**: Documento Word con portada, tablas y veredicto
 - **Generación automática**: Post-debate, con métricas y veredicto
+- **Enfoque híbrido**: Datos programáticos exactos + narrativa LLM
+
+### Asignación Inteligente de Modelos (v2.8)
+- **Model Registry**: Registro central de 25+ modelos con metadata completa (contexto, velocidad, costo, especialidad)
+- **Model Evaluator**: Consulta rankings web en vivo (LMSYS Arena, OpenRouter stats) con cache de 6h
+- **Role Matcher**: Asignación automática del mejor modelo por rol según especialidad, plataforma y VRAM disponible
+- **Smart Rotation Mode**: Crea debates con `mode: "smart_rotation"` para asignación automática óptima
+- **Tablas dinámicas**: Consulta mejores modelos por categoría (finance, coding, analysis, reasoning, creative, multilingual, long_context, fast, free)
 
 ### Motor de Debate
 - **Debates Secuenciales**: Multi-modelo con roles (Analista, Crítico, Sintetizador, Validador)
@@ -83,7 +92,7 @@ Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.43) eje
 | **Web Agent** | Playwright | 10 sitios de IA con stealth |
 
 ### Exportación
-- JSON estructurado, Markdown, PDF (HTML imprimible)
+- JSON estructurado, Markdown, PDF (HTML imprimible), DOCX (Word)
 
 ---
 
@@ -171,6 +180,10 @@ SynapseCode/
 │   │   ├── worker_launcher.py               # Auto-lanzamiento de servicios
 │   │   ├── task_manager.py                  # Background tasks con retry
 │   │   ├── local_engine_manager.py          # Gestión de engines locales
+│   │   ├── model_registry.py                # Registro de modelos + metadata
+│   │   ├── model_evaluator.py               # Evaluador con rankings web
+│   │   ├── role_matcher.py                  # Asignación inteligente rol→modelo
+│   │   ├── report_generator.py              # Generador de reportes HTML/PDF
 │   │   └── prompts.py                       # Templates por rol
 │   │
 │   ├── api/routes/                 # Endpoints REST
@@ -247,6 +260,9 @@ SynapseCode/
 | `GET` | `/api/v1/debates/{id}/status` | Estado resumido |
 | `GET` | `/api/v1/debates/{id}/transcript` | Transcripción completa |
 | `GET` | `/api/v1/debates/{id}/report` | Informe estructurado JSON |
+| `POST` | `/api/v1/debates/{id}/generate-report` | Generar reporte híbrido Markdown |
+| `POST` | `/api/v1/debates/{id}/generate-report/docx` | Generar reporte Word (.docx) |
+| `POST` | `/api/v1/debates/{id}/generate-report/pdf` | Generar reporte PDF |
 | `POST` | `/api/v1/debates/{id}/continue` | Continuar debate completado |
 | `POST` | `/api/v1/debates/{id}/pause` | Pausar debate en ejecución |
 | `POST` | `/api/v1/debates/{id}/resume` | Reanudar debate pausado |
@@ -254,10 +270,21 @@ SynapseCode/
 | `GET` | `/api/v1/debates/{id}/export/json` | Exportar JSON |
 | `GET` | `/api/v1/debates/{id}/export/markdown` | Exportar Markdown |
 | `GET` | `/api/v1/debates/{id}/export/pdf` | Exportar PDF |
+| `GET` | `/api/v1/debates/{id}/export/docx` | Exportar Word (.docx) |
 | `GET` | `/api/v1/debates/history/list` | Historial de debates |
 | `GET` | `/api/v1/debates/history/{id}` | Debate histórico |
 | `GET` | `/api/v1/debates/reputation` | Reputaciones de modelos |
 | `GET` | `/api/v1/debates/reputation/{model}/{role}` | Reputación específica |
+
+### Model Registry
+| Method | Path | Descripción |
+|---|---|---|
+| `GET` | `/api/v1/debates/models/registry` | Todos los modelos registrados |
+| `GET` | `/api/v1/debates/models/best-by-category` | Mejores modelos por categoría |
+| `GET` | `/api/v1/debates/models/comparison-table` | Tabla comparativa completa |
+| `GET` | `/api/v1/debates/models/role-matching` | Asignación modelo→rol |
+| `POST` | `/api/v1/debates/models/update-rankings` | Actualizar rankings desde web |
+| `GET` | `/api/v1/debates/models/smart-config` | Generar config inteligente de debate |
 
 ### Cloud (Supabase)
 | Method | Path | Descripción |
@@ -374,10 +401,10 @@ SynapseCode/
 
 ```bash
 cd D:\proyectos\SynapseCode
-.\venv\Scripts\python -m pytest backend/tests/test_comprehensive.py -v
+.\venv\Scripts\python -m pytest backend/tests/ -v
 ```
 
-**162 tests** cubriendo 21 niveles: imports, config, API endpoints, debate flow, tribunal, cache, reputation, timeouts, logging.
+**150 tests** pasando. CI/CD obligatorio en cada PR. Linting con Ruff (`ruff check backend/`).
 
 ---
 
@@ -387,4 +414,4 @@ MIT
 
 ---
 
-*SynapseCode v2.7 · OscarFeMa · Mayo 2026*
+*SynapseCode v2.8 · OscarFeMa · Mayo 2026 · [synapsecode.org](https://synapsecode.org)*

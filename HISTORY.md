@@ -1,4 +1,4 @@
-# 📜 Historia de Desarrollo - Synapse Council v2.0
+# 📜 Historia de Desarrollo - Synapse Council v2.8
 
 ## Resumen del Proyecto
 
@@ -7,6 +7,20 @@ Synapse Council es una plataforma de razonamiento colectivo híbrido que orquest
 ---
 
 ## 🗓️ Línea Temporal de Desarrollo
+
+### **Fase 9: Asignación Inteligente de Modelos (Completada - v2.8)**
+
+#### Mayo 18, 2026: Model Registry + Evaluator + Role Matcher
+- ✅ **Model Registry**: Registro central de 25+ modelos con metadata completa (contexto, velocidad, costo, especialidad)
+- ✅ **Model Evaluator**: Consulta rankings web en vivo (LMSYS Arena, OpenRouter stats) con cache de 6h y fallback
+- ✅ **Role Matcher**: Asignación automática del mejor modelo por rol según especialidad, plataforma y VRAM disponible
+- ✅ **Smart Rotation Mode**: Nuevo modo `smart_rotation` para debates con asignación automática óptima
+- ✅ **6 nuevos endpoints API**: `/models/registry`, `/models/best-by-category`, `/models/comparison-table`, `/models/role-matching`, `/models/update-rankings`, `/models/smart-config`
+- ✅ **Tablas dinámicas por categoría**: finance, coding, analysis, reasoning, creative, multilingual, long_context, fast, free
+- ✅ **Filtro VRAM automático**: Modelos que exceden 13.5GB VRAM del Worker se excluyen automáticamente
+- ✅ **Modelos OOM bloqueados**: `qwen2.5-coder:14b`, `qwen2.5:14b`, `llama3:70b`, `mixtral:8x7b`
+- ✅ **Ruff format aplicado**: 4 archivos formateados, 150 tests pasando
+- ✅ **CI/CD verde**: Ruff check + pytest en cada commit
 
 ### **Fase 8: Resiliencia, Reportes y Búsqueda Web (Completada - v2.8)**
 
@@ -410,7 +424,8 @@ POST /api/v1/debate/consensus/create
 
 ---
 
-**Versión actual:** v2.3.0  
-**Última actualización:** 2026-05-13  
+**Versión actual:** v2.8.0  
+**Última actualización:** 2026-05-18  
 **Repositorio:** https://github.com/OscarFeMa/SynapseCode  
+**Web:** https://synapsecode.org  
 **Estado:** Production Ready ✅
