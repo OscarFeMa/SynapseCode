@@ -49,8 +49,6 @@ def _extract_strategies_hybrid(completed_turns: list) -> list[StrategyData]:
     Extrae estrategias con datos concretos usando parsing programatico.
     Busca patrones estructurados en el contenido de los turnos.
     """
-    import re
-
     strategies: dict[str, StrategyData] = {}
 
     for turn in completed_turns:
@@ -528,7 +526,7 @@ async def generate_report_as_docx(session_id: str, debate_controller):
 
     from docx import Document
     from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.shared import Pt, RGBColor, Inches
+    from docx.shared import Pt, RGBColor
 
     topic, clean_topic, narrative, strategies, programmatic_sections = (
         await _build_report_content(session_id, debate_controller)
@@ -576,7 +574,7 @@ async def generate_report_as_docx(session_id: str, debate_controller):
     meta = doc.add_paragraph()
     meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
     meta.add_run(f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n").font.size = Pt(10)
-    meta.add_run(f"Metodo: Enfoque hibrido (datos programaticos + narrativa LLM)\n").font.size = Pt(10)
+    meta.add_run("Metodo: Enfoque hibrido (datos programaticos + narrativa LLM)\n").font.size = Pt(10)
     meta.add_run("Synapse Council v2.8").font.size = Pt(10)
 
     doc.add_page_break()
@@ -588,7 +586,6 @@ async def generate_report_as_docx(session_id: str, debate_controller):
 
     # Parsear narrativa para extraer secciones
     narrative_lines = narrative.split("\n")
-    current_section = None
 
     for line in narrative_lines:
         stripped = line.strip()
@@ -600,13 +597,11 @@ async def generate_report_as_docx(session_id: str, debate_controller):
             doc.add_heading(section_title, level=2)
             for run in doc.paragraphs[-1].runs:
                 run.font.color.rgb = RGBColor(0x47, 0x55, 0x69)
-            current_section = section_title
         elif stripped.startswith("## "):
             section_title = stripped.replace("## ", "")
             doc.add_heading(section_title, level=1)
             for run in doc.paragraphs[-1].runs:
                 run.font.color.rgb = RGBColor(0x25, 0x63, 0xEB)
-            current_section = section_title
         elif stripped.startswith("**") and stripped.endswith("**"):
             p = doc.add_paragraph()
             run = p.add_run(stripped.replace("**", ""))
@@ -902,7 +897,7 @@ async def generate_report_as_pdf(session_id: str, debate_controller):
         for label, value in metrics:
             html_content += f'<div class="metric"><strong>{label}:</strong> {value}</div>'
 
-        html_content += f"""
+        html_content += """
 <div class="footer">
     Informe generado automaticamente por Synapse Council v2.8<br>
     Metodo: Enfoque hibrido (datos programaticos + narrativa LLM)
