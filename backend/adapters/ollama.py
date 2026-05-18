@@ -14,7 +14,6 @@ import structlog
 from backend.adapters.http_client_manager import HTTPClientManager
 from backend.config import get_settings
 
-settings = get_settings()
 logger = structlog.get_logger()
 
 
@@ -23,7 +22,10 @@ class OllamaClient:
 
     SERVICE_NAME = "ollama"
 
-    def __init__(self, base_url: str | None = None):
+    def __init__(self, base_url: str | None = None, settings=None):
+        if settings is None:
+            settings = get_settings()
+        self._settings = settings
         self.base_url = base_url or settings.OLLAMA_BASE_URL
         self.timeout = settings.OLLAMA_TIMEOUT_SECONDS
         self.max_retries = settings.OLLAMA_MAX_RETRIES
@@ -97,7 +99,7 @@ class OllamaClient:
         Precarga un modelo en memoria sin generar contenido útil.
         Reintenta hasta 2 veces en caso de HTTP 500 (GPU loading race).
         """
-        keep_alive_value = settings.OLLAMA_PRELOAD_KEEP_ALIVE if keep_alive is None else keep_alive
+        keep_alive_value = self._settings.OLLAMA_PRELOAD_KEEP_ALIVE if keep_alive is None else keep_alive
         max_attempts = 2
         for attempt in range(max_attempts):
             try:

@@ -14,7 +14,6 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from backend.config import get_settings
 
-settings = get_settings()
 logger = structlog.get_logger()
 
 # Lazy init del semantic cache
@@ -33,7 +32,10 @@ def _get_semantic_cache():
 class GeminiClient:
     """Cliente async para Google Gemini (AI Studio)"""
 
-    def __init__(self, api_key: str | None = None):
+    def __init__(self, api_key: str | None = None, settings=None):
+        if settings is None:
+            settings = get_settings()
+        self._settings = settings
         self.api_key = api_key or settings.GEMINI_API_KEY
         self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
         self._client: httpx.AsyncClient | None = None

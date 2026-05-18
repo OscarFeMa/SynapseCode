@@ -14,7 +14,6 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from backend.config import get_settings
 
-settings = get_settings()
 logger = structlog.get_logger()
 
 # Lazy init del semantic cache
@@ -31,9 +30,12 @@ def _get_semantic_cache():
 
 
 class GroqClient:
-    """Cliente async para Groq Cloud (Inferencia Ultra-rápida)"""
+    """Cliente async para Groq Cloud (Inferencia Ultra-rapida)"""
 
-    def __init__(self, api_key: str | None = None):
+    def __init__(self, api_key: str | None = None, settings=None):
+        if settings is None:
+            settings = get_settings()
+        self._settings = settings
         self.api_key = api_key or settings.GROQ_API_KEY
         self.base_url = "https://api.groq.com/openai/v1/chat/completions"
         self._client: httpx.AsyncClient | None = None
