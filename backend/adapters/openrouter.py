@@ -48,8 +48,7 @@ class OpenRouterClient(BaseOpenAICompatibleClient):
         """Chat completion con Circuit Breaker"""
         if not self.circuit_breaker.can_execute():
             raise RuntimeError(
-                f"OpenRouter circuit breaker is OPEN. "
-                f"Retry after {self.circuit_breaker.recovery_timeout}s"
+                f"OpenRouter circuit breaker is OPEN. Retry after {self.circuit_breaker.recovery_timeout}s"
             )
 
         try:

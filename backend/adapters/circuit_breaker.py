@@ -129,9 +129,7 @@ class CircuitBreaker:
             "recovery_timeout": self.recovery_timeout,
             "total_requests": self.total_requests,
             "total_failures": self.total_failures,
-            "success_rate": (
-                self.success_count / self.total_requests if self.total_requests > 0 else 0
-            ),
+            "success_rate": (self.success_count / self.total_requests if self.total_requests > 0 else 0),
         }
 
     def reset(self):
