@@ -41,7 +41,7 @@ export function DebatesPage() {
   const filtered = sessions.filter((s) => {
     const matchSearch =
       !search ||
-      s.topic?.toLowerCase().includes(search.toLowerCase()) ||
+      (s.title || s.query || '').toLowerCase().includes(search.toLowerCase()) ||
       s.id?.toLowerCase().includes(search.toLowerCase())
     const matchStatus = statusFilter === 'all' || s.status === statusFilter
     return matchSearch && matchStatus
@@ -193,7 +193,7 @@ export function DebatesPage() {
                                 to={`/debates/${session.id}`}
                                 className="text-[#161616] hover:text-[#23403B] transition-colors font-medium truncate block max-w-[300px]"
                               >
-                                {session.topic || 'Sin titulo'}
+                                {session.title || session.query || 'Sin titulo'}
                               </Link>
                               <span className="text-xs text-[#8A8780] font-mono">{session.id}</span>
                             </div>

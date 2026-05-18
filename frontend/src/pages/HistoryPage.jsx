@@ -68,7 +68,7 @@ export function HistoryPage() {
     const headers = ['ID', 'Tema', 'Estado', 'Consenso', 'Turnos', 'Tokens IN', 'Tokens OUT', 'Fecha']
     const rows = debates.map((d) => [
       d.id,
-      `"${(d.topic || '').replace(/"/g, '""')}"`,
+      `"${(d.title || d.query || '').replace(/"/g, '""')}"`,
       d.status || 'UNKNOWN',
       d.consensus_level || '-',
       d.turns?.length || 0,
@@ -304,7 +304,7 @@ export function HistoryPage() {
                             to={`/debates/${d.id}`}
                             className="text-[#161616] hover:text-[#23403B] transition-colors font-medium truncate block max-w-[250px]"
                           >
-                            {d.topic || 'Sin titulo'}
+                            {d.title || d.query || 'Sin titulo'}
                           </Link>
                           <span className="text-xs text-[#8A8780] font-mono">{d.id}</span>
                         </td>

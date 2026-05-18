@@ -36,20 +36,18 @@ export function NewDebatePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          topic: form.topic,
-          type: form.type,
-          rounds: form.rounds,
-          consensus_threshold: form.consensusThreshold,
-          smart_rotation: form.smartRotation,
-          web_search: form.webSearch,
-          tribunal: form.tribunal,
-          reductio: form.reductio,
+          query: form.topic,
+          title: form.topic,
+          max_rounds: form.rounds,
         }),
       })
-      if (!res.ok) throw new Error('Failed to create session')
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.detail?.[0]?.msg || 'Failed to create session')
+      }
       const data = await res.json()
       toast.success('Debate creado exitosamente')
-      navigate(`/debates/${data.id}`)
+      navigate(`/debates/${data.session_id}`)
     } catch (e) {
       toast.error('Error al crear el debate')
     } finally {

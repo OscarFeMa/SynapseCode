@@ -251,7 +251,7 @@ export function DashboardPage() {
                     }`}
                   />
                   <div>
-                    <p className="text-sm text-[#161616] truncate max-w-[300px] font-medium">{session.topic}</p>
+                    <p className="text-sm text-[#161616] truncate max-w-[300px] font-medium">{session.title || session.query}</p>
                     <p className="text-xs text-[#8A8780] font-mono">{session.id}</p>
                   </div>
                 </div>
