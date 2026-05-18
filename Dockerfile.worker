@@ -13,8 +13,11 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar Ollama
-RUN curl -fsSL https://ollama.com/install.sh | sh
+# Instalar Ollama (version fijada para evitar supply chain risks)
+ENV OLLAMA_VERSION=0.5.7
+RUN curl -fsSL https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-amd64 \
+    -o /usr/local/bin/ollama && \
+    chmod +x /usr/local/bin/ollama
 
 # Variables de entorno para Ollama
 ENV OLLAMA_HOST=0.0.0.0:11434 \
