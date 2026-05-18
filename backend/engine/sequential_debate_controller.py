@@ -3199,3 +3199,107 @@ def get_cloud_ollama_config(topic: str) -> list[DebateAgent]:
             max_tokens=1200,
         ),
     ]
+
+
+def get_hybrid_rotation_config(topic: str) -> list[DebateAgent]:
+    """
+    Configuración híbrida Master/Worker con rotación inteligente.
+
+    Estrategia:
+    - OpenRouter (Master) SOLO en turnos clave (analista, sintetizador)
+    - Ollama/Worker en TODOS los demás turnos para evitar rate limits
+    - NUNCA dos turnos consecutivos con OpenRouter
+    - Delay mínimo de 30s entre llamadas a OpenRouter
+
+    Patrón: [OpenRouter] -> [Worker] -> [Worker] -> [OpenRouter] -> [Worker] -> [Worker]
+    """
+    return [
+        # TURNO 1: OpenRouter (Master) - Análisis inicial de alta calidad
+        DebateAgent(
+            id="analyst_openrouter",
+            name="Analista OpenRouter",
+            role=AgentRole.ANALYST,
+            node="CLOUD",
+            engine="openrouter",
+            model="deepseek/deepseek-v4-flash:free",
+            provider="deepseek",
+            system_prompt="Analiza el tema propuesto desde una perspectiva técnica y estructurada. "
+            "Identifica los puntos clave, supuestos y posibles enfoques. "
+            "Responde en español, máximo 500 palabras.",
+            temperature=0.7,
+            max_tokens=1000,
+        ),
+        # TURNO 2: Worker (Ollama) - Crítica local
+        DebateAgent(
+            id="critic_ollama",
+            name="Crítico Mistral (Worker)",
+            role=AgentRole.CRITIC,
+            node="LOCAL",
+            engine="ollama",
+            model="mistral:7b",
+            provider="mistral",
+            system_prompt="Examina críticamente el análisis anterior. Identifica debilidades lógicas, "
+            "supuestos no verificados y alternativas no consideradas. "
+            "Sé constructivo pero riguroso. Responde en español, máximo 500 palabras.",
+            temperature=0.8,
+            max_tokens=1000,
+        ),
+        # TURNO 3: Worker (Ollama) - Síntesis local
+        DebateAgent(
+            id="synth_ollama",
+            name="Sintetizador Qwen (Worker)",
+            role=AgentRole.SYNTHESIZER,
+            node="LOCAL",
+            engine="ollama",
+            model="qwen2.5:3b",
+            provider="alibaba",
+            system_prompt="Sintetiza los argumentos presentados hasta ahora. Encuentra puntos de "
+            "acuerdo y desacuerdo. Propone un marco integrador. "
+            "Responde en español, máximo 500 palabras.",
+            temperature=0.6,
+            max_tokens=1000,
+        ),
+        # TURNO 4: OpenRouter (Master) - Refinamiento de alta calidad
+        DebateAgent(
+            id="refiner_openrouter",
+            name="Refinador OpenRouter",
+            role=AgentRole.REFINER,
+            node="CLOUD",
+            engine="openrouter",
+            model="google/gemma-4-26b-a4b-it:free",
+            provider="google",
+            system_prompt="Refina y mejora la síntesis anterior. Considera perspectivas adicionales "
+            "y elabora una conclusión bien fundamentada. "
+            "Responde en español, máximo 600 palabras.",
+            temperature=0.5,
+            max_tokens=1200,
+        ),
+        # TURNO 5: Worker (Ollama) - Validación local
+        DebateAgent(
+            id="validator_ollama",
+            name="Validador Llama3 (Worker)",
+            role=AgentRole.VALIDATOR,
+            node="LOCAL",
+            engine="ollama",
+            model="llama3:8b",
+            provider="meta",
+            system_prompt="Valida la solidez lógica de todos los argumentos presentados. "
+            "Verifica consistencia interna y externa. Responde en español, máximo 400 palabras.",
+            temperature=0.4,
+            max_tokens=800,
+        ),
+        # TURNO 6: Worker (Ollama) - Moderación local
+        DebateAgent(
+            id="moderator_ollama",
+            name="Moderador Gemma (Worker)",
+            role=AgentRole.MODERATOR,
+            node="LOCAL",
+            engine="ollama",
+            model="gemma:7b",
+            provider="google",
+            system_prompt="Modera el debate, resume las posiciones encontradas y propone "
+            "areas de consenso. Responde en español, máximo 500 palabras.",
+            temperature=0.6,
+            max_tokens=1000,
+        ),
+    ]

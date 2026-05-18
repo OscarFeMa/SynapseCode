@@ -362,6 +362,12 @@ async def create_debate(request: DebateRequest, background_tasks: BackgroundTask
         agents = get_local_only_config(request.topic)
     elif request.mode == "cloud_ollama":
         agents = get_cloud_ollama_config(request.topic)
+    elif request.mode == "hybrid_rotation":
+        # Rotación inteligente: OpenRouter (Master) + Ollama (Worker)
+        # NUNCA dos turnos consecutivos con OpenRouter
+        from backend.engine.sequential_debate_controller import get_hybrid_rotation_config
+
+        agents = get_hybrid_rotation_config(request.topic)
     elif request.mode == "ultra_crossing":
         # 1. Crear la sesión en el controlador de Ultra (esto la inicializa en memoria)
         # Nota: create_ultra_debate_with_id es async pero bloquea hasta el final
@@ -1375,7 +1381,11 @@ async def get_debate(session_id: str):
 
 from backend.api.routes.debate_report_generator import (
     generate_professional_report as _generate_report_impl,
+)
+from backend.api.routes.debate_report_generator import (
     generate_report_as_docx as _generate_report_docx,
+)
+from backend.api.routes.debate_report_generator import (
     generate_report_as_pdf as _generate_report_pdf,
 )
 
