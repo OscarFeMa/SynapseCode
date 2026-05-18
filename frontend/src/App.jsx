@@ -9,7 +9,10 @@ import { DashboardPage } from './pages/DashboardPage'
 import { DebatesPage } from './pages/DebatesPage'
 import { NewDebatePage } from './pages/NewDebatePage'
 import { MonitorPage } from './pages/MonitorPage'
-import { TribunalPage, ModelsPage, CachePage, HistoryPage, SettingsPage } from './pages/OtherPages'
+import { TribunalPage, HistoryPage } from './pages/OtherPages'
+import { ModelsPage } from './pages/ModelsPage'
+import { CachePage } from './pages/CachePage'
+import { SettingsPage } from './pages/SettingsPage'
 
 function Layout({ children }) {
   return (
