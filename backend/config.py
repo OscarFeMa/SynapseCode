@@ -182,6 +182,9 @@ class Settings(BaseSettings):
     ADMIN_API_TOKEN: str | None = None
     ADMIN_API_LOCALHOST_ONLY: bool = True
 
+    # ─── WebSocket Security ───────────────────────────────────
+    WS_SECRET_TOKEN: str | None = None
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v) -> list[str]:
