@@ -9,10 +9,12 @@ import { DashboardPage } from './pages/DashboardPage'
 import { DebatesPage } from './pages/DebatesPage'
 import { NewDebatePage } from './pages/NewDebatePage'
 import { MonitorPage } from './pages/MonitorPage'
-import { TribunalPage, HistoryPage } from './pages/OtherPages'
+import { TribunalPage } from './pages/OtherPages'
+import { HistoryPage } from './pages/HistoryPage'
 import { ModelsPage } from './pages/ModelsPage'
 import { CachePage } from './pages/CachePage'
 import { SettingsPage } from './pages/SettingsPage'
+import { DebateLivePage } from './pages/DebateLivePage'
 
 function Layout({ children }) {
   return (
@@ -92,7 +94,7 @@ function App() {
         {/* Legacy routes - still work */}
         <Route path="/" element={<HomePage />} />
         <Route path="/session/:sessionId" element={<SessionPage />} />
-        <Route path="/history" element={<HistoryPageLegacy />} />
+        <Route path="/history" element={<AppLayout><HistoryPage /></AppLayout>} />
 
         {/* New dashboard routes */}
         <Route
@@ -116,6 +118,14 @@ function App() {
           element={
             <AppLayout>
               <NewDebatePage />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/debates/:sessionId"
+          element={
+            <AppLayout>
+              <DebateLivePage />
             </AppLayout>
           }
         />

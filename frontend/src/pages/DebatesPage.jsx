@@ -185,7 +185,7 @@ export function DebatesPage() {
                             <div className={`w-2 h-2 rounded-full ${sc.dot}`} />
                             <div>
                               <Link
-                                to={`/session/${session.id}`}
+                                to={`/debates/${session.id}`}
                                 className="text-white hover:text-amber-400 transition-colors font-medium truncate block max-w-[300px]"
                               >
                                 {session.topic || 'Sin titulo'}
@@ -210,7 +210,7 @@ export function DebatesPage() {
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
                             <Link
-                              to={`/session/${session.id}`}
+                              to={`/debates/${session.id}`}
                               className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
                               title="Ver"
                             >
