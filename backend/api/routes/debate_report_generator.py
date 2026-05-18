@@ -446,3 +446,481 @@ Ver las tablas de datos a continuacion."""
         media_type="text/markdown",
         headers={"Content-Disposition": f"attachment; filename=report_{session_id[:8]}.md"},
     )
+
+
+async def _build_report_content(session_id: str, debate_controller):
+    """Construye el contenido del informe (reutilizable para DOCX/PDF)"""
+    session = debate_controller.get_session(session_id)
+
+    if session:
+        topic = session.topic
+        all_turns = []
+        for t in session.turns:
+            if hasattr(t, "turn_number"):
+                all_turns.append(
+                    {
+                        "turn_number": t.turn_number,
+                        "agent_name": t.agent.name,
+                        "agent_role": t.agent.role.value
+                        if hasattr(t.agent.role, "value")
+                        else str(t.agent.role),
+                        "model": t.agent.model,
+                        "response_received": t.response_received,
+                        "status": t.status,
+                        "tokens_out": t.tokens_out,
+                        "latency_ms": t.latency_ms,
+                    }
+                )
+            else:
+                all_turns.append(dict(t))
+    else:
+        debate_data = await debate_controller.get_debate_from_db(session_id)
+        if not debate_data:
+            return None, None, None, None, None
+
+        topic = debate_data.get("topic", "Sin tema")
+        all_turns = debate_data.get("turns", [])
+
+    completed_turns = [
+        t for t in all_turns if str(t.get("status", "")).startswith("completed")
+    ]
+    failed_turns = [
+        t for t in all_turns if str(t.get("status", "")).startswith("failed")
+    ]
+
+    failed_summary = ""
+    if failed_turns:
+        failed_models = {}
+        for ft in failed_turns:
+            model = ft.get("model", "unknown")
+            failed_models[model] = failed_models.get(model, 0) + 1
+        failed_summary = "Fallos tecnicos: " + ", ".join(
+            f"{m} ({c} turnos)" for m, c in failed_models.items()
+        )
+
+    strategies = _extract_strategies_hybrid(completed_turns)
+    programmatic_sections = _build_programmatic_sections(
+        strategies, completed_turns, failed_summary
+    )
+
+    narrative_prompt = _build_narrative_prompt(topic, strategies, completed_turns)
+
+    try:
+        narrative = await _generate_narrative_with_llm(narrative_prompt)
+    except Exception as e:
+        narrative = f"""### Resumen Ejecutivo
+No se pudo generar la narrativa automatica. Error: {str(e)}
+
+### Analisis del Debate
+Ver las tablas de datos a continuacion.
+
+### Conclusion
+Ver las tablas de datos a continuacion."""
+
+    clean_topic = topic.split("\n")[0][:100]
+
+    return topic, clean_topic, narrative, strategies, programmatic_sections
+
+
+async def generate_report_as_docx(session_id: str, debate_controller):
+    """Genera informe profesional como documento Word (.docx)"""
+    from io import BytesIO
+
+    from docx import Document
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.shared import Pt, RGBColor, Inches
+
+    topic, clean_topic, narrative, strategies, programmatic_sections = (
+        await _build_report_content(session_id, debate_controller)
+    )
+
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Debate not found")
+
+    doc = Document()
+
+    # Configurar estilos
+    style = doc.styles["Normal"]
+    font = style.font
+    font.name = "Calibri"
+    font.size = Pt(11)
+    font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+
+    # PORTADA
+    for _ in range(4):
+        doc.add_paragraph("")
+
+    title = doc.add_heading("Synapse Council", level=0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for run in title.runs:
+        run.font.color.rgb = RGBColor(0x25, 0x63, 0xEB)
+        run.font.size = Pt(36)
+
+    subtitle = doc.add_heading("Informe de Analisis Estrategico", level=1)
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for run in subtitle.runs:
+        run.font.color.rgb = RGBColor(0x64, 0x74, 0x8B)
+        run.font.size = Pt(18)
+
+    doc.add_paragraph("")
+
+    topic_para = doc.add_paragraph()
+    topic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = topic_para.add_run(clean_topic)
+    run.font.size = Pt(14)
+    run.font.color.rgb = RGBColor(0x1E, 0x29, 0x3B)
+    run.bold = True
+
+    doc.add_paragraph("")
+
+    meta = doc.add_paragraph()
+    meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    meta.add_run(f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n").font.size = Pt(10)
+    meta.add_run(f"Metodo: Enfoque hibrido (datos programaticos + narrativa LLM)\n").font.size = Pt(10)
+    meta.add_run("Synapse Council v2.8").font.size = Pt(10)
+
+    doc.add_page_break()
+
+    # NARRATIVA (Resumen, Analisis, Conclusion)
+    doc.add_heading("Resumen Ejecutivo", level=1)
+    for run in doc.paragraphs[-1].runs:
+        run.font.color.rgb = RGBColor(0x25, 0x63, 0xEB)
+
+    # Parsear narrativa para extraer secciones
+    narrative_lines = narrative.split("\n")
+    current_section = None
+
+    for line in narrative_lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        if stripped.startswith("### "):
+            section_title = stripped.replace("### ", "")
+            doc.add_heading(section_title, level=2)
+            for run in doc.paragraphs[-1].runs:
+                run.font.color.rgb = RGBColor(0x47, 0x55, 0x69)
+            current_section = section_title
+        elif stripped.startswith("## "):
+            section_title = stripped.replace("## ", "")
+            doc.add_heading(section_title, level=1)
+            for run in doc.paragraphs[-1].runs:
+                run.font.color.rgb = RGBColor(0x25, 0x63, 0xEB)
+            current_section = section_title
+        elif stripped.startswith("**") and stripped.endswith("**"):
+            p = doc.add_paragraph()
+            run = p.add_run(stripped.replace("**", ""))
+            run.bold = True
+            run.font.size = Pt(12)
+        else:
+            p = doc.add_paragraph(stripped)
+            p.paragraph_format.space_after = Pt(6)
+
+    doc.add_page_break()
+
+    # TABLA DE ESTRATEGIAS
+    doc.add_heading("Estrategias Identificadas", level=1)
+    for run in doc.paragraphs[-1].runs:
+        run.font.color.rgb = RGBColor(0x25, 0x63, 0xEB)
+
+    if strategies:
+        table = doc.add_table(rows=1, cols=5)
+        table.style = "Light Shading Accent 1"
+
+        # Headers
+        headers = ["#", "Estrategia", "Capital", "Riesgo", "Mencionada por"]
+        for i, header in enumerate(headers):
+            cell = table.rows[0].cells[i]
+            cell.text = header
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    run.bold = True
+                    run.font.size = Pt(10)
+
+        # Data rows
+        for i, s in enumerate(strategies, 1):
+            row = table.add_row()
+            capital = f"${s.capital_value:,.0f}" if s.capital_value > 0 else "N/A"
+            modelos = ", ".join(s.mencionado_por[:2])
+            row.cells[0].text = str(i)
+            row.cells[1].text = s.name
+            row.cells[2].text = capital
+            row.cells[3].text = s.riesgo_level.capitalize()
+            row.cells[4].text = modelos
+
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    for run in paragraph.runs:
+                        run.font.size = Pt(9)
+
+    doc.add_page_break()
+
+    # METRICAS
+    doc.add_heading("Metricas del Debate", level=1)
+    for run in doc.paragraphs[-1].runs:
+        run.font.color.rgb = RGBColor(0x25, 0x63, 0xEB)
+
+    unique_models = set()
+    total_tokens = 0
+    total_latency = 0
+
+    # Re-obtener datos para metricas
+    session = debate_controller.get_session(session_id)
+    if session:
+        for t in session.turns:
+            if hasattr(t, "turn_number") and t.status.startswith("completed"):
+                unique_models.add(t.agent.model)
+                total_tokens += t.tokens_out
+                total_latency += t.latency_ms
+
+    metrics = [
+        ("Intervenciones exitosas", str(len([t for t in (session.turns if session else []) if hasattr(t, "turn_number") and t.status.startswith("completed")]))),
+        ("Modelos participantes", f"{len(unique_models)}"),
+        ("Estrategias identificadas", str(len(strategies))),
+        ("Tokens generados", f"{total_tokens:,}"),
+        ("Tiempo total", f"{total_latency/1000:.0f}s"),
+    ]
+
+    for label, value in metrics:
+        p = doc.add_paragraph()
+        p.add_run(f"{label}: ").bold = True
+        p.add_run(value)
+
+    # FOOTER
+    doc.add_page_break()
+    footer = doc.add_paragraph()
+    footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    footer.add_run("Informe generado automaticamente por Synapse Council v2.8").font.size = Pt(9)
+    footer.add_run("\nMetodo: Enfoque hibrido (datos programaticos + narrativa LLM)").font.size = Pt(9)
+
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename=report_{session_id[:8]}.docx"},
+    )
+
+
+async def generate_report_as_pdf(session_id: str, debate_controller):
+    """Genera informe profesional como PDF usando xhtml2pdf"""
+    import html as html_module
+    import traceback
+    from io import BytesIO
+
+    from xhtml2pdf import pisa
+
+    try:
+        topic, clean_topic, narrative, strategies, programmatic_sections = (
+            await _build_report_content(session_id, debate_controller)
+        )
+
+        if topic is None:
+            raise HTTPException(status_code=404, detail="Debate not found")
+
+        # Escapar contenido para HTML
+        safe_topic = html_module.escape(clean_topic)
+        safe_narrative = html_module.escape(narrative).replace("\n", "<br>")
+
+        # Construir HTML para PDF
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    @page {{
+        size: letter;
+        margin: 2cm;
+        @top-right {{
+            content: "Synapse Council v2.8";
+            font-size: 8pt;
+            color: #64748B;
+        }}
+        @bottom-center {{
+            content: "Pagina " counter(page) " de " counter(pages);
+            font-size: 8pt;
+            color: #64748B;
+        }}
+    }}
+    body {{
+        font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+        color: #333;
+        line-height: 1.6;
+        font-size: 11pt;
+    }}
+    h1 {{
+        color: #2563EB;
+        border-bottom: 2px solid #E2E8F0;
+        padding-bottom: 8px;
+        font-size: 20pt;
+        page-break-before: always;
+    }}
+    h1:first-of-type {{
+        page-break-before: avoid;
+    }}
+    h2 {{
+        color: #475569;
+        font-size: 14pt;
+        margin-top: 20px;
+    }}
+    h3 {{
+        color: #64748B;
+        font-size: 12pt;
+    }}
+    .cover {{
+        text-align: center;
+        padding-top: 100px;
+    }}
+    .cover h1 {{
+        color: #2563EB;
+        font-size: 36pt;
+        border: none;
+    }}
+    .cover h2 {{
+        color: #64748B;
+        font-size: 18pt;
+    }}
+    .cover .topic {{
+        font-size: 14pt;
+        font-weight: bold;
+        color: #1E293B;
+        margin: 30px 0;
+    }}
+    .cover .meta {{
+        font-size: 10pt;
+        color: #64748B;
+    }}
+    table {{
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+    }}
+    th {{
+        background-color: #2563EB;
+        color: white;
+        padding: 10px;
+        text-align: left;
+        font-size: 10pt;
+    }}
+    td {{
+        padding: 8px 10px;
+        border-bottom: 1px solid #E2E8F0;
+        font-size: 9pt;
+    }}
+    tr:nth-child(even) {{
+        background-color: #F8FAFC;
+    }}
+    .metric {{
+        margin: 10px 0;
+    }}
+    .metric strong {{
+        color: #2563EB;
+    }}
+    .footer {{
+        text-align: center;
+        font-size: 9pt;
+        color: #64748B;
+        margin-top: 40px;
+        border-top: 1px solid #E2E8F0;
+        padding-top: 20px;
+    }}
+</style>
+</head>
+<body>
+
+<div class="cover">
+    <h1>Synapse Council</h1>
+    <h2>Informe de Analisis Estrategico</h2>
+    <div class="topic">{safe_topic}</div>
+    <div class="meta">
+        Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}<br>
+        Metodo: Enfoque hibrido (datos programaticos + narrativa LLM)<br>
+        Synapse Council v2.8
+    </div>
+</div>
+
+<h1>Resumen Ejecutivo</h1>
+{safe_narrative}
+
+<h1>Estrategias Identificadas</h1>
+"""
+
+        if strategies:
+            html_content += """<table>
+<thead>
+<tr>
+    <th>#</th>
+    <th>Estrategia</th>
+    <th>Capital</th>
+    <th>Riesgo</th>
+    <th>Mencionada por</th>
+</tr>
+</thead>
+<tbody>
+"""
+            for i, s in enumerate(strategies, 1):
+                capital = f"${s.capital_value:,.0f}" if s.capital_value > 0 else "N/A"
+                modelos = html_module.escape(", ".join(s.mencionado_por[:2]))
+                name = html_module.escape(s.name)
+                html_content += f"""<tr>
+    <td>{i}</td>
+    <td>{name}</td>
+    <td>{capital}</td>
+    <td>{s.riesgo_level.capitalize()}</td>
+    <td>{modelos}</td>
+</tr>
+"""
+            html_content += "</tbody></table>"
+
+        # Metricas
+        html_content += """<h1>Metricas del Debate</h1>"""
+
+        unique_models = set()
+        total_tokens = 0
+        total_latency = 0
+        completed_count = 0
+
+        session = debate_controller.get_session(session_id)
+        if session:
+            for t in session.turns:
+                if hasattr(t, "turn_number") and t.status.startswith("completed"):
+                    unique_models.add(t.agent.model)
+                    total_tokens += t.tokens_out
+                    total_latency += t.latency_ms
+                    completed_count += 1
+
+        metrics = [
+            ("Intervenciones exitosas", str(completed_count)),
+            ("Modelos participantes", str(len(unique_models))),
+            ("Estrategias identificadas", str(len(strategies))),
+            ("Tokens generados", f"{total_tokens:,}"),
+            ("Tiempo total", f"{total_latency/1000:.0f}s"),
+        ]
+
+        for label, value in metrics:
+            html_content += f'<div class="metric"><strong>{label}:</strong> {value}</div>'
+
+        html_content += f"""
+<div class="footer">
+    Informe generado automaticamente por Synapse Council v2.8<br>
+    Metodo: Enfoque hibrido (datos programaticos + narrativa LLM)
+</div>
+
+</body>
+</html>"""
+
+        buffer = BytesIO()
+        pisa.CreatePDF(html_content, dest=buffer)
+        buffer.seek(0)
+
+        return Response(
+            content=buffer.getvalue(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=report_{session_id[:8]}.pdf"},
+        )
+    except Exception as e:
+        error_detail = f"PDF generation error: {str(e)}\n{traceback.format_exc()}"
+        print(error_detail)
+        raise HTTPException(status_code=500, detail=error_detail)

@@ -1375,10 +1375,24 @@ async def get_debate(session_id: str):
 
 from backend.api.routes.debate_report_generator import (
     generate_professional_report as _generate_report_impl,
+    generate_report_as_docx as _generate_report_docx,
+    generate_report_as_pdf as _generate_report_pdf,
 )
 
 
 @router.post("/{session_id}/generate-report")
 async def generate_report_endpoint(session_id: str):
-    """Wrapper para el generador de informes hibrido"""
+    """Wrapper para el generador de informes hibrido (Markdown)"""
     return await _generate_report_impl(session_id, debate_controller)
+
+
+@router.post("/{session_id}/generate-report/docx")
+async def generate_report_docx(session_id: str):
+    """Genera informe profesional como documento Word (.docx)"""
+    return await _generate_report_docx(session_id, debate_controller)
+
+
+@router.post("/{session_id}/generate-report/pdf")
+async def generate_report_pdf(session_id: str):
+    """Genera informe profesional como PDF"""
+    return await _generate_report_pdf(session_id, debate_controller)
