@@ -139,14 +139,17 @@ class OllamaClient:
         return False
 
     async def unload_model(self, model: str) -> bool:
-        """Descarga un modelo específico de la RAM del worker
+        """Descarga un modelo especifico de la RAM del worker
 
         Esto libera memoria antes de cargar un nuevo modelo,
         evitando errores de falta de RAM en el worker.
+        Usa dos estrategias: generate + chat para maximizar probabilidad de unload.
         """
         try:
             logger.info("ollama.unload_model.start", model=model, base_url=self.base_url)
             client = self.client
+
+            # Estrategia 1: generate con keep_alive=0
             response = await client.post(
                 f"{self.base_url}/api/generate",
                 json={"model": model, "prompt": "", "keep_alive": 0},
@@ -158,20 +161,24 @@ class OllamaClient:
                 if data.get("done_reason") == "unload":
                     logger.info("ollama.unload_model.success", model=model)
                     return True
-                else:
-                    logger.warning(
-                        "ollama.unload_model.unexpected_response",
-                        model=model,
-                        done_reason=data.get("done_reason"),
-                    )
-                    return False
-            else:
-                logger.warning(
-                    "ollama.unload_model.failed",
-                    model=model,
-                    status_code=response.status_code,
-                )
-                return False
+
+            # Estrategia 2: chat con keep_alive=0 (fallback)
+            response = await client.post(
+                f"{self.base_url}/api/chat",
+                json={"model": model, "messages": [], "keep_alive": 0},
+                timeout=10.0,
+            )
+
+            if response.status_code == 200:
+                logger.info("ollama.unload_model.success_via_chat", model=model)
+                return True
+
+            logger.warning(
+                "ollama.unload_model.failed",
+                model=model,
+                generate_status=response.status_code,
+            )
+            return False
 
         except Exception as e:
             logger.error("ollama.unload_model.error", model=model, error=str(e))
