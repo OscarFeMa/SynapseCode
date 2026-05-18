@@ -135,7 +135,7 @@ export function DebateLivePage() {
           </button>
           <div>
             <h1 className="text-2xl text-[#161616] font-serif">
-              {session?.topic || 'Debate'}
+              {session?.title || session?.query || 'Debate'}
             </h1>
             <p className="text-xs text-[#8A8780] font-mono">{sessionId}</p>
           </div>
