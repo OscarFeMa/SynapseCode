@@ -41,8 +41,8 @@ export function DashboardPage() {
   }, [fetchSessions])
 
   const totalSessions = sessions.length
-  const completedSessions = sessions.filter((s) => s.status === 'completed').length
-  const activeSessions = sessions.filter((s) => s.status === 'running').length
+  const completedSessions = sessions.filter((s) => s.status === 'COMPLETED').length
+  const activeSessions = sessions.filter((s) => s.status === 'RUNNING').length
 
   const kpis = [
     {
@@ -243,9 +243,9 @@ export function DashboardPage() {
                 <div className="flex items-center gap-3">
                   <div
                     className={`w-2 h-2 rounded-full ${
-                      session.status === 'completed'
+                      session.status === 'COMPLETED'
                         ? 'bg-[#4A7C59]'
-                        : session.status === 'running'
+                        : session.status === 'RUNNING'
                         ? 'bg-[#6E8B74] animate-pulse'
                         : 'bg-[#B8B5AE]'
                     }`}
@@ -257,9 +257,9 @@ export function DashboardPage() {
                 </div>
                 <span
                   className={`text-xs px-2.5 py-1 rounded ${
-                    session.status === 'completed'
+                    session.status === 'COMPLETED'
                       ? 'badge-success'
-                      : session.status === 'running'
+                      : session.status === 'RUNNING'
                       ? 'badge-neutral'
                       : 'badge-neutral'
                   }`}

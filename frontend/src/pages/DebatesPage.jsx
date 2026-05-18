@@ -9,11 +9,11 @@ import { toast } from 'sonner'
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 const statusConfig = {
-  created: { label: 'Creado', badge: 'badge-neutral', dot: 'bg-[#B8B5AE]' },
-  running: { label: 'En curso', badge: 'badge-neutral', dot: 'bg-[#6E8B74] animate-pulse' },
-  completed: { label: 'Completado', badge: 'badge-success', dot: 'bg-[#4A7C59]' },
-  failed: { label: 'Fallido', badge: 'badge-error', dot: 'bg-[#8B3A3A]' },
-  paused: { label: 'Pausado', badge: 'badge-warning', dot: 'bg-[#B98B4D]' },
+  CREATED: { label: 'Creado', badge: 'badge-neutral', dot: 'bg-[#B8B5AE]' },
+  RUNNING: { label: 'En curso', badge: 'badge-neutral', dot: 'bg-[#6E8B74] animate-pulse' },
+  COMPLETED: { label: 'Completado', badge: 'badge-success', dot: 'bg-[#4A7C59]' },
+  FAILED: { label: 'Fallido', badge: 'badge-error', dot: 'bg-[#8B3A3A]' },
+  PAUSED: { label: 'Pausado', badge: 'badge-warning', dot: 'bg-[#B98B4D]' },
 }
 
 export function DebatesPage() {
@@ -43,7 +43,7 @@ export function DebatesPage() {
       !search ||
       (s.title || s.query || '').toLowerCase().includes(search.toLowerCase()) ||
       s.id?.toLowerCase().includes(search.toLowerCase())
-    const matchStatus = statusFilter === 'all' || s.status === statusFilter
+    const matchStatus = statusFilter === 'all' || s.status?.toUpperCase() === statusFilter.toUpperCase()
     return matchSearch && matchStatus
   })
 
@@ -127,11 +127,11 @@ export function DebatesPage() {
             className="px-3 py-2 bg-white border border-[rgba(0,0,0,0.08)] rounded text-sm text-[#161616] focus:outline-none focus:border-[rgba(0,0,0,0.16)]"
           >
             <option value="all">Todos</option>
-            <option value="running">En curso</option>
-            <option value="completed">Completados</option>
-            <option value="paused">Pausados</option>
-            <option value="failed">Fallidos</option>
-            <option value="created">Creados</option>
+            <option value="RUNNING">En curso</option>
+            <option value="COMPLETED">Completados</option>
+            <option value="PAUSED">Pausados</option>
+            <option value="FAILED">Fallidos</option>
+            <option value="CREATED">Creados</option>
           </select>
         </div>
         <button
@@ -221,7 +221,7 @@ export function DebatesPage() {
                             >
                               <Eye className="w-4 h-4" />
                             </Link>
-                            {session.status === 'running' && (
+                            {session.status === 'RUNNING' && (
                               <button
                                 onClick={() => handlePause(session.id)}
                                 className="p-1.5 text-[#B98B4D] hover:bg-[#F5F3EE] rounded transition-colors"
@@ -230,7 +230,7 @@ export function DebatesPage() {
                                 <Pause className="w-4 h-4" />
                               </button>
                             )}
-                            {session.status === 'paused' && (
+                            {session.status === 'PAUSED' && (
                               <button
                                 onClick={() => handleResume(session.id)}
                                 className="p-1.5 text-[#4A7C59] hover:bg-[#F5F3EE] rounded transition-colors"
