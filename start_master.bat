@@ -11,7 +11,7 @@ if not exist "venv\Scripts\activate.bat" (
 )
 
 echo 1. Iniciando Backend (FastAPI) en puerto 8000...
-start "Synapse Backend (Master)" cmd /k "call venv\Scripts\activate.bat && set PYTHONPATH=. && uvicorn backend.main:app --host 0.0.0.0 --port 8000"
+start "Synapse Backend (Master)" cmd /k "call venv\Scripts\activate.bat && set PYTHONPATH=. && uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers 1"
 
 echo 2. Iniciando Frontend (React)...
 if not exist "frontend\node_modules" (
