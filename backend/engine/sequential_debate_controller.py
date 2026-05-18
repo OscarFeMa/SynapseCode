@@ -38,6 +38,7 @@ from backend.engine.intervention_taxonomy import detect_intervention_type
 from backend.engine.local_engine_manager import EngineType, LocalEngineManager
 from backend.engine.quality_monitor import evaluate_response
 from backend.engine.reductio_absurdum import (
+    AbsurdumProof,
     ComplacencyScan,
     get_reductio_absurdum_engine,
 )
@@ -107,6 +108,8 @@ class SequentialDebateController:
         self.tribunal = TribunalCouncil()
         self.convergence_evaluator = ConvergenceEvaluator()
         self.reductio_engine = get_reductio_absurdum_engine()  # Motor de reducción al absurdo
+        # Configurar callback para persistir pruebas automaticamente
+        self.reductio_engine.set_persist_callback(self._on_absurdum_proof_created)
 
     @property
     def openrouter(self):
@@ -1446,6 +1449,18 @@ JSON:"""
                 )
             )
             await db_session.commit()
+
+    def _on_absurdum_proof_created(self, proof: "AbsurdumProof") -> None:
+        """Callback sincrono para persistir pruebas de reduccion al absurdo"""
+        # Este metodo se llama desde el engine de reductio cuando se genera una prueba
+        # La persistencia real ya se hace via _persist_reductio_absurdum_proof
+        # Este callback es para logging y tracking adicional
+        logger.info(
+            "sequential_debate.absurdum_proof_callback",
+            proof_proposition=proof.proposition[:80],
+            contradiction_found=bool(proof.contradiction),
+            is_valid=proof.is_valid,
+        )
 
     async def _save_transcript(self, session: DebateSession) -> str:
         """Guarda la transcripción completa del debate en archivo"""
