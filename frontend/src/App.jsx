@@ -18,33 +18,33 @@ import { DebateLivePage } from './pages/DebateLivePage'
 
 function Layout({ children }) {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200">
-      <nav className="bg-slate-900 border-b border-slate-800">
+    <div className="min-h-screen bg-[#F5F3EE] text-[#161616]">
+      <nav className="bg-white border-b border-[rgba(0,0,0,0.08)]">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <a href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
-                <span className="text-slate-900 font-bold text-lg">S</span>
+              <div className="w-8 h-8 bg-[#23403B] rounded flex items-center justify-center">
+                <span className="text-[#F5F3EE] font-serif font-bold text-sm">S</span>
               </div>
-              <span className="font-semibold text-white">Synapse Council</span>
-              <span className="text-xs text-slate-500">v2.0</span>
+              <span className="font-serif text-[#161616]">SynapseCode</span>
+              <span className="text-xs text-[#8A8780]">v3.0</span>
             </a>
             <div className="flex items-center gap-4">
               <a
                 href="/history"
-                className="text-sm text-slate-400 hover:text-white transition-colors"
+                className="text-sm text-[#5C5C5C] hover:text-[#161616] transition-colors"
               >
                 Historial
               </a>
               <a
                 href="/dashboard"
-                className="text-sm text-slate-400 hover:text-white transition-colors"
+                className="text-sm text-[#5C5C5C] hover:text-[#161616] transition-colors"
               >
                 Dashboard
               </a>
               <a
                 href="/"
-                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-900 text-sm font-medium rounded-lg transition-colors"
+                className="px-3 py-1.5 bg-[#23403B] hover:bg-[#2D524C] text-[#F5F3EE] text-sm font-medium rounded transition-colors"
               >
                 Nueva Consulta
               </a>

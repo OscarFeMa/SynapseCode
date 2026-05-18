@@ -68,18 +68,14 @@ export function DebateLivePage() {
 
   const getStatusBadge = () => {
     const status = session?.status || 'CREATED'
-    const statusClasses = {
-      CREATED: 'bg-slate-600',
-      RUNNING: 'bg-blue-600 animate-pulse',
-      COMPLETED: 'bg-emerald-600',
-      FAILED: 'bg-red-600',
+    const badgeMap = {
+      CREATED: 'badge-neutral',
+      RUNNING: 'badge-neutral',
+      COMPLETED: 'badge-success',
+      FAILED: 'badge-error',
     }
     return (
-      <span
-        className={`px-3 py-1 rounded-full text-xs font-medium text-white ${
-          statusClasses[status] || 'bg-slate-600'
-        }`}
-      >
+      <span className={`text-xs px-2.5 py-1 rounded font-medium ${badgeMap[status] || 'badge-neutral'}`}>
         {status}
       </span>
     )
@@ -87,18 +83,14 @@ export function DebateLivePage() {
 
   const getConsensusBadge = () => {
     const level = session?.consensus_level || 'UNKNOWN'
-    const classes = {
-      CONSENSUS_REACHED: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-      PARTIAL_CONSENSUS: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
-      DIVERGENT: 'bg-red-500/20 text-red-400 border border-red-500/30',
-      UNKNOWN: 'bg-slate-700 text-slate-400 border border-slate-600',
+    const badgeMap = {
+      CONSENSUS_REACHED: 'badge-success',
+      PARTIAL_CONSENSUS: 'badge-warning',
+      DIVERGENT: 'badge-error',
+      UNKNOWN: 'badge-neutral',
     }
     return (
-      <span
-        className={`px-3 py-1 rounded-full text-xs font-medium ${
-          classes[level] || classes.UNKNOWN
-        }`}
-      >
+      <span className={`text-xs px-2.5 py-1 rounded font-medium ${badgeMap[level] || 'badge-neutral'}`}>
         {level.replace(/_/g, ' ')}
       </span>
     )
@@ -111,7 +103,7 @@ export function DebateLivePage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+        <Loader2 className="w-8 h-8 text-[#23403B] animate-spin" />
       </div>
     )
   }
@@ -119,10 +111,10 @@ export function DebateLivePage() {
   if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-400 mb-4">Error al cargar la sesion</p>
+        <p className="text-[#8B3A3A] mb-4">Error al cargar la sesion</p>
         <button
           onClick={refresh}
-          className="px-4 py-2 bg-slate-800 rounded-lg text-sm text-white hover:bg-slate-700"
+          className="px-4 py-2 bg-white border border-[rgba(0,0,0,0.08)] rounded text-sm text-[#161616] hover:bg-[#F5F3EE]"
         >
           Reintentar
         </button>
@@ -131,21 +123,21 @@ export function DebateLivePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/debates')}
-            className="p-2 text-slate-400 hover:text-white transition-colors"
+            className="p-2 text-[#5C5C5C] hover:text-[#161616] transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl font-semibold text-white">
+            <h1 className="text-2xl text-[#161616] font-serif">
               {session?.topic || 'Debate'}
             </h1>
-            <p className="text-xs text-slate-500 font-mono">{sessionId}</p>
+            <p className="text-xs text-[#8A8780] font-mono">{sessionId}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -153,7 +145,7 @@ export function DebateLivePage() {
           {getConsensusBadge()}
           <button
             onClick={refresh}
-            className="p-2 text-slate-400 hover:text-white transition-colors"
+            className="p-2 text-[#5C5C5C] hover:text-[#161616] transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -162,16 +154,16 @@ export function DebateLivePage() {
 
       {/* Progress bar */}
       {session?.status === 'RUNNING' && (
-        <div className="w-full bg-slate-800 rounded-full h-1.5">
+        <div className="w-full bg-[#ECE9E2] rounded h-1">
           <div
-            className="bg-amber-500 h-1.5 rounded-full transition-all"
+            className="bg-[#23403B] h-1 rounded transition-all"
             style={{ width: `${progress}%` }}
           />
         </div>
       )}
 
       {/* Stats bar */}
-      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
+      <div className="flex flex-wrap items-center gap-4 text-xs text-[#5C5C5C]">
         <span className="flex items-center gap-1">
           <Clock className="w-3 h-3" /> Round {currentRound}
         </span>
@@ -182,18 +174,18 @@ export function DebateLivePage() {
           <DollarSign className="w-3 h-3" /> {totalTokensOut.toLocaleString()} tokens OUT
         </span>
         {session?.web_search && (
-          <span className="flex items-center gap-1 text-blue-400">
+          <span className="flex items-center gap-1 text-[#23403B]">
             <Globe className="w-3 h-3" /> Web search
           </span>
         )}
         <span
           className={`flex items-center gap-1 ${
-            isConnected ? 'text-emerald-400' : 'text-red-400'
+            isConnected ? 'text-[#4A7C59]' : 'text-[#8B3A3A]'
           }`}
         >
           <div
             className={`w-2 h-2 rounded-full ${
-              isConnected ? 'bg-emerald-400' : 'bg-red-400'
+              isConnected ? 'bg-[#4A7C59]' : 'bg-[#8B3A3A]'
             }`}
           />
           {isConnected ? 'Live' : 'Disconnected'}
@@ -201,15 +193,15 @@ export function DebateLivePage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-800 overflow-x-auto">
+      <div className="flex gap-0 border-b border-[rgba(0,0,0,0.08)] overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 text-sm whitespace-nowrap border-b-2 transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm whitespace-nowrap border-b-2 transition-colors ${
               activeTab === tab.id
-                ? 'border-amber-500 text-amber-500'
-                : 'border-transparent text-slate-400 hover:text-white'
+                ? 'border-[#23403B] text-[#23403B] font-medium'
+                : 'border-transparent text-[#5C5C5C] hover:text-[#161616]'
             }`}
           >
             <tab.icon className="w-4 h-4" />
@@ -253,23 +245,23 @@ function LiveTab({ session, events, currentPhase, getAgentsForPhase, showWebResu
     <div className="space-y-6">
       {/* Web results */}
       {session?.web_context && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl">
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg">
           <button
             onClick={() => setShowWebResults(!showWebResults)}
             className="flex items-center justify-between w-full p-4 text-left"
           >
-            <span className="text-sm font-medium text-white flex items-center gap-2">
-              <Globe className="w-4 h-4 text-blue-400" />
+            <span className="text-sm font-medium text-[#161616] flex items-center gap-2">
+              <Globe className="w-4 h-4 text-[#23403B]" />
               Resultados Web
             </span>
             {showWebResults ? (
-              <ChevronUp className="w-4 h-4 text-slate-400" />
+              <ChevronUp className="w-4 h-4 text-[#8A8780]" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-slate-400" />
+              <ChevronDown className="w-4 h-4 text-[#8A8780]" />
             )}
           </button>
           {showWebResults && (
-            <div className="px-4 pb-4 text-sm text-slate-400">
+            <div className="px-4 pb-4 text-sm text-[#5C5C5C]">
               {JSON.stringify(session.web_context, null, 2)}
             </div>
           )}
@@ -285,14 +277,14 @@ function LiveTab({ session, events, currentPhase, getAgentsForPhase, showWebResu
 
         return (
           <div key={phase} className="space-y-3">
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-[#161616] flex items-center gap-2">
               <div
                 className={`w-2 h-2 rounded-full ${
                   isCurrentPhase
-                    ? 'bg-amber-500 animate-pulse'
+                    ? 'bg-[#6E8B74] animate-pulse'
                     : hasCompleted
-                    ? 'bg-emerald-500'
-                    : 'bg-slate-600'
+                    ? 'bg-[#4A7C59]'
+                    : 'bg-[#B8B5AE]'
                 }`}
               />
               {phaseLabels[phase]}
@@ -308,9 +300,9 @@ function LiveTab({ session, events, currentPhase, getAgentsForPhase, showWebResu
 
       {/* Verdict */}
       {session?.status === 'COMPLETED' && session?.final_verdict && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-white mb-3">Veredicto Final</h3>
-          <p className="text-sm text-slate-300 whitespace-pre-wrap">
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card">
+          <h3 className="text-sm font-semibold text-[#161616] mb-3">Veredicto Final</h3>
+          <p className="text-sm text-[#5C5C5C] whitespace-pre-wrap">
             {session.final_verdict}
           </p>
         </div>
@@ -323,8 +315,8 @@ function TurnsTab({ session }) {
   const turns = session?.turns || []
   if (turns.length === 0) {
     return (
-      <div className="text-center py-12 text-slate-500">
-        <Hash className="w-8 h-8 mx-auto mb-2 opacity-50" />
+      <div className="text-center py-12 text-[#8A8780]">
+        <Hash className="w-8 h-8 mx-auto mb-2 opacity-40" />
         <p>No hay turnos registrados</p>
       </div>
     )
@@ -335,32 +327,32 @@ function TurnsTab({ session }) {
       {turns.map((turn) => (
         <details
           key={turn.turn_number}
-          className="bg-slate-900 border border-slate-800 rounded-lg group"
+          className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg group"
         >
           <summary className="flex items-center justify-between p-4 cursor-pointer list-none">
             <div className="flex items-center gap-3">
-              <span className="text-xs font-mono text-amber-500">#{turn.turn_number}</span>
-              <span className="text-sm text-white">{turn.agent?.name || turn.agent_name || 'Agent'}</span>
-              <span className="text-xs text-slate-500">{turn.agent?.role || turn.agent_role || ''}</span>
+              <span className="text-xs font-mono text-[#23403B]">#{turn.turn_number}</span>
+              <span className="text-sm text-[#161616]">{turn.agent?.name || turn.agent_name || 'Agent'}</span>
+              <span className="text-xs text-[#8A8780]">{turn.agent?.role || turn.agent_role || ''}</span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-[#5C5C5C]">
                 {turn.tokens_in || 0} → {turn.tokens_out || 0}
               </span>
               <span
-                className={`text-xs px-2 py-0.5 rounded-full ${
+                className={`text-xs px-2 py-0.5 rounded ${
                   turn.status === 'completed'
-                    ? 'bg-emerald-500/10 text-emerald-400'
+                    ? 'badge-success'
                     : turn.status === 'failed'
-                    ? 'bg-red-500/10 text-red-400'
-                    : 'bg-slate-700 text-slate-400'
+                    ? 'badge-error'
+                    : 'badge-neutral'
                 }`}
               >
                 {turn.status}
               </span>
             </div>
           </summary>
-          <div className="px-4 pb-4 text-sm text-slate-300 whitespace-pre-wrap border-t border-slate-800 pt-3">
+          <div className="px-4 pb-4 text-sm text-[#5C5C5C] whitespace-pre-wrap border-t border-[rgba(0,0,0,0.06)] pt-3">
             {turn.response_received || '(sin respuesta)'}
           </div>
         </details>
@@ -375,8 +367,8 @@ function CruzamientosTab({ session }) {
 
   if (cruzamientos.length === 0) {
     return (
-      <div className="text-center py-12 text-slate-500">
-        <GitBranch className="w-8 h-8 mx-auto mb-2 opacity-50" />
+      <div className="text-center py-12 text-[#8A8780]">
+        <GitBranch className="w-8 h-8 mx-auto mb-2 opacity-40" />
         <p>No hay cruzamientos registrados</p>
       </div>
     )
@@ -385,17 +377,17 @@ function CruzamientosTab({ session }) {
   return (
     <div className="space-y-3">
       {cruzamientos.map((c, i) => (
-        <div key={i} className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+        <div key={i} className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-mono text-amber-500">Iter {c.iteration}</span>
-            <span className="text-sm text-white">{c.from_agent}</span>
-            <span className="text-slate-500">→</span>
-            <span className="text-sm text-white">{c.to_agent}</span>
+            <span className="text-xs font-mono text-[#23403B]">Iter {c.iteration}</span>
+            <span className="text-sm text-[#161616]">{c.from_agent}</span>
+            <span className="text-[#8A8780]">→</span>
+            <span className="text-sm text-[#161616]">{c.to_agent}</span>
           </div>
-          <div className="text-xs text-slate-400 mb-2">
+          <div className="text-xs text-[#5C5C5C] mb-2">
             Objetivo: {c.target_argument?.slice(0, 100)}...
           </div>
-          <div className="text-sm text-slate-300 whitespace-pre-wrap">
+          <div className="text-sm text-[#5C5C5C] whitespace-pre-wrap">
             {c.response?.slice(0, 500)}
             {c.response?.length > 500 && '...'}
           </div>
@@ -409,8 +401,8 @@ function TribunalTab({ session }) {
   const tribunal = session?.tribunal_verdict
   if (!tribunal) {
     return (
-      <div className="text-center py-12 text-slate-500">
-        <Scale className="w-8 h-8 mx-auto mb-2 opacity-50" />
+      <div className="text-center py-12 text-[#8A8780]">
+        <Scale className="w-8 h-8 mx-auto mb-2 opacity-40" />
         <p>Tribunal no activo aun</p>
       </div>
     )
@@ -421,23 +413,23 @@ function TribunalTab({ session }) {
       <TribunalPanel verdict={tribunal} />
       {tribunal.evidence_score != null && (
         <div className="grid grid-cols-3 gap-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-blue-400">
+          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-4 text-center shadow-card">
+            <div className="text-2xl font-serif text-[#23403B]">
               {(tribunal.evidence_score * 100).toFixed(0)}%
             </div>
-            <div className="text-xs text-slate-500 mt-1">Evidencia</div>
+            <div className="text-xs text-[#8A8780] mt-1">Evidencia</div>
           </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-red-400">
+          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-4 text-center shadow-card">
+            <div className="text-2xl font-serif text-[#8B3A3A]">
               {(tribunal.risk_score * 100).toFixed(0)}%
             </div>
-            <div className="text-xs text-slate-500 mt-1">Riesgo</div>
+            <div className="text-xs text-[#8A8780] mt-1">Riesgo</div>
           </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-amber-400">
+          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-4 text-center shadow-card">
+            <div className="text-2xl font-serif text-[#B98B4D]">
               {(tribunal.alignment_score * 100).toFixed(0)}%
             </div>
-            <div className="text-xs text-slate-500 mt-1">Alineacion</div>
+            <div className="text-xs text-[#8A8780] mt-1">Alineacion</div>
           </div>
         </div>
       )}
@@ -447,8 +439,8 @@ function TribunalTab({ session }) {
 
 function ReductioTab({ session }) {
   return (
-    <div className="text-center py-12 text-slate-500">
-      <FlaskConical className="w-8 h-8 mx-auto mb-2 opacity-50" />
+    <div className="text-center py-12 text-[#8A8780]">
+      <FlaskConical className="w-8 h-8 mx-auto mb-2 opacity-40" />
       <p>Reductio ad Absurdum - Proximamente</p>
     </div>
   )
@@ -482,27 +474,27 @@ function ReportTab({ session }) {
 
   return (
     <div className="space-y-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-white mb-4">Exportar Informe</h3>
+      <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card">
+        <h3 className="text-sm font-semibold text-[#161616] mb-4">Exportar Informe</h3>
         <div className="flex flex-wrap gap-3">
           <button
             onClick={() => handleExport('pdf')}
             disabled={generating}
-            className="px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+            className="btn-secondary px-4 py-2 text-sm disabled:opacity-50"
           >
             PDF
           </button>
           <button
             onClick={() => handleExport('docx')}
             disabled={generating}
-            className="px-4 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg text-sm hover:bg-blue-500/20 disabled:opacity-50 transition-colors"
+            className="btn-secondary px-4 py-2 text-sm disabled:opacity-50"
           >
             Word
           </button>
           <button
             onClick={() => handleExport('md')}
             disabled={generating}
-            className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-sm hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
+            className="btn-secondary px-4 py-2 text-sm disabled:opacity-50"
           >
             Markdown
           </button>
@@ -510,9 +502,9 @@ function ReportTab({ session }) {
       </div>
 
       {session?.structured_report && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-white mb-4">Resumen Estructurado</h3>
-          <pre className="text-xs text-slate-400 whitespace-pre-wrap overflow-auto max-h-96">
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card">
+          <h3 className="text-sm font-semibold text-[#161616] mb-4">Resumen Estructurado</h3>
+          <pre className="text-xs text-[#5C5C5C] whitespace-pre-wrap overflow-auto max-h-96 font-mono">
             {JSON.stringify(session.structured_report, null, 2)}
           </pre>
         </div>

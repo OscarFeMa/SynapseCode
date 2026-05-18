@@ -41,47 +41,48 @@ export function CachePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-semibold text-white">Cache Semantica</h1>
-        <p className="text-sm text-slate-400 mt-1">Estadisticas, invalidacion y limpieza</p>
+        <h1 className="text-3xl text-[#161616]">Cache Semantica</h1>
+        <p className="text-sm text-[#5C5C5C] mt-1">Estadisticas, invalidacion y limpieza</p>
+        <div className="w-8 h-0.5 bg-[#23403B] mt-3" />
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-slate-500">Cargando...</div>
+        <div className="text-center py-12 text-[#8A8780]">Cargando...</div>
       ) : !stats ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center">
-          <Database className="w-12 h-12 mx-auto text-slate-600 mb-3" />
-          <p className="text-slate-500">Cache no disponible o deshabilitado</p>
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-8 text-center shadow-card">
+          <Database className="w-12 h-12 mx-auto text-[#B8B5AE] mb-3" />
+          <p className="text-[#8A8780]">Cache no disponible o deshabilitado</p>
         </div>
       ) : (
         <>
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: 'Entradas', value: stats.total_entries || stats.entries || 0, icon: Database, color: 'text-blue-400' },
-              { label: 'Hits', value: stats.total_hits || stats.hits || 0, icon: BarChart3, color: 'text-emerald-400' },
-              { label: 'Hit Rate', value: `${((stats.hit_rate || 0) * 100).toFixed(1)}%`, icon: BarChart3, color: 'text-amber-400' },
-              { label: 'Embeddings', value: stats.total_embeddings || stats.embeddings || 0, icon: Database, color: 'text-purple-400' },
+              { label: 'Entradas', value: stats.total_entries || stats.entries || 0, icon: Database, accent: 'text-[#23403B]' },
+              { label: 'Hits', value: stats.total_hits || stats.hits || 0, icon: BarChart3, accent: 'text-[#4A7C59]' },
+              { label: 'Hit Rate', value: `${((stats.hit_rate || 0) * 100).toFixed(1)}%`, icon: BarChart3, accent: 'text-[#B98B4D]' },
+              { label: 'Embeddings', value: stats.total_embeddings || stats.embeddings || 0, icon: Database, accent: 'text-[#6E8B74]' },
             ].map((s) => (
-              <div key={s.label} className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+              <div key={s.label} className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card">
                 <div className="flex items-center gap-2 mb-2">
-                  <s.icon className={`w-4 h-4 ${s.color}`} />
-                  <span className="text-xs text-slate-500 uppercase">{s.label}</span>
+                  <s.icon className={`w-4 h-4 ${s.accent}`} />
+                  <span className="text-xs text-[#8A8780] uppercase tracking-wider">{s.label}</span>
                 </div>
-                <div className="text-2xl font-bold text-white">{s.value}</div>
+                <div className="text-2xl font-serif text-[#161616]">{s.value}</div>
               </div>
             ))}
           </div>
 
           {/* Actions */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-            <h2 className="text-sm font-semibold text-white mb-4">Acciones</h2>
+          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card">
+            <h2 className="text-sm font-semibold text-[#161616] mb-4">Acciones</h2>
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => handleAction('invalidate')}
                 disabled={actionLoading === 'invalidate'}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 btn-secondary text-[#8B3A3A] border-[#8B3A3A]/20 hover:bg-[#8B3A3A] hover:text-white disabled:opacity-50"
               >
                 <Trash2 className="w-4 h-4" />
                 {actionLoading === 'invalidate' ? 'Invalidando...' : 'Invalidar Todo'}
@@ -89,7 +90,7 @@ export function CachePage() {
               <button
                 onClick={() => handleAction('cleanup')}
                 disabled={actionLoading === 'cleanup'}
-                className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg text-sm hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 btn-secondary text-[#B98B4D] border-[#B98B4D]/20 hover:bg-[#B98B4D] hover:text-white disabled:opacity-50"
               >
                 <RefreshCw className={`w-4 h-4 ${actionLoading === 'cleanup' ? 'animate-spin' : ''}`} />
                 {actionLoading === 'cleanup' ? 'Limpiando...' : 'Limpiar Expirados'}
@@ -98,16 +99,16 @@ export function CachePage() {
           </div>
 
           {/* Config */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-            <h2 className="text-sm font-semibold text-white mb-4">Configuracion</h2>
+          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card">
+            <h2 className="text-sm font-semibold text-[#161616] mb-4">Configuracion</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-slate-500">Umbral similitud</span>
-                <div className="text-white">{stats.similarity_threshold ?? '0.85'}</div>
+                <span className="text-[#8A8780]">Umbral similitud</span>
+                <div className="text-[#161616] font-mono tabular-nums">{stats.similarity_threshold ?? '0.85'}</div>
               </div>
               <div>
-                <span className="text-slate-500">TTL</span>
-                <div className="text-white">{stats.ttl_seconds ? `${stats.ttl_seconds}s` : 'N/A'}</div>
+                <span className="text-[#8A8780]">TTL</span>
+                <div className="text-[#161616] font-mono tabular-nums">{stats.ttl_seconds ? `${stats.ttl_seconds}s` : 'N/A'}</div>
               </div>
             </div>
           </div>

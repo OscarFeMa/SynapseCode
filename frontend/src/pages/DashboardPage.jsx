@@ -49,43 +49,44 @@ export function DashboardPage() {
       label: 'Debates Totales',
       value: totalSessions,
       icon: MessageSquare,
-      color: 'text-amber-500',
-      bg: 'bg-amber-500/10',
+      accent: 'text-[#23403B]',
+      bg: 'bg-[#23403B]/[0.06]',
     },
     {
       label: 'Completados',
       value: completedSessions,
       icon: CheckCircle,
-      color: 'text-emerald-500',
-      bg: 'bg-emerald-500/10',
+      accent: 'text-[#4A7C59]',
+      bg: 'bg-[#4A7C59]/[0.06]',
     },
     {
       label: 'Activos',
       value: activeSessions,
       icon: Activity,
-      color: 'text-blue-500',
-      bg: 'bg-blue-500/10',
+      accent: 'text-[#6E8B74]',
+      bg: 'bg-[#6E8B74]/[0.06]',
     },
     {
       label: 'Tasa Exito',
       value: totalSessions > 0 ? `${Math.round((completedSessions / totalSessions) * 100)}%` : '0%',
       icon: TrendingUp,
-      color: 'text-purple-500',
-      bg: 'bg-purple-500/10',
+      accent: 'text-[#B98B4D]',
+      bg: 'bg-[#B98B4D]/[0.06]',
     },
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Dashboard</h1>
-          <p className="text-sm text-slate-400 mt-1">Vista general del sistema SynapseCode</p>
+          <h1 className="text-3xl text-[#161616]">Dashboard</h1>
+          <p className="text-sm text-[#5C5C5C] mt-1">Vista general del sistema SynapseCode</p>
+          <div className="w-8 h-0.5 bg-[#23403B] mt-3" />
         </div>
         <Link
           to="/debates/new"
-          className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 text-sm font-medium rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-[#23403B] hover:bg-[#2D524C] text-[#F5F3EE] text-sm font-medium rounded transition-colors"
         >
           <Plus className="w-4 h-4" />
           Nuevo Debate
@@ -97,15 +98,17 @@ export function DashboardPage() {
         {kpis.map((kpi) => (
           <div
             key={kpi.label}
-            className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-colors"
+            className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card hover:border-[rgba(0,0,0,0.12)] transition-colors"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider">{kpi.label}</p>
-                <p className="text-2xl font-bold text-white mt-1">{loading ? '...' : kpi.value}</p>
+                <p className="text-xs text-[#8A8780] uppercase tracking-wider">{kpi.label}</p>
+                <p className="text-2xl font-semibold text-[#161616] mt-1 font-serif">
+                  {loading ? '—' : kpi.value}
+                </p>
               </div>
-              <div className={`w-10 h-10 ${kpi.bg} rounded-lg flex items-center justify-center`}>
-                <kpi.icon className={`w-5 h-5 ${kpi.color}`} />
+              <div className={`w-10 h-10 ${kpi.bg} rounded flex items-center justify-center`}>
+                <kpi.icon className={`w-5 h-5 ${kpi.accent}`} />
               </div>
             </div>
           </div>
@@ -115,22 +118,22 @@ export function DashboardPage() {
       {/* System Status + GPU */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* System Health */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-            <Zap className="w-4 h-4 text-amber-500" />
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card">
+          <h2 className="text-sm font-semibold text-[#161616] mb-4 flex items-center gap-2">
+            <Zap className="w-4 h-4 text-[#B98B4D]" />
             Estado del Sistema
           </h2>
           {loading ? (
-            <div className="text-sm text-slate-500">Cargando...</div>
+            <div className="text-sm text-[#8A8780]">Cargando...</div>
           ) : health ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">Backend</span>
+                <span className="text-sm text-[#5C5C5C]">Backend</span>
                 <span
-                  className={`text-xs font-medium px-2 py-1 rounded-full ${
+                  className={`text-xs font-medium px-2.5 py-1 rounded ${
                     health.status === 'ok' || health.status === 'online'
-                      ? 'bg-emerald-500/10 text-emerald-500'
-                      : 'bg-red-500/10 text-red-500'
+                      ? 'badge-success'
+                      : 'badge-error'
                   }`}
                 >
                   {health.status || 'unknown'}
@@ -138,8 +141,8 @@ export function DashboardPage() {
               </div>
               {health.database && (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-400">Base de datos</span>
-                  <span className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-500">
+                  <span className="text-sm text-[#5C5C5C]">Base de datos</span>
+                  <span className="text-xs font-medium px-2.5 py-1 rounded badge-success">
                     {typeof health.database === 'string' ? health.database : health.database?.status || 'connected'}
                   </span>
                 </div>
@@ -150,12 +153,10 @@ export function DashboardPage() {
                   const isOnline = statusStr === 'online' || statusStr === 'ok' || statusStr === 'healthy'
                   return (
                     <div key={name} className="flex items-center justify-between">
-                      <span className="text-sm text-slate-400 capitalize">{name}</span>
+                      <span className="text-sm text-[#5C5C5C] capitalize">{name}</span>
                       <span
-                        className={`text-xs font-medium px-2 py-1 rounded-full ${
-                          isOnline
-                            ? 'bg-emerald-500/10 text-emerald-500'
-                            : 'bg-slate-700 text-slate-400'
+                        className={`text-xs font-medium px-2.5 py-1 rounded ${
+                          isOnline ? 'badge-success' : 'badge-neutral'
                         }`}
                       >
                         {statusStr}
@@ -165,47 +166,47 @@ export function DashboardPage() {
                 })}
             </div>
           ) : (
-            <div className="text-sm text-red-500">No se pudo conectar al backend</div>
+            <div className="text-sm text-[#8B3A3A]">No se pudo conectar al backend</div>
           )}
         </div>
 
         {/* GPU Metrics */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-blue-500" />
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg p-5 shadow-card">
+          <h2 className="text-sm font-semibold text-[#161616] mb-4 flex items-center gap-2">
+            <Cpu className="w-4 h-4 text-[#23403B]" />
             GPU Worker
           </h2>
           {loading ? (
-            <div className="text-sm text-slate-500">Cargando...</div>
+            <div className="text-sm text-[#8A8780]">Cargando...</div>
           ) : gpuMetrics?.available ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">VRAM Usada</span>
-                <span className="text-sm font-mono text-white">
+                <span className="text-sm text-[#5C5C5C]">VRAM Usada</span>
+                <span className="text-sm font-mono text-[#161616] tabular-nums">
                   {gpuMetrics.memory?.used_mb ? `${Math.round(gpuMetrics.memory.used_mb)} MB` : 'N/A'}
                 </span>
               </div>
-              <div className="w-full bg-slate-800 rounded-full h-2">
+              <div className="w-full bg-[#F5F3EE] rounded h-1.5">
                 <div
-                  className="bg-blue-500 h-2 rounded-full transition-all"
+                  className="bg-[#23403B] h-1.5 rounded transition-all"
                   style={{ width: `${gpuMetrics.memory?.used_pct || 0}%` }}
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">Temperatura</span>
-                <span className="text-sm font-mono text-white">
+                <span className="text-sm text-[#5C5C5C]">Temperatura</span>
+                <span className="text-sm font-mono text-[#161616] tabular-nums">
                   {gpuMetrics.temperature_celsius ? `${gpuMetrics.temperature_celsius}°C` : 'N/A'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">Utilizacion</span>
-                <span className="text-sm font-mono text-white">
+                <span className="text-sm text-[#5C5C5C]">Utilizacion</span>
+                <span className="text-sm font-mono text-[#161616] tabular-nums">
                   {gpuMetrics.utilization_pct != null ? `${gpuMetrics.utilization_pct}%` : 'N/A'}
                 </span>
               </div>
             </div>
           ) : (
-            <div className="text-sm text-slate-500">
+            <div className="text-sm text-[#8A8780]">
               {typeof gpuMetrics?.error === 'string' ? gpuMetrics.error : 'GPU no disponible'}
             </div>
           )}
@@ -213,54 +214,54 @@ export function DashboardPage() {
       </div>
 
       {/* Recent Debates */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-white">Debates Recientes</h2>
-          <Link to="/debates" className="text-xs text-amber-500 hover:text-amber-400 flex items-center gap-1">
+      <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-lg shadow-card">
+        <div className="px-5 py-4 border-b border-[rgba(0,0,0,0.06)] flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-[#161616]">Debates Recientes</h2>
+          <Link to="/debates" className="text-xs text-[#23403B] hover:text-[#2D524C] flex items-center gap-1 font-medium">
             Ver todos <ExternalLink className="w-3 h-3" />
           </Link>
         </div>
         {sessions.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">
-            <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <div className="text-center py-12 text-[#8A8780]">
+            <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-40" />
             <p className="text-sm">No hay debates aun</p>
             <Link
               to="/debates/new"
-              className="text-amber-500 text-sm hover:text-amber-400 mt-2 inline-block"
+              className="text-[#23403B] text-sm hover:text-[#2D524C] mt-2 inline-block font-medium"
             >
               Crear el primero →
             </Link>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="divide-y divide-[rgba(0,0,0,0.04)]">
             {sessions.slice(0, 5).map((session) => (
               <Link
                 key={session.id}
                 to={`/debates/${session.id}`}
-                className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-800 transition-colors"
+                className="flex items-center justify-between px-5 py-3 hover:bg-[#F5F3EE] transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div
                     className={`w-2 h-2 rounded-full ${
                       session.status === 'completed'
-                        ? 'bg-emerald-500'
+                        ? 'bg-[#4A7C59]'
                         : session.status === 'running'
-                        ? 'bg-blue-500 animate-pulse'
-                        : 'bg-slate-600'
+                        ? 'bg-[#6E8B74] animate-pulse'
+                        : 'bg-[#B8B5AE]'
                     }`}
                   />
                   <div>
-                    <p className="text-sm text-white truncate max-w-[300px]">{session.topic}</p>
-                    <p className="text-xs text-slate-500">{session.id}</p>
+                    <p className="text-sm text-[#161616] truncate max-w-[300px] font-medium">{session.topic}</p>
+                    <p className="text-xs text-[#8A8780] font-mono">{session.id}</p>
                   </div>
                 </div>
                 <span
-                  className={`text-xs px-2 py-1 rounded-full ${
+                  className={`text-xs px-2.5 py-1 rounded ${
                     session.status === 'completed'
-                      ? 'bg-emerald-500/10 text-emerald-500'
+                      ? 'badge-success'
                       : session.status === 'running'
-                      ? 'bg-blue-500/10 text-blue-500'
-                      : 'bg-slate-700 text-slate-400'
+                      ? 'badge-neutral'
+                      : 'badge-neutral'
                   }`}
                 >
                   {session.status}

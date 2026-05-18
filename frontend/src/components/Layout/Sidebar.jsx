@@ -48,19 +48,19 @@ export function Sidebar({ onOpenCommandPalette }) {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen bg-slate-900 border-r border-slate-800 z-50 transition-all duration-300 flex flex-col ${
+      className={`fixed left-0 top-0 h-screen bg-white border-r border-[rgba(0,0,0,0.08)] z-50 transition-all duration-300 flex flex-col ${
         collapsed ? 'w-16' : 'w-56'
       }`}
     >
       {/* Logo */}
-      <div className="h-14 flex items-center px-4 border-b border-slate-800">
-        <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-slate-900 font-bold text-sm">S</span>
+      <div className="h-14 flex items-center px-4 border-b border-[rgba(0,0,0,0.08)]">
+        <div className="w-8 h-8 bg-[#23403B] rounded flex items-center justify-center flex-shrink-0">
+          <span className="text-[#F5F3EE] font-serif font-bold text-sm">S</span>
         </div>
         {!collapsed && (
           <div className="ml-3 overflow-hidden">
-            <div className="text-white font-semibold text-sm whitespace-nowrap">SynapseCode</div>
-            <div className="text-slate-500 text-[10px] whitespace-nowrap">v3.0</div>
+            <div className="text-[#161616] font-serif text-base leading-tight">SynapseCode</div>
+            <div className="text-[#8A8780] text-[10px] tracking-wider uppercase">v3.0</div>
           </div>
         )}
       </div>
@@ -69,20 +69,20 @@ export function Sidebar({ onOpenCommandPalette }) {
       {!collapsed && (
         <button
           onClick={onOpenCommandPalette}
-          className="mx-3 mt-3 flex items-center gap-2 px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-xs text-slate-500 hover:text-white hover:border-slate-600 transition-colors"
+          className="mx-3 mt-3 flex items-center gap-2 px-3 py-2 bg-[#F5F3EE] border border-[rgba(0,0,0,0.06)] rounded text-xs text-[#5C5C5C] hover:text-[#161616] hover:border-[rgba(0,0,0,0.12)] transition-colors"
         >
           <Search className="w-3.5 h-3.5" />
           <span>Buscar...</span>
-          <kbd className="ml-auto text-[10px] bg-slate-700 px-1.5 py-0.5 rounded font-mono">Ctrl+K</kbd>
+          <kbd className="ml-auto text-[10px] bg-white px-1.5 py-0.5 rounded font-mono text-[#8A8780]">Ctrl+K</kbd>
         </button>
       )}
 
       {/* Navigation */}
       <nav className="flex-1 py-4 overflow-y-auto">
         {navGroups.map((group) => (
-          <div key={group.label} className="mb-4">
+          <div key={group.label} className="mb-5">
             {!collapsed && (
-              <div className="px-4 mb-1 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+              <div className="px-4 mb-1.5 text-[10px] font-semibold text-[#8A8780] uppercase tracking-widest">
                 {group.label}
               </div>
             )}
@@ -92,10 +92,10 @@ export function Sidebar({ onOpenCommandPalette }) {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-4 py-2 mx-2 rounded-lg text-sm transition-all ${
+                  className={`flex items-center gap-3 px-4 py-2 mx-2 rounded text-sm transition-all ${
                     isActive
-                      ? 'bg-amber-500/10 text-amber-500 border-l-2 border-amber-500'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      ? 'bg-[#23403B]/[0.06] text-[#23403B] font-medium'
+                      : 'text-[#5C5C5C] hover:text-[#161616] hover:bg-[#F5F3EE]'
                   }`}
                   title={collapsed ? item.label : undefined}
                 >
@@ -111,7 +111,7 @@ export function Sidebar({ onOpenCommandPalette }) {
       {/* Collapse toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center justify-center h-10 border-t border-slate-800 text-slate-400 hover:text-white transition-colors"
+        className="flex items-center justify-center h-10 border-t border-[rgba(0,0,0,0.08)] text-[#8A8780] hover:text-[#161616] transition-colors"
       >
         {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </button>

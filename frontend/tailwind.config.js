@@ -7,39 +7,58 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Synapse Council Palette
-        coral: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
-          950: '#082f49',
+        paper: {
+          DEFAULT: '#F5F3EE',
+          dark: '#ECE9E2',
         },
-        slate: {
-          850: '#1e293b',
-          900: '#0f172a', // Main background
-          950: '#020617',
+        ink: {
+          primary: '#161616',
+          secondary: '#5C5C5C',
+          light: '#8A8780',
+        },
+        accent: {
+          DEFAULT: '#23403B',
+          light: '#2D524C',
+          dark: '#1A302C',
+        },
+        stone: {
+          DEFAULT: '#B8B5AE',
+          light: '#D8D5CE',
+        },
+        sand: '#D8CBB8',
+        sage: {
+          DEFAULT: '#6E8B74',
+          light: '#8BA890',
+          muted: '#A8BFB0',
         },
         amber: {
-          400: '#fbbf24',
-          500: '#f59e0b', // Accent color
-          600: '#d97706',
+          DEFAULT: '#B98B4D',
+          light: '#C9A068',
+          muted: '#D4B896',
+        },
+        border: {
+          DEFAULT: 'rgba(0,0,0,0.08)',
+          strong: 'rgba(0,0,0,0.12)',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        serif: ['Instrument Serif', 'DM Serif Display', 'Georgia', 'serif'],
+        sans: ['Inter', 'IBM Plex Sans', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'IBM Plex Mono', 'monospace'],
+      },
+      boxShadow: {
+        card: '0 1px 2px rgba(0,0,0,0.03), 0 8px 24px rgba(0,0,0,0.04)',
+        subtle: '0 1px 3px rgba(0,0,0,0.04)',
+        elevated: '0 2px 4px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06)',
+      },
+      borderRadius: {
+        card: '8px',
+        button: '6px',
       },
       animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'fade-in': 'fadeIn 0.5s ease-out',
+        'fade-in': 'fadeIn 0.4s ease-out',
         'slide-up': 'slideUp 0.3s ease-out',
+        'line-reveal': 'lineReveal 0.6s ease-out',
       },
       keyframes: {
         fadeIn: {
@@ -47,8 +66,12 @@ export default {
           '100%': { opacity: '1' },
         },
         slideUp: {
-          '0%': { transform: 'translateY(10px)', opacity: '0' },
+          '0%': { transform: 'translateY(8px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        lineReveal: {
+          '0%': { width: '0' },
+          '100%': { width: '100%' },
         },
       },
     },
