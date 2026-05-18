@@ -16,6 +16,7 @@ logger = structlog.get_logger()
 @dataclass
 class RoleAssignment:
     """Asignacion de modelo a un rol especifico"""
+
     role: str
     model_id: str
     model_name: str
@@ -197,9 +198,7 @@ class RoleMatcher:
 
         assignments = []
         for role in roles:
-            assignment = self.match_role_to_model(
-                role=role, platform=platform, require_free=require_free
-            )
+            assignment = self.match_role_to_model(role=role, platform=platform, require_free=require_free)
             if assignment:
                 assignments.append(assignment)
 
@@ -241,20 +240,22 @@ class RoleMatcher:
 
             if assignment:
                 last_platform = Platform(assignment.platform)
-                agents.append({
-                    "id": f"{role}_{assignment.platform}",
-                    "name": assignment.model_name,
-                    "role": role,
-                    "node": assignment.node,
-                    "engine": assignment.platform,
-                    "model": assignment.model_id,
-                    "reason": assignment.reason,
-                    "expected_quality": assignment.expected_quality,
-                    "expected_latency_ms": assignment.expected_latency_ms,
-                    "system_prompt": self._get_system_prompt(role, topic),
-                    "temperature": self._get_temperature(role),
-                    "max_tokens": self._get_max_tokens(role),
-                })
+                agents.append(
+                    {
+                        "id": f"{role}_{assignment.platform}",
+                        "name": assignment.model_name,
+                        "role": role,
+                        "node": assignment.node,
+                        "engine": assignment.platform,
+                        "model": assignment.model_id,
+                        "reason": assignment.reason,
+                        "expected_quality": assignment.expected_quality,
+                        "expected_latency_ms": assignment.expected_latency_ms,
+                        "system_prompt": self._get_system_prompt(role, topic),
+                        "temperature": self._get_temperature(role),
+                        "max_tokens": self._get_max_tokens(role),
+                    }
+                )
 
         return agents
 
@@ -292,17 +293,12 @@ class RoleMatcher:
         # Filtrar modelos OOM para Worker
         if platform == Platform.OLLAMA:
             candidates = [
-                m for m in candidates
-                if m.ollama_model not in self.OOM_MODELS
-                and m.id not in self.OOM_MODELS
+                m for m in candidates if m.ollama_model not in self.OOM_MODELS and m.id not in self.OOM_MODELS
             ]
 
         # Filtrar por VRAM (estimado: 2GB por billon de params)
         if platform == Platform.OLLAMA:
-            candidates = [
-                m for m in candidates
-                if (m.params_b * 2) <= max_vram_gb
-            ]
+            candidates = [m for m in candidates if (m.params_b * 2) <= max_vram_gb]
 
         return candidates
 

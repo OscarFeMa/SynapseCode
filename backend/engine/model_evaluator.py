@@ -231,19 +231,21 @@ class ModelEvaluator:
         """Genera tabla comparativa de todos los modelos"""
         table = []
         for spec in self.registry._models.values():
-            table.append({
-                "id": spec.id,
-                "name": spec.name,
-                "platform": spec.platform.value,
-                "params_b": spec.params_b,
-                "context_window": spec.context_window,
-                "speed_tps": spec.speed_tps,
-                "lmsys_rank": spec.lmsys_rank,
-                "is_free": spec.is_free,
-                "cost_input": spec.cost_per_1m_input,
-                "cost_output": spec.cost_per_1m_output,
-                "specialties": [s.value for s in spec.specialties],
-            })
+            table.append(
+                {
+                    "id": spec.id,
+                    "name": spec.name,
+                    "platform": spec.platform.value,
+                    "params_b": spec.params_b,
+                    "context_window": spec.context_window,
+                    "speed_tps": spec.speed_tps,
+                    "lmsys_rank": spec.lmsys_rank,
+                    "is_free": spec.is_free,
+                    "cost_input": spec.cost_per_1m_input,
+                    "cost_output": spec.cost_per_1m_output,
+                    "specialties": [s.value for s in spec.specialties],
+                }
+            )
         # Ordenar por LMSYS rank
         table.sort(key=lambda x: x["lmsys_rank"], reverse=True)
         return table
