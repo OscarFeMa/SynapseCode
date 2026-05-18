@@ -1,19 +1,22 @@
 """
 Synapse Council v2.0 - OpenRouter Adapter
 Cliente async para OpenRouter API
-Hereda de BaseOpenAICompatibleClient para eliminar duplicación SSE.
+Herencia de BaseOpenAICompatibleClient para eliminar duplicacion SSE.
+Integra Circuit Breaker para evitar fallos en cascada.
 """
 
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import httpx
 
 from backend.adapters.base import BaseOpenAICompatibleClient
+from backend.adapters.circuit_breaker import circuit_breakers
 from backend.config import get_settings
 
 
 class OpenRouterClient(BaseOpenAICompatibleClient):
-    """Cliente async para OpenRouter"""
+    """Cliente async para OpenRouter con Circuit Breaker"""
 
     def __init__(self, api_key: str | None = None, base_url: str | None = None, settings=None):
         if settings is None:
@@ -28,9 +31,37 @@ class OpenRouterClient(BaseOpenAICompatibleClient):
                 "X-Title": settings.OPENROUTER_APP_NAME,
             },
         )
+        self.circuit_breaker = circuit_breakers.get(
+            "openrouter",
+            failure_threshold=settings.OPENROUTER_MAX_RETRIES + 1,
+            recovery_timeout=60.0,
+        )
+
+    async def chat_completion(
+        self,
+        model: str,
+        messages: list[dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        stream: bool = True,
+    ) -> AsyncGenerator[str, None]:
+        """Chat completion con Circuit Breaker"""
+        if not self.circuit_breaker.can_execute():
+            raise RuntimeError(
+                f"OpenRouter circuit breaker is OPEN. "
+                f"Retry after {self.circuit_breaker.recovery_timeout}s"
+            )
+
+        try:
+            async for token in super().chat_completion(model, messages, temperature, max_tokens, stream):
+                self.circuit_breaker.record_success()
+                yield token
+        except Exception as e:
+            self.circuit_breaker.record_failure()
+            raise e
 
     async def health_check(self) -> dict[str, Any]:
-        """Verifica conexión con OpenRouter"""
+        """Verifica conexion con OpenRouter"""
         if not self.api_key:
             return {"status": "unconfigured", "error": "API key not set"}
 
