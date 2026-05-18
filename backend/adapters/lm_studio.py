@@ -9,13 +9,13 @@ from typing import Any
 from backend.adapters.base import BaseOpenAICompatibleClient
 from backend.config import get_settings
 
-settings = get_settings()
-
 
 class LMStudioClient(BaseOpenAICompatibleClient):
     """Cliente async para LM Studio (API OpenAI-compatible en puerto 1234/1235)"""
 
-    def __init__(self, base_url: str | None = None):
+    def __init__(self, base_url: str | None = None, settings=None):
+        if settings is None:
+            settings = get_settings()
         super().__init__(
             base_url=base_url or settings.LM_STUDIO_BASE_URL,
             timeout=settings.LM_STUDIO_TIMEOUT_SECONDS,

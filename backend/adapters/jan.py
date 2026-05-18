@@ -9,13 +9,13 @@ from typing import Any
 from backend.adapters.base import BaseOpenAICompatibleClient
 from backend.config import get_settings
 
-settings = get_settings()
-
 
 class JanClient(BaseOpenAICompatibleClient):
     """Cliente async para Jan.ai (API compatible en puerto 1337)"""
 
-    def __init__(self, base_url: str | None = None):
+    def __init__(self, base_url: str | None = None, settings=None):
+        if settings is None:
+            settings = get_settings()
         super().__init__(
             base_url=base_url or settings.JAN_BASE_URL,
             timeout=settings.JAN_TIMEOUT_SECONDS,

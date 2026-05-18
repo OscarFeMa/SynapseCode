@@ -11,13 +11,13 @@ import httpx
 from backend.adapters.base import BaseOpenAICompatibleClient
 from backend.config import get_settings
 
-settings = get_settings()
-
 
 class OpenRouterClient(BaseOpenAICompatibleClient):
     """Cliente async para OpenRouter"""
 
-    def __init__(self, api_key: str | None = None, base_url: str | None = None):
+    def __init__(self, api_key: str | None = None, base_url: str | None = None, settings=None):
+        if settings is None:
+            settings = get_settings()
         super().__init__(
             base_url=base_url or settings.OPENROUTER_BASE_URL,
             timeout=settings.OPENROUTER_TIMEOUT_SECONDS,

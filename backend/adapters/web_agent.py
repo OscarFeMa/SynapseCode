@@ -9,8 +9,6 @@ from typing import Any
 
 from backend.config import get_settings
 
-settings = get_settings()
-
 # Configuración por sitio: url, input_selector, submit_selector, response_selector, response_wait_for
 SITE_CONFIGS = {
     "chatgpt": {
@@ -107,12 +105,16 @@ class WebAgentClient:
         enabled: bool = True,
         browser: str = "chromium",
         headless: bool = True,
+        settings=None,
     ):
+        if settings is None:
+            settings = get_settings()
+        self._settings = settings
         self.enabled = enabled
         self.browser = browser
         self.headless = headless
-        self.timeout = settings.WEB_AGENT_TIMEOUT_SECONDS
-        self.session_dir = settings.WEB_AGENT_SESSION_DIR
+        self.timeout = self._settings.WEB_AGENT_TIMEOUT_SECONDS
+        self.session_dir = self._settings.WEB_AGENT_SESSION_DIR
 
     async def health_check(self) -> dict[str, Any]:
         """Verifica disponibilidad de Playwright"""
@@ -182,14 +184,14 @@ class WebAgentClient:
         )
 
         # Usar Chrome del sistema si está configurado (aprovecha sesiones guardadas)
-        if settings.WEB_AGENT_BROWSER == "chrome":
+        if self._settings.WEB_AGENT_BROWSER == "chrome":
             import os as _os
 
-            chrome_path = settings.WEB_AGENT_CHROME_PATH
+            chrome_path = self._settings.WEB_AGENT_CHROME_PATH
             if _os.path.exists(chrome_path):
                 kwargs["executable_path"] = chrome_path
-            if settings.WEB_AGENT_CHROME_PROFILE:
-                kwargs["user_data_dir"] = settings.WEB_AGENT_CHROME_PROFILE
+            if self._settings.WEB_AGENT_CHROME_PROFILE:
+                kwargs["user_data_dir"] = self._settings.WEB_AGENT_CHROME_PROFILE
             else:
                 # Usar el perfil por defecto del usuario
                 user = _os.environ.get("USERNAME", "usuario")

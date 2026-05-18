@@ -5,6 +5,15 @@ REM Coloca este .bat en la carpeta de inicio de Windows del Worker:
 REM   shell:startup  (Win+R -> shell:startup)
 REM O ejecutalo manualmente al conectar por RDP.
 REM =====================================================================
+
+REM --- Solicitar elevacion UAC si no es administrador ---
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    echo [UAC] Requesting administrator privileges...
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    exit /b
+)
+
 title Synapse Worker - Autostart
 echo [Synapse Worker] Iniciando servicios...
 

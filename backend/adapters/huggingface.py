@@ -17,14 +17,16 @@ import structlog
 
 from backend.config import get_settings
 
-settings = get_settings()
 logger = structlog.get_logger()
 
 
 class HuggingFaceClient:
     """Cliente informativo - HuggingFace free Inference API no disponible"""
 
-    def __init__(self, api_key: str | None = None):
+    def __init__(self, api_key: str | None = None, settings=None):
+        if settings is None:
+            settings = get_settings()
+        self._settings = settings
         self.api_key = api_key or settings.HF_TOKEN
 
     def list_free_models(self) -> dict[str, str]:

@@ -11,14 +11,16 @@ import structlog
 
 from backend.config import get_settings
 
-settings = get_settings()
 logger = structlog.get_logger()
 
 
 class DeepSeekClient:
     """Cliente async para DeepSeek Cloud"""
 
-    def __init__(self, api_key: str | None = None):
+    def __init__(self, api_key: str | None = None, settings=None):
+        if settings is None:
+            settings = get_settings()
+        self._settings = settings
         self.api_key = api_key or settings.DEEPSEEK_API_KEY
         self.base_url = f"{settings.DEEPSEEK_BASE_URL}/chat/completions"
         self._client: httpx.AsyncClient | None = None
