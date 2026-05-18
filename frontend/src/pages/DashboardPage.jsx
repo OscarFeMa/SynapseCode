@@ -140,25 +140,29 @@ export function DashboardPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-400">Base de datos</span>
                   <span className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-500">
-                    {health.database}
+                    {typeof health.database === 'string' ? health.database : health.database?.status || 'connected'}
                   </span>
                 </div>
               )}
               {health.services &&
-                Object.entries(health.services).map(([name, status]) => (
-                  <div key={name} className="flex items-center justify-between">
-                    <span className="text-sm text-slate-400 capitalize">{name}</span>
-                    <span
-                      className={`text-xs font-medium px-2 py-1 rounded-full ${
-                        status === 'online'
-                          ? 'bg-emerald-500/10 text-emerald-500'
-                          : 'bg-slate-700 text-slate-400'
-                      }`}
-                    >
-                      {status}
-                    </span>
-                  </div>
-                ))}
+                Object.entries(health.services).map(([name, detail]) => {
+                  const statusStr = typeof detail === 'string' ? detail : detail?.status || 'unknown'
+                  const isOnline = statusStr === 'online' || statusStr === 'ok' || statusStr === 'healthy'
+                  return (
+                    <div key={name} className="flex items-center justify-between">
+                      <span className="text-sm text-slate-400 capitalize">{name}</span>
+                      <span
+                        className={`text-xs font-medium px-2 py-1 rounded-full ${
+                          isOnline
+                            ? 'bg-emerald-500/10 text-emerald-500'
+                            : 'bg-slate-700 text-slate-400'
+                        }`}
+                      >
+                        {statusStr}
+                      </span>
+                    </div>
+                  )
+                })}
             </div>
           ) : (
             <div className="text-sm text-red-500">No se pudo conectar al backend</div>
@@ -202,7 +206,7 @@ export function DashboardPage() {
             </div>
           ) : (
             <div className="text-sm text-slate-500">
-              {gpuMetrics?.error || 'GPU no disponible'}
+              {typeof gpuMetrics?.error === 'string' ? gpuMetrics.error : 'GPU no disponible'}
             </div>
           )}
         </div>
@@ -232,7 +236,7 @@ export function DashboardPage() {
             {sessions.slice(0, 5).map((session) => (
               <Link
                 key={session.id}
-                to={`/session/${session.id}`}
+                to={`/debates/${session.id}`}
                 className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-800 transition-colors"
               >
                 <div className="flex items-center gap-3">
