@@ -1,12 +1,21 @@
 """
-Módulo de configuración compartida para el sistema Pensamiento Coral.
-Contiene constantes y parámetros de configuración utilizados tanto por el Master como por los Workers.
+Modulo de configuracion compartida para el sistema Pensamiento Coral.
+Contiene constantes y parametros de configuracion utilizados tanto por el Master como por los Workers.
 """
 
-# ==================== CONFIGURACIÓN DE SEGURIDAD ====================
-# Token secreto compartido para autenticación entre Master y Workers
-# IMPORTANTE: Cambiar este valor en producción
-SECRET_TOKEN = "pensamiento_coral_2024_secure_token"
+import os
+
+# ==================== CONFIGURACION DE SEGURIDAD ====================
+# Token secreto compartido para autenticacion entre Master y Workers
+# Se carga desde variable de entorno RED_SYNAPSE_SECRET
+# Generar uno nuevo con: python -c "import secrets; print(secrets.token_urlsafe(48))"
+SECRET_TOKEN = os.getenv("RED_SYNAPSE_SECRET")
+if not SECRET_TOKEN:
+    raise RuntimeError(
+        "RED_SYNAPSE_SECRET environment variable not set. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(48))\" "
+        "and add it to your .env file or system environment."
+    )
 
 # ==================== CONFIGURACIÓN DE RED ====================
 # Puerto UDP para descubrimiento de workers en la red local
