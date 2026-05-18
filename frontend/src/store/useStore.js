@@ -5,6 +5,29 @@ import { persist } from 'zustand/middleware'
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
 const WS_BASE = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000'
 
+// Normalize agent_calls API response into turns array
+function normalizeTurns(agentCalls) {
+  const turns = []
+  let turnNum = 1
+  for (const [phase, calls] of Object.entries(agentCalls)) {
+    for (const call of calls) {
+      turns.push({
+        turn_number: turnNum++,
+        agent: { name: call.slot, role: phase, model: call.model },
+        agent_name: call.slot,
+        agent_role: phase,
+        status: call.status?.toLowerCase() || 'unknown',
+        tokens_in: call.tokens_in || 0,
+        tokens_out: call.tokens_out || 0,
+        response_received: call.response_preview || '',
+        model: call.model,
+        latency_ms: call.latency_ms,
+      })
+    }
+  }
+  return turns
+}
+
 // Session Store
 export const useSessionStore = create((set, get) => ({
   // State
@@ -28,7 +51,7 @@ export const useSessionStore = create((set, get) => ({
       if (!response.ok) throw new Error('Failed to create session')
       
       const data = await response.json()
-      set({ currentSession: { id: data.session_id, status: data.status, query }, isLoading: false })
+      set({ currentSession: { id: data.session_id, status: data.status, query, topic: title || query }, isLoading: false })
       return data.session_id
     } catch (error) {
       set({ error: error.message, isLoading: false })
@@ -43,7 +66,27 @@ export const useSessionStore = create((set, get) => ({
       if (!response.ok) throw new Error('Session not found')
       
       const data = await response.json()
-      set({ currentSession: data.session, isLoading: false })
+      const s = data.session
+      
+      // Normalize: map API fields to component-expected fields
+      const normalized = {
+        ...s,
+        topic: s.title || s.query,
+        turns: normalizeTurns(data.agent_calls || {}),
+        iterations: [],
+        tribunal_verdict: s.consensus_level ? {
+          evidence_score: 0.5,
+          risk_score: 0.5,
+          alignment_score: 0.5,
+        } : null,
+        final_verdict: s.final_summary || '',
+        structured_report: null,
+        progress: s.max_rounds > 0 ? Math.round((s.rounds_executed / s.max_rounds) * 100) : 0,
+        web_context: null,
+        web_search: false,
+      }
+      
+      set({ currentSession: normalized, isLoading: false })
       return data
     } catch (error) {
       set({ error: error.message, isLoading: false })
@@ -58,8 +101,13 @@ export const useSessionStore = create((set, get) => ({
       if (!response.ok) throw new Error('Failed to fetch sessions')
       
       const data = await response.json()
-      set({ sessions: data.sessions, isLoading: false })
-      return data.sessions
+      const normalized = (data.sessions || []).map((s) => ({
+        ...s,
+        topic: s.title || s.query,
+        turns: [],
+      }))
+      set({ sessions: normalized, isLoading: false })
+      return normalized
     } catch (error) {
       set({ error: error.message, isLoading: false })
       return []
