@@ -1,0 +1,7 @@
+# Normalizar todos los archivos a LF
+* text=auto eol=lf
+
+# Excepciones para archivos Windows
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

@@ -78,3 +78,11 @@ desktop.ini
 
 # ── CI artifacts ─────────────────────────────
 test_results*.xml
+
+# ── Runtime test artifacts ───────────────────
+battery_*.txt
+test_output.txt
+
+# ── Legacy/Deprecated ────────────────────────
+SynapseDashboard.py
+SynapseDashboard.spec
