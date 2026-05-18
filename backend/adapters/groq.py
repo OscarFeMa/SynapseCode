@@ -1,6 +1,7 @@
 """
 Synapse Council v2.1 - Groq Adapter
 Cliente async para Groq Cloud API (OpenAI-compatible)
+Integra Circuit Breaker para evitar fallos en cascada.
 """
 
 import json
@@ -12,6 +13,7 @@ import httpx
 import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from backend.adapters.circuit_breaker import circuit_breakers
 from backend.config import get_settings
 
 logger = structlog.get_logger()
@@ -30,7 +32,7 @@ def _get_semantic_cache():
 
 
 class GroqClient:
-    """Cliente async para Groq Cloud (Inferencia Ultra-rapida)"""
+    """Cliente async para Groq Cloud con Circuit Breaker"""
 
     def __init__(self, api_key: str | None = None, settings=None):
         if settings is None:
@@ -39,6 +41,11 @@ class GroqClient:
         self.api_key = api_key or settings.GROQ_API_KEY
         self.base_url = "https://api.groq.com/openai/v1/chat/completions"
         self._client: httpx.AsyncClient | None = None
+        self.circuit_breaker = circuit_breakers.get(
+            "groq",
+            failure_threshold=3,
+            recovery_timeout=60.0,
+        )
 
     @property
     def client(self) -> httpx.AsyncClient:
@@ -59,14 +66,20 @@ class GroqClient:
         max_tokens: int = 2048,
         stream: bool = True,
     ) -> AsyncGenerator[str, None]:
-        """Genera respuesta usando Groq API con caché semántica"""
+        """Genera respuesta usando Groq API con Circuit Breaker y cache semantica"""
         if not self.api_key:
             raise ValueError("GROQ_API_KEY no configurada")
 
-        # Convertir messages a prompt string para caché
+        if not self.circuit_breaker.can_execute():
+            raise RuntimeError(
+                f"Groq circuit breaker is OPEN. "
+                f"Retry after {self.circuit_breaker.recovery_timeout}s"
+            )
+
+        # Convertir messages a prompt string para cache
         prompt = json.dumps(messages)
 
-        # Buscar en caché semántica (solo si no es streaming)
+        # Buscar en cache semantica (solo si no es streaming)
         if not stream:
             cache = _get_semantic_cache()
             cached = await cache.get(
@@ -79,6 +92,7 @@ class GroqClient:
             )
             if cached:
                 logger.info("groq.cache_hit", model=model, similarity=cached.get("similarity"))
+                self.circuit_breaker.record_success()
                 yield cached["response_text"]
                 return
 
@@ -110,7 +124,7 @@ class GroqClient:
                 response_text = data["choices"][0]["message"]["content"]
                 latency_ms = int((time.time() - start_time) * 1000)
 
-                # Guardar en caché
+                # Guardar en cache
                 cache = _get_semantic_cache()
                 await cache.set(
                     prompt=prompt,
@@ -125,6 +139,7 @@ class GroqClient:
                     latency_ms=latency_ms,
                 )
 
+                self.circuit_breaker.record_success()
                 yield response_text
                 return
             else:
@@ -146,8 +161,14 @@ class GroqClient:
                                     yield delta["content"]
                             except (json.JSONDecodeError, KeyError, IndexError):
                                 continue
+                    self.circuit_breaker.record_success()
                     return
         except httpx.HTTPStatusError:
+            self.circuit_breaker.record_failure()
+            raise
+        except Exception as e:
+            self.circuit_breaker.record_failure()
+            logger.error("groq.request_failed", error=str(e))
             raise
         except Exception as e:
             logger.error("groq.request_failed", error=str(e))

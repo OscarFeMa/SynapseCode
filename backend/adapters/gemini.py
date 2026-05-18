@@ -1,6 +1,7 @@
 """
 Synapse Council v2.1 - Gemini Adapter
 Cliente async para Google Gemini API (REST)
+Integra Circuit Breaker para evitar fallos en cascada.
 """
 
 import json
@@ -12,6 +13,7 @@ import httpx
 import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from backend.adapters.circuit_breaker import circuit_breakers
 from backend.config import get_settings
 
 logger = structlog.get_logger()
@@ -30,7 +32,7 @@ def _get_semantic_cache():
 
 
 class GeminiClient:
-    """Cliente async para Google Gemini (AI Studio)"""
+    """Cliente async para Google Gemini con Circuit Breaker"""
 
     def __init__(self, api_key: str | None = None, settings=None):
         if settings is None:
@@ -39,6 +41,11 @@ class GeminiClient:
         self.api_key = api_key or settings.GEMINI_API_KEY
         self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
         self._client: httpx.AsyncClient | None = None
+        self.circuit_breaker = circuit_breakers.get(
+            "gemini",
+            failure_threshold=3,
+            recovery_timeout=60.0,
+        )
 
     @property
     def client(self) -> httpx.AsyncClient:
@@ -59,9 +66,15 @@ class GeminiClient:
         max_tokens: int = 2048,
         stream: bool = True,
     ) -> AsyncGenerator[str, None]:
-        """Genera respuesta usando Gemini API con caché semántica"""
+        """Genera respuesta usando Gemini API con Circuit Breaker y cache semantica"""
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY no configurada")
+
+        if not self.circuit_breaker.can_execute():
+            raise RuntimeError(
+                f"Gemini circuit breaker is OPEN. "
+                f"Retry after {self.circuit_breaker.recovery_timeout}s"
+            )
 
         # Convertir mensajes de formato OpenAI a Gemini
         contents = []
@@ -74,10 +87,10 @@ class GeminiClient:
                 role = "user" if msg["role"] == "user" else "model"
                 contents.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-        # Convertir messages a prompt string para caché
+        # Convertir messages a prompt string para cache
         prompt = json.dumps(messages)
 
-        # Buscar en caché semántica (solo si no es streaming)
+        # Buscar en cache semantica (solo si no es streaming)
         if not stream:
             cache = _get_semantic_cache()
             cached = await cache.get(
@@ -90,6 +103,7 @@ class GeminiClient:
             )
             if cached:
                 logger.info("gemini.cache_hit", model=model, similarity=cached.get("similarity"))
+                self.circuit_breaker.record_success()
                 yield cached["response_text"]
                 return
 
@@ -123,6 +137,7 @@ class GeminiClient:
                         status=response.status_code,
                         error=error_body.decode(),
                     )
+                    self.circuit_breaker.record_failure()
                     yield f"[Error Gemini API: {response.status_code}]"
                     return
 
@@ -149,7 +164,7 @@ class GeminiClient:
                         except json.JSONDecodeError:
                             continue
 
-                    # Guardar en caché
+                    # Guardar en cache
                     latency_ms = int((time.time() - start_time) * 1000)
                     cache = _get_semantic_cache()
                     await cache.set(
@@ -165,6 +180,7 @@ class GeminiClient:
                         latency_ms=latency_ms,
                     )
 
+                    self.circuit_breaker.record_success()
                     yield response_text
                 else:
                     # Modo streaming
@@ -188,8 +204,14 @@ class GeminiClient:
                             buffer = ""
                         except json.JSONDecodeError:
                             continue
-                        continue  # Acumular más líneas
+                        continue  # Acumular mas lineas
+                    self.circuit_breaker.record_success()
         except httpx.HTTPStatusError:
+            self.circuit_breaker.record_failure()
+            raise
+        except Exception as e:
+            self.circuit_breaker.record_failure()
+            logger.error("gemini.request_failed", error=str(e))
             raise
         except Exception as e:
             logger.error("gemini.request_failed", error=str(e))
