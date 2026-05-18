@@ -41,6 +41,7 @@ class Specialty(str, Enum):
 @dataclass
 class ModelSpec:
     """Especificaciones de un modelo"""
+
     id: str  # OpenRouter ID o nombre Ollama
     name: str
     platform: Platform
@@ -454,19 +455,21 @@ class ModelRegistry:
             platform = m.platform.value
             if platform not in result:
                 result[platform] = []
-            result[platform].append({
-                "id": m.id,
-                "name": m.name,
-                "params_b": m.params_b,
-                "context_window": m.context_window,
-                "speed_tps": m.speed_tps,
-                "is_free": m.is_free,
-                "cost_input": m.cost_per_1m_input,
-                "cost_output": m.cost_per_1m_output,
-                "specialties": [s.value for s in m.specialties],
-                "strengths": m.strengths,
-                "weaknesses": m.weaknesses,
-            })
+            result[platform].append(
+                {
+                    "id": m.id,
+                    "name": m.name,
+                    "params_b": m.params_b,
+                    "context_window": m.context_window,
+                    "speed_tps": m.speed_tps,
+                    "is_free": m.is_free,
+                    "cost_input": m.cost_per_1m_input,
+                    "cost_output": m.cost_per_1m_output,
+                    "specialties": [s.value for s in m.specialties],
+                    "strengths": m.strengths,
+                    "weaknesses": m.weaknesses,
+                }
+            )
         return result
 
     def generate_hybrid_config(self, topic: str, max_turns: int = 6) -> list[dict[str, Any]]:
@@ -487,27 +490,25 @@ class ModelRegistry:
             use_openrouter = i in (0, 3) and i < max_turns
 
             if use_openrouter:
-                model = self.get_best_model_for_role(
-                    role, platform=Platform.OPENROUTER, require_free=True
-                )
+                model = self.get_best_model_for_role(role, platform=Platform.OPENROUTER, require_free=True)
             else:
-                model = self.get_best_model_for_role(
-                    role, platform=Platform.OLLAMA, require_free=True
-                )
+                model = self.get_best_model_for_role(role, platform=Platform.OLLAMA, require_free=True)
 
             if model:
-                agents.append({
-                    "id": f"{role}_{model.platform.value}",
-                    "name": f"{model.name} ({role.title()})",
-                    "role": role,
-                    "node": "CLOUD" if model.platform == Platform.OPENROUTER else "LOCAL",
-                    "engine": model.platform.value,
-                    "model": model.ollama_model if model.platform == Platform.OLLAMA else model.id,
-                    "provider": model.provider,
-                    "system_prompt": self._get_system_prompt(role, topic),
-                    "temperature": self._get_temperature(role),
-                    "max_tokens": self._get_max_tokens(role),
-                })
+                agents.append(
+                    {
+                        "id": f"{role}_{model.platform.value}",
+                        "name": f"{model.name} ({role.title()})",
+                        "role": role,
+                        "node": "CLOUD" if model.platform == Platform.OPENROUTER else "LOCAL",
+                        "engine": model.platform.value,
+                        "model": model.ollama_model if model.platform == Platform.OLLAMA else model.id,
+                        "provider": model.provider,
+                        "system_prompt": self._get_system_prompt(role, topic),
+                        "temperature": self._get_temperature(role),
+                        "max_tokens": self._get_max_tokens(role),
+                    }
+                )
 
         return agents
 

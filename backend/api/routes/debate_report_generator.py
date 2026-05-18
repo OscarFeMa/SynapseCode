@@ -104,12 +104,7 @@ def _extract_strategies_hybrid(completed_turns: list) -> list[StrategyData]:
                         current_strategy.capital_value = val
 
                 # Extraer retorno
-                elif (
-                    "retorno" in lower
-                    or "rentabilidad" in lower
-                    or "ganancia" in lower
-                    or "roi" in lower
-                ):
+                elif "retorno" in lower or "rentabilidad" in lower or "ganancia" in lower or "roi" in lower:
                     current_strategy.retorno_raw = stripped
 
                 # Extraer riesgo
@@ -128,7 +123,12 @@ def _extract_strategies_hybrid(completed_turns: list) -> list[StrategyData]:
                         current_strategy.plazo = stripped[:100]
 
                 # Extraer pasos accionables (solo si no es una linea de metadata)
-                elif stripped.startswith(("+", "-", "•")) and "capital" not in lower and "retorno" not in lower and "riesgo" not in lower:
+                elif (
+                    stripped.startswith(("+", "-", "•"))
+                    and "capital" not in lower
+                    and "retorno" not in lower
+                    and "riesgo" not in lower
+                ):
                     if len(stripped) > 15:
                         current_strategy.pasos.append(stripped[:200])
 
@@ -151,9 +151,7 @@ def _extract_strategies_hybrid(completed_turns: list) -> list[StrategyData]:
     )
 
 
-def _build_programmatic_sections(
-    strategies: list[StrategyData], completed_turns: list, failed_summary: str
-) -> str:
+def _build_programmatic_sections(strategies: list[StrategyData], completed_turns: list, failed_summary: str) -> str:
     """Genera las secciones de datos directamente sin LLM"""
 
     unique_models = set(t.get("model", "") for t in completed_turns)
@@ -167,21 +165,15 @@ def _build_programmatic_sections(
 
     # 1. Tabla de estrategias (datos exactos)
     if strategies:
-        table_lines = [
-            "| # | Estrategia | Capital | Retorno | Riesgo | Plazo | Mencionada por |"
-        ]
-        table_lines.append(
-            "|---|-----------|---------|---------|--------|-------|----------------|"
-        )
+        table_lines = ["| # | Estrategia | Capital | Retorno | Riesgo | Plazo | Mencionada por |"]
+        table_lines.append("|---|-----------|---------|---------|--------|-------|----------------|")
         for i, s in enumerate(strategies, 1):
             capital = f"${s.capital_value:,.0f}" if s.capital_value > 0 else "No especificado"
             retorno = s.retorno_raw[:50] if s.retorno_raw else "No especificado"
             riesgo = s.riesgo_level.capitalize()
             plazo = s.plazo[:30] if s.plazo else "No especificado"
             modelos = ", ".join(s.mencionado_por[:3])
-            table_lines.append(
-                f"| {i} | {s.name} | {capital} | {retorno} | {riesgo} | {plazo} | {modelos} |"
-            )
+            table_lines.append(f"| {i} | {s.name} | {capital} | {retorno} | {riesgo} | {plazo} | {modelos} |")
         sections.append("\n".join(table_lines))
 
     # 2. Ranking por viabilidad
@@ -197,9 +189,7 @@ def _build_programmatic_sections(
         ranking_lines.append("\nOrdenadas por menor capital inicial y menor riesgo:")
         for i, s in enumerate(ranked, 1):
             capital = f"${s.capital_value:,.0f}" if s.capital_value > 0 else "N/A"
-            ranking_lines.append(
-                f"{i}. **{s.name}** - Capital: {capital} | Riesgo: {s.riesgo_level}"
-            )
+            ranking_lines.append(f"{i}. **{s.name}** - Capital: {capital} | Riesgo: {s.riesgo_level}")
             if s.pasos:
                 ranking_lines.append(f"   - Primer paso: {s.pasos[0][:100]}")
         sections.append("\n".join(ranking_lines))
@@ -212,7 +202,7 @@ def _build_programmatic_sections(
         f"- **Roles cubiertos:** {', '.join(sorted(unique_roles))}",
         f"- **Estrategias identificadas:** {len(strategies)}",
         f"- **Tokens generados:** {total_tokens:,}",
-        f"- **Tiempo total:** {total_latency/1000:.0f}s ({avg_latency/1000:.1f}s promedio por turno)",
+        f"- **Tiempo total:** {total_latency / 1000:.0f}s ({avg_latency / 1000:.1f}s promedio por turno)",
     ]
     if failed_summary:
         metrics.append(f"- **Nota:** {failed_summary.strip()}")
@@ -221,9 +211,7 @@ def _build_programmatic_sections(
     return "\n\n".join(sections)
 
 
-def _build_narrative_prompt(
-    topic: str, strategies: list[StrategyData], completed_turns: list
-) -> str:
+def _build_narrative_prompt(topic: str, strategies: list[StrategyData], completed_turns: list) -> str:
     """Construye prompt SOLO para la narrativa (resumen + analisis)"""
 
     analyst_content = ""
@@ -301,9 +289,7 @@ async def _generate_narrative_with_llm(prompt: str) -> str:
     return "".join(full_response)
 
 
-def _verify_report_figures(
-    report: str, strategies: list[StrategyData]
-) -> list[str]:
+def _verify_report_figures(report: str, strategies: list[StrategyData]) -> list[str]:
     """Verifica que las cifras del informe coincidan con los datos reales"""
     import re
 
@@ -316,9 +302,7 @@ def _verify_report_figures(
             capital_str = str(int(s.capital_value))
             if capital_str not in found_numbers:
                 found_close = any(
-                    abs(float(n) - s.capital_value) / max(s.capital_value, 1) < 0.1
-                    for n in found_numbers
-                    if n
+                    abs(float(n) - s.capital_value) / max(s.capital_value, 1) < 0.1 for n in found_numbers if n
                 )
                 if not found_close:
                     warnings.append(
@@ -349,9 +333,7 @@ async def generate_professional_report(session_id: str, debate_controller):
                     {
                         "turn_number": t.turn_number,
                         "agent_name": t.agent.name,
-                        "agent_role": t.agent.role.value
-                        if hasattr(t.agent.role, "value")
-                        else str(t.agent.role),
+                        "agent_role": t.agent.role.value if hasattr(t.agent.role, "value") else str(t.agent.role),
                         "model": t.agent.model,
                         "response_received": t.response_received,
                         "status": t.status,
@@ -364,20 +346,14 @@ async def generate_professional_report(session_id: str, debate_controller):
     else:
         debate_data = await debate_controller.get_debate_from_db(session_id)
         if not debate_data:
-            raise HTTPException(
-                status_code=404, detail="Debate not found in memory or database"
-            )
+            raise HTTPException(status_code=404, detail="Debate not found in memory or database")
 
         topic = debate_data.get("topic", "Sin tema")
         all_turns = debate_data.get("turns", [])
 
     # 2. Separar turnos exitosos de fallidos
-    completed_turns = [
-        t for t in all_turns if str(t.get("status", "")).startswith("completed")
-    ]
-    failed_turns = [
-        t for t in all_turns if str(t.get("status", "")).startswith("failed")
-    ]
+    completed_turns = [t for t in all_turns if str(t.get("status", "")).startswith("completed")]
+    failed_turns = [t for t in all_turns if str(t.get("status", "")).startswith("failed")]
 
     # 3. Resumen de fallos
     failed_summary = ""
@@ -386,17 +362,13 @@ async def generate_professional_report(session_id: str, debate_controller):
         for ft in failed_turns:
             model = ft.get("model", "unknown")
             failed_models[model] = failed_models.get(model, 0) + 1
-        failed_summary = "Fallos tecnicos: " + ", ".join(
-            f"{m} ({c} turnos)" for m, c in failed_models.items()
-        )
+        failed_summary = "Fallos tecnicos: " + ", ".join(f"{m} ({c} turnos)" for m, c in failed_models.items())
 
     # 4. Extraer estrategias programaticamente
     strategies = _extract_strategies_hybrid(completed_turns)
 
     # 5. Generar secciones programaticas (tablas, ranking, metricas)
-    programmatic_sections = _build_programmatic_sections(
-        strategies, completed_turns, failed_summary
-    )
+    programmatic_sections = _build_programmatic_sections(strategies, completed_turns, failed_summary)
 
     # 6. Generar narrativa con LLM
     narrative_prompt = _build_narrative_prompt(topic, strategies, completed_turns)
@@ -459,9 +431,7 @@ async def _build_report_content(session_id: str, debate_controller):
                     {
                         "turn_number": t.turn_number,
                         "agent_name": t.agent.name,
-                        "agent_role": t.agent.role.value
-                        if hasattr(t.agent.role, "value")
-                        else str(t.agent.role),
+                        "agent_role": t.agent.role.value if hasattr(t.agent.role, "value") else str(t.agent.role),
                         "model": t.agent.model,
                         "response_received": t.response_received,
                         "status": t.status,
@@ -479,12 +449,8 @@ async def _build_report_content(session_id: str, debate_controller):
         topic = debate_data.get("topic", "Sin tema")
         all_turns = debate_data.get("turns", [])
 
-    completed_turns = [
-        t for t in all_turns if str(t.get("status", "")).startswith("completed")
-    ]
-    failed_turns = [
-        t for t in all_turns if str(t.get("status", "")).startswith("failed")
-    ]
+    completed_turns = [t for t in all_turns if str(t.get("status", "")).startswith("completed")]
+    failed_turns = [t for t in all_turns if str(t.get("status", "")).startswith("failed")]
 
     failed_summary = ""
     if failed_turns:
@@ -492,14 +458,10 @@ async def _build_report_content(session_id: str, debate_controller):
         for ft in failed_turns:
             model = ft.get("model", "unknown")
             failed_models[model] = failed_models.get(model, 0) + 1
-        failed_summary = "Fallos tecnicos: " + ", ".join(
-            f"{m} ({c} turnos)" for m, c in failed_models.items()
-        )
+        failed_summary = "Fallos tecnicos: " + ", ".join(f"{m} ({c} turnos)" for m, c in failed_models.items())
 
     strategies = _extract_strategies_hybrid(completed_turns)
-    programmatic_sections = _build_programmatic_sections(
-        strategies, completed_turns, failed_summary
-    )
+    programmatic_sections = _build_programmatic_sections(strategies, completed_turns, failed_summary)
 
     narrative_prompt = _build_narrative_prompt(topic, strategies, completed_turns)
 
@@ -528,8 +490,8 @@ async def generate_report_as_docx(session_id: str, debate_controller):
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.shared import Pt, RGBColor
 
-    topic, clean_topic, narrative, strategies, programmatic_sections = (
-        await _build_report_content(session_id, debate_controller)
+    topic, clean_topic, narrative, strategies, programmatic_sections = await _build_report_content(
+        session_id, debate_controller
     )
 
     if topic is None:
@@ -669,11 +631,22 @@ async def generate_report_as_docx(session_id: str, debate_controller):
                 total_latency += t.latency_ms
 
     metrics = [
-        ("Intervenciones exitosas", str(len([t for t in (session.turns if session else []) if hasattr(t, "turn_number") and t.status.startswith("completed")]))),
+        (
+            "Intervenciones exitosas",
+            str(
+                len(
+                    [
+                        t
+                        for t in (session.turns if session else [])
+                        if hasattr(t, "turn_number") and t.status.startswith("completed")
+                    ]
+                )
+            ),
+        ),
         ("Modelos participantes", f"{len(unique_models)}"),
         ("Estrategias identificadas", str(len(strategies))),
         ("Tokens generados", f"{total_tokens:,}"),
-        ("Tiempo total", f"{total_latency/1000:.0f}s"),
+        ("Tiempo total", f"{total_latency / 1000:.0f}s"),
     ]
 
     for label, value in metrics:
@@ -708,8 +681,8 @@ async def generate_report_as_pdf(session_id: str, debate_controller):
     from xhtml2pdf import pisa
 
     try:
-        topic, clean_topic, narrative, strategies, programmatic_sections = (
-            await _build_report_content(session_id, debate_controller)
+        topic, clean_topic, narrative, strategies, programmatic_sections = await _build_report_content(
+            session_id, debate_controller
         )
 
         if topic is None:
@@ -830,7 +803,7 @@ async def generate_report_as_pdf(session_id: str, debate_controller):
     <h2>Informe de Analisis Estrategico</h2>
     <div class="topic">{safe_topic}</div>
     <div class="meta">
-        Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}<br>
+        Fecha: {datetime.now().strftime("%d/%m/%Y %H:%M")}<br>
         Metodo: Enfoque hibrido (datos programaticos + narrativa LLM)<br>
         Synapse Council v2.8
     </div>
@@ -891,7 +864,7 @@ async def generate_report_as_pdf(session_id: str, debate_controller):
             ("Modelos participantes", str(len(unique_models))),
             ("Estrategias identificadas", str(len(strategies))),
             ("Tokens generados", f"{total_tokens:,}"),
-            ("Tiempo total", f"{total_latency/1000:.0f}s"),
+            ("Tiempo total", f"{total_latency / 1000:.0f}s"),
         ]
 
         for label, value in metrics:
