@@ -994,6 +994,59 @@ async def get_worker_gpu_stats():
         return {"available": False, "error": str(e)}
 
 
+@router.get("/worker/gpu/metrics")
+async def get_gpu_metrics():
+    """
+    Obtiene metricas GPU actuales del colector.
+    Incluye memoria, temperatura, utilizacion y procesos.
+    """
+    from backend.services.gpu_metrics import get_gpu_collector
+
+    collector = get_gpu_collector()
+    metrics = collector.collect()
+    return {
+        "available": metrics.is_available,
+        "timestamp": metrics.timestamp.isoformat(),
+        "gpu_name": metrics.gpu_name,
+        "driver_version": metrics.driver_version,
+        "memory": {
+            "used_mb": metrics.memory_used_mb,
+            "free_mb": metrics.memory_free_mb,
+            "total_mb": metrics.memory_total_mb,
+            "used_pct": metrics.memory_used_pct,
+        },
+        "temperature_celsius": metrics.temperature_celsius,
+        "utilization_pct": metrics.utilization_pct,
+        "power_watts": metrics.power_watts,
+        "power_limit_watts": metrics.power_limit_watts,
+        "fan_speed_pct": metrics.fan_speed_pct,
+        "processes": metrics.processes,
+        "error": metrics.error,
+    }
+
+
+@router.get("/worker/gpu/history")
+async def get_gpu_history(limit: int = 50):
+    """
+    Obtiene historial de metricas GPU para graficos.
+    """
+    from backend.services.gpu_metrics import get_gpu_collector
+
+    collector = get_gpu_collector()
+    return {"history": collector.get_history(limit=limit)}
+
+
+@router.get("/worker/gpu/summary")
+async def get_gpu_summary():
+    """
+    Obtiene resumen estadistico de metricas GPU.
+    """
+    from backend.services.gpu_metrics import get_gpu_collector
+
+    collector = get_gpu_collector()
+    return collector.get_summary()
+
+
 @router.get("/debates/{debate_id}/absurdum-analysis")
 async def get_absurdum_analysis(debate_id: str):
     """
