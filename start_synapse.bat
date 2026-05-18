@@ -16,7 +16,7 @@ if %ERRORLEVEL% EQU 0 (
 
 REM Iniciar servidor en nueva ventana
 echo [..] Iniciando servidor backend...
-start "Synapse Server" cmd /k "cd /d D:\proyectos\SynapseCode && python -c "import sys; sys.path.insert(0, '.'); from backend.main import app; import uvicorn; uvicorn.run(app, host='0.0.0.0', port=8000)""
+start "Synapse Server" cmd /k "cd /d D:\proyectos\SynapseCode && python -c "import sys; sys.path.insert(0, '.'); from backend.main import app; import uvicorn; uvicorn.run(app, host='0.0.0.0', port=8000, workers=1)""
 
 REM Esperar a que el servidor responda (max 30s)
 echo [..] Esperando al servidor...
