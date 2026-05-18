@@ -42,6 +42,7 @@ from backend.engine.reductio_absurdum import (
     get_reductio_absurdum_engine,
 )
 from backend.engine.reputation_unified import reputation_service
+from backend.engine.role_matcher import RoleMatcher
 from backend.engine.task_manager import (
     TaskConfig,
     submit_reputation_update,
@@ -3303,3 +3304,33 @@ def get_hybrid_rotation_config(topic: str) -> list[DebateAgent]:
             max_tokens=1000,
         ),
     ]
+
+
+def get_smart_rotation_config(topic: str, max_turns: int = 6, mode: str = "hybrid_rotation") -> list[DebateAgent]:
+    """
+    Genera configuracion de debate con asignacion inteligente de modelos.
+    Usa RoleMatcher para seleccionar el mejor modelo por rol y plataforma.
+    """
+    from backend.engine.debate_models import DebateAgent
+
+    matcher = RoleMatcher()
+    agents_config = matcher.generate_debate_config(topic=topic, max_turns=max_turns, mode=mode)
+
+    agents = []
+    for ac in agents_config:
+        agents.append(
+            DebateAgent(
+                id=ac["id"],
+                name=ac["name"],
+                role=AgentRole(ac["role"]),
+                node=ac["node"],
+                engine=ac["engine"],
+                model=ac["model"],
+                provider=ac.get("provider", "unknown"),
+                system_prompt=ac["system_prompt"],
+                temperature=ac["temperature"],
+                max_tokens=ac["max_tokens"],
+            )
+        )
+
+    return agents

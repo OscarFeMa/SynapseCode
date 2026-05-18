@@ -10,6 +10,15 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
 from pydantic import BaseModel
 
+from backend.api.routes.debate_report_generator import (
+    generate_professional_report as _generate_report_impl,
+)
+from backend.api.routes.debate_report_generator import (
+    generate_report_as_docx as _generate_report_docx,
+)
+from backend.api.routes.debate_report_generator import (
+    generate_report_as_pdf as _generate_report_pdf,
+)
 from backend.engine.consensus_debate_controller import (
     ConsensusDebateController,
     get_consensus_debate_config,
@@ -20,6 +29,7 @@ from backend.engine.sequential_debate_controller import (
     SequentialDebateController,
     get_cloud_ollama_config,
     get_local_only_config,
+    get_smart_rotation_config,
     get_standard_debate_config,
 )
 from backend.engine.ultra_debate_controller import UltraDebateController
@@ -368,6 +378,11 @@ async def create_debate(request: DebateRequest, background_tasks: BackgroundTask
         from backend.engine.sequential_debate_controller import get_hybrid_rotation_config
 
         agents = get_hybrid_rotation_config(request.topic)
+    elif request.mode == "smart_rotation":
+        # Rotacion inteligente con asignacion automatica de mejores modelos
+        from backend.engine.sequential_debate_controller import get_smart_rotation_config
+
+        agents = get_smart_rotation_config(request.topic, max_turns=request.max_turns or 6)
     elif request.mode == "ultra_crossing":
         # 1. Crear la sesión en el controlador de Ultra (esto la inicializa en memoria)
         # Nota: create_ultra_debate_with_id es async pero bloquea hasta el final
@@ -1379,17 +1394,6 @@ async def get_debate(session_id: str):
     raise HTTPException(status_code=404, detail="Debate session not found")
 
 
-from backend.api.routes.debate_report_generator import (
-    generate_professional_report as _generate_report_impl,
-)
-from backend.api.routes.debate_report_generator import (
-    generate_report_as_docx as _generate_report_docx,
-)
-from backend.api.routes.debate_report_generator import (
-    generate_report_as_pdf as _generate_report_pdf,
-)
-
-
 @router.post("/{session_id}/generate-report")
 async def generate_report_endpoint(session_id: str):
     """Wrapper para el generador de informes hibrido (Markdown)"""
@@ -1406,3 +1410,109 @@ async def generate_report_docx(session_id: str):
 async def generate_report_pdf(session_id: str):
     """Genera informe profesional como PDF"""
     return await _generate_report_pdf(session_id, debate_controller)
+
+
+# ============================================================================
+# MODEL REGISTRY & EVALUATION ENDPOINTS
+# ============================================================================
+
+
+@router.get("/models/registry")
+async def get_model_registry():
+    """Obtiene todos los modelos registrados con sus especificaciones"""
+    from backend.engine.model_registry import model_registry
+
+    return {
+        "status": "ok",
+        "models": model_registry.get_available_models(),
+    }
+
+
+@router.get("/models/best-by-category")
+async def get_best_models_by_category():
+    """Obtiene los mejores modelos por categoria"""
+    from backend.engine.model_evaluator import model_evaluator
+
+    return {
+        "status": "ok",
+        "categories": model_evaluator.get_best_models_by_category(),
+    }
+
+
+@router.get("/models/comparison-table")
+async def get_model_comparison_table():
+    """Obtiene tabla comparativa de todos los modelos"""
+    from backend.engine.model_evaluator import model_evaluator
+
+    return {
+        "status": "ok",
+        "table": model_evaluator.get_model_comparison_table(),
+    }
+
+
+@router.get("/models/role-matching")
+async def get_role_matching(role: str | None = None, platform: str | None = None):
+    """Obtiene asignacion de modelos a roles"""
+    from backend.engine.model_registry import Platform
+    from backend.engine.role_matcher import role_matcher
+
+    if role:
+        assignment = role_matcher.match_role_to_model(
+            role=role,
+            platform=Platform(platform) if platform else None,
+        )
+        return {"status": "ok", "assignment": assignment}
+
+    assignments = role_matcher.match_all_roles(
+        platform=Platform(platform) if platform else None,
+    )
+    return {
+        "status": "ok",
+        "assignments": [
+            {
+                "role": a.role,
+                "model_id": a.model_id,
+                "model_name": a.model_name,
+                "platform": a.platform,
+                "node": a.node,
+                "reason": a.reason,
+                "expected_quality": a.expected_quality,
+                "expected_latency_ms": a.expected_latency_ms,
+            }
+            for a in assignments
+        ],
+    }
+
+
+@router.post("/models/update-rankings")
+async def update_model_rankings():
+    """Actualiza rankings de modelos desde fuentes web"""
+    from backend.engine.model_evaluator import model_evaluator
+
+    result = await model_evaluator.update_all_rankings()
+    return result
+
+
+@router.get("/models/smart-config")
+async def get_smart_debate_config(topic: str, max_turns: int = 6, mode: str = "hybrid_rotation"):
+    """Genera configuracion de debate con asignacion inteligente de modelos"""
+    agents = get_smart_rotation_config(topic=topic, max_turns=max_turns, mode=mode)
+    return {
+        "status": "ok",
+        "topic": topic,
+        "mode": mode,
+        "agents": [
+            {
+                "id": a.id,
+                "name": a.name,
+                "role": a.role.value,
+                "node": a.node,
+                "engine": a.engine,
+                "model": a.model,
+                "provider": a.provider,
+                "temperature": a.temperature,
+                "max_tokens": a.max_tokens,
+            }
+            for a in agents
+        ],
+    }
