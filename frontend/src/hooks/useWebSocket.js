@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useRef, useMemo } from 'react'
 import { useWebSocketStore } from '../store/useStore'
 
 export function useWebSocket(sessionId) {
@@ -29,14 +29,19 @@ export function useWebSocket(sessionId) {
     }
   }, [sessionId, connect, disconnect, isConnected])
   
-  // Auto-reconnect logic
+  // Auto-reconnect with exponential backoff + jitter
   useEffect(() => {
     if (!isConnected && sessionId && reconnectAttempts.current < maxReconnectAttempts) {
+      // 2s, 4s, 8s, 16s... max 30s + random jitter (0-1000ms)
+      const baseDelay = Math.pow(2, reconnectAttempts.current) * 1000
+      const jitter = Math.random() * 1000
+      const delay = Math.min(baseDelay + jitter, 30000)
+
       const timer = setTimeout(() => {
         reconnectAttempts.current += 1
         connect(sessionId)
-      }, 2000)
-      
+      }, delay)
+
       return () => clearTimeout(timer)
     }
   }, [isConnected, sessionId, connect])
@@ -59,9 +64,21 @@ export function useWebSocket(sessionId) {
     return filtered[filtered.length - 1] || null
   }, [events])
   
-  // Check if session is complete
-  const isSessionComplete = events.some(e => e.type === 'session_completed')
-  
+  // Memoized event queries to prevent unnecessary re-renders
+  const sessionCompleted = useMemo(
+    () => events.some(e => e.type === 'session_completed'),
+    [events]
+  )
+
+  const eventsByType = useMemo(
+    () => events.reduce((acc, e) => {
+      if (!acc[e.type]) acc[e.type] = []
+      acc[e.type].push(e)
+      return acc
+    }, {}),
+    [events]
+  )
+
   return {
     isConnected,
     events,
@@ -71,7 +88,8 @@ export function useWebSocket(sessionId) {
     clearEvents,
     getEventsByType,
     getLatestEvent,
-    isSessionComplete,
+    isSessionComplete: sessionCompleted,
+    eventsByType,
     reconnectCount: reconnectAttempts.current,
   }
 }
