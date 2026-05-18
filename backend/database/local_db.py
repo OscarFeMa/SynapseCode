@@ -1,8 +1,9 @@
 """
 Synapse Council v2.0 - Local Database
-Engine y sesión async SQLite con aiosqlite
+Engine y sesion async SQLite con aiosqlite
 """
 
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from backend.config import get_settings
@@ -11,12 +12,32 @@ from backend.database.models import Base
 
 settings = get_settings()
 
-# Crear engine async
+# Crear engine async con timeout para escrituras concurrentes
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=False,  # Cambiar a True para debug
+    echo=False,
     future=True,
+    connect_args={"timeout": 20, "check_same_thread": False},
 )
+
+
+@event.listens_for(engine.sync_engine, "connect")
+def set_sqlite_pragmas(dbapi_connection, connection_record):
+    """
+    Activa WAL mode para permitir escrituras concurrentes sin bloqueos.
+    PRAGMA journal_mode=WAL: multiples lectores + 1 escritor simultaneo
+    PRAGMA synchronous=NORMAL: balance rendimiento/seguridad
+    PRAGMA busy_timeout=20000: espera 20s antes de lanzar OperationalError
+    PRAGMA cache_size=-64000: 64MB cache en memoria
+    PRAGMA temp_store=MEMORY: tablas temporales en RAM
+    """
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA busy_timeout=20000")
+    cursor.execute("PRAGMA cache_size=-64000")
+    cursor.execute("PRAGMA temp_store=MEMORY")
+    cursor.close()
 
 # Crear session factory
 AsyncSessionLocal = async_sessionmaker(
