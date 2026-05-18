@@ -4,6 +4,7 @@ import { Search, Filter, Plus, Eye, Trash2, Play, Pause, RefreshCw } from 'lucid
 import { useSessionStore } from '../store/useStore'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { toast } from 'sonner'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
@@ -53,27 +54,30 @@ export function DebatesPage() {
     if (!confirm('Eliminar este debate?')) return
     try {
       await fetch(`${API_BASE}/api/v1/sessions/${id}`, { method: 'DELETE' })
+      toast.success('Debate eliminado')
       await fetchSessions()
     } catch (e) {
-      console.error('Delete failed:', e)
+      toast.error('Error al eliminar el debate')
     }
   }
 
   const handlePause = async (id) => {
     try {
       await fetch(`${API_BASE}/api/v1/sessions/${id}/pause`, { method: 'POST' })
+      toast.info('Debate pausado')
       await fetchSessions()
     } catch (e) {
-      console.error('Pause failed:', e)
+      toast.error('Error al pausar')
     }
   }
 
   const handleResume = async (id) => {
     try {
       await fetch(`${API_BASE}/api/v1/sessions/${id}/resume`, { method: 'POST' })
+      toast.info('Debate reanudado')
       await fetchSessions()
     } catch (e) {
-      console.error('Resume failed:', e)
+      toast.error('Error al reanudar')
     }
   }
 

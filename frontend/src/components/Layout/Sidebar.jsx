@@ -12,6 +12,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Search,
 } from 'lucide-react'
 
 const navGroups = [
@@ -41,7 +42,7 @@ const navGroups = [
   },
 ]
 
-export function Sidebar() {
+export function Sidebar({ onOpenCommandPalette }) {
   const [collapsed, setCollapsed] = useState(false)
   const location = useLocation()
 
@@ -63,6 +64,18 @@ export function Sidebar() {
           </div>
         )}
       </div>
+
+      {/* Search button */}
+      {!collapsed && (
+        <button
+          onClick={onOpenCommandPalette}
+          className="mx-3 mt-3 flex items-center gap-2 px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-xs text-slate-500 hover:text-white hover:border-slate-600 transition-colors"
+        >
+          <Search className="w-3.5 h-3.5" />
+          <span>Buscar...</span>
+          <kbd className="ml-auto text-[10px] bg-slate-700 px-1.5 py-0.5 rounded font-mono">Ctrl+K</kbd>
+        </button>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 py-4 overflow-y-auto">

@@ -176,10 +176,10 @@ export function DebateLivePage() {
           <Clock className="w-3 h-3" /> Round {currentRound}
         </span>
         <span className="flex items-center gap-1">
-          <Hash className="w-3 h-3" /> {totalTokensIn.toLocale()} tokens IN
+          <Hash className="w-3 h-3" /> {totalTokensIn.toLocaleString()} tokens IN
         </span>
         <span className="flex items-center gap-1">
-          <DollarSign className="w-3 h-3" /> {totalTokensOut.toLocale()} tokens OUT
+          <DollarSign className="w-3 h-3" /> {totalTokensOut.toLocaleString()} tokens OUT
         </span>
         {session?.web_search && (
           <span className="flex items-center gap-1 text-blue-400">

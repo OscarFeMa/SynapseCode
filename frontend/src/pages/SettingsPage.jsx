@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Eye, EyeOff, Save, Key, Globe, Shield } from 'lucide-react'
+import { toast } from 'sonner'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
@@ -28,10 +29,11 @@ export function SettingsPage() {
           })
         }
       }
+      toast.success('API keys guardadas correctamente')
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (e) {
-      console.error('Failed to save keys:', e)
+      toast.error('Error al guardar las API keys')
     } finally {
       setSaving(false)
     }
