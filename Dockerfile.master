@@ -30,6 +30,11 @@ COPY data/ ./data/
 # Crear directorios necesarios
 RUN mkdir -p data/debates logs
 
+# Crear usuario no-root para ejecutar la aplicacion
+RUN groupadd --system appgroup && useradd --system --ingroup appgroup appuser
+RUN chown -R appuser:appgroup /app
+USER appuser
+
 # Puerto expuesto
 EXPOSE 8000
 
