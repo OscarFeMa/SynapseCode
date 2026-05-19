@@ -10,13 +10,16 @@ Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.43) eje
 
 ## 🎯 Características Principales
 
-### Control Center v2.9
-- **Panel Web Completo**: 6 pestañas — Command, Launcher, Metrics, Tribunal, Models, History
+### Control Center v3.0
+- **Dashboard Compacto**: 4 paneles en una vista — Worker & Servicios, Diagnóstico, Métricas, Logs
+- **Pestaña Debates**: Lanzar debates + historial reciente (10 últimos) con tarjetas expandibles
+- **Ventana Completa de Debates**: `/admin/all-debates` — búsqueda, filtros, orden, paginación (20/página)
+- **Exportación Multi-formato**: JSON, DOCX, PDF, TXT por debate individual
+- **Info Proyecto**: Pestaña con README e HISTORY renderizados como markdown
 - **Zero Dependencies**: Vanilla JS puro, sin build, sin node_modules
-- **Estado en Tiempo Real**: Polling automático cada 10s
+- **Estado en Tiempo Real**: WebSocket + polling (3s debates activos, 5s lista)
 - **Conexión Master ↔ Worker**: Detección automática de IP, heartbeat monitoring
 - **Monitor de Servicios**: Ollama, LM Studio, Jan con auto-lanzamiento
-- **Panel de Bases de Datos**: SQLite local + Supabase Cloud con sync status
 - **Diseño Editorial**: Light theme con petroleum green accent, Instrument Serif + Inter
 
 ### Búsqueda Web en Tiempo Real
@@ -94,7 +97,7 @@ Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.43) eje
 | **Web Agent** | Playwright | 10 sitios de IA con stealth |
 
 ### Exportación
-- JSON estructurado, Markdown, PDF (HTML imprimible), DOCX (Word)
+- JSON estructurado, Markdown, PDF (HTML imprimible), DOCX (Word), TXT (texto plano)
 
 ---
 
@@ -124,6 +127,9 @@ set PYTHONPATH=.
 ```bash
 # El backend sirve el panel en /admin automáticamente
 # Abrir http://localhost:8000/admin
+# Ventana completa de debates: http://localhost:8000/admin/all-debates
+# Documentos del proyecto: http://localhost:8000/api/v1/docs/readme
+#                         http://localhost:8000/api/v1/docs/history
 ```
 
 ### React SPA (Development)
@@ -239,7 +245,8 @@ SynapseCode/
 ├── frontend/
 │   ├── control-center/             # Control Center v2.7 (Vanilla JS)
 │   │   └── index.html              # App completa, zero dependencies
-│   ├── admin.html                  # Admin dashboard legacy
+│   ├── admin.html                  # Admin Panel v3.0 (compact dashboard)
+│   ├── all-debates.html            # Full debates view with search/filter/export
 │   └── src/                        # React frontend (legacy)
 │
 ├── .env.example                    # Template de configuración
@@ -275,6 +282,7 @@ SynapseCode/
 | `GET` | `/api/v1/debates/{id}/export/markdown` | Exportar Markdown |
 | `GET` | `/api/v1/debates/{id}/export/pdf` | Exportar PDF |
 | `GET` | `/api/v1/debates/{id}/export/docx` | Exportar Word (.docx) |
+| `GET` | `/api/v1/debates/{id}/export/txt` | Exportar texto plano (.txt) |
 | `GET` | `/api/v1/debates/history/list` | Historial de debates |
 | `GET` | `/api/v1/debates/history/{id}` | Debate histórico |
 | `GET` | `/api/v1/debates/reputation` | Reputaciones de modelos |
@@ -314,6 +322,7 @@ SynapseCode/
 | `GET` | `/api/v1/system/rdp-status` | Estado RDP |
 | `GET` | `/api/v1/system/worker/services` | Estado servicios Worker |
 | `POST` | `/api/v1/system/worker/services/launch` | Lanzar servicio Worker |
+| `GET` | `/api/v1/docs/{doc_name}` | Documentos del proyecto (readme, history) |
 
 ### Cache
 | Method | Path | Descripción |
@@ -418,4 +427,4 @@ MIT
 
 ---
 
-*SynapseCode v2.9 · OscarFeMa · Mayo 2026 · [synapsecode.org](https://synapsecode.org)*
+*SynapseCode v3.0 · OscarFeMa · Mayo 2026 · [synapsecode.org](https://synapsecode.org)*

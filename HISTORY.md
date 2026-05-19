@@ -1,12 +1,34 @@
-# 📜 Historia de Desarrollo - Synapse Council v2.9
+# 📜 Historia de Desarrollo - SynapseCode v3.0
 
 ## Resumen del Proyecto
 
-Synapse Council es una plataforma de razonamiento colectivo híbrido que orquesta múltiples modelos de IA en debates estructurados por roles, con validación cruzada y consenso multi-agente.
+SynapseCode es una plataforma de razonamiento colectivo híbrido que orquesta múltiples modelos de IA en debates estructurados por roles, con validación cruzada y consenso multi-agente.
 
 ---
 
 ## 🗓️ Línea Temporal de Desarrollo
+
+### **Fase 11: Admin Panel v3.0 - Compact Dashboard + Full Debates View (Completada - v3.0)**
+
+#### Mayo 19, 2026: Rediseño Completo del Panel de Administración
+- ✅ **Dashboard Compacto**: 4 paneles en una sola vista — Worker & Servicios, Diagnóstico, Métricas, Logs Recientes
+- ✅ **Pestañas reducidas**: De 8 a 3 — Dashboard, Debates, Configuración + Info Proyecto
+- ✅ **Ventana completa de debates** (`/admin/all-debates`):
+  - Búsqueda por tema en tiempo real
+  - Filtro por estado (completados, en vivo, error)
+  - Orden por fecha o tokens
+  - Paginación (20 por página)
+  - Tarjetas expandibles con secuencia de turnos
+  - 4 botones de export: JSON, DOCX, PDF, TXT
+- ✅ **Nuevo endpoint de exportación TXT**: `GET /api/v1/debates/{id}/export/txt`
+- ✅ **Nuevo endpoint de documentos**: `GET /api/v1/docs/{doc_name}` (readme, history)
+- ✅ **Pestaña Info Proyecto**: Renderiza README.md y HISTORY.md como HTML formateado
+- ✅ **Markdown renderer inline**: Sin dependencias externas, parsing vanilla JS
+- ✅ **Fix 404 en debates completados**: Verifica lista activa antes de consultar memoria
+- ✅ **Fix tarjeta expandida se cierra**: Polling actualiza solo metadata sin reconstruir DOM
+- ✅ **WebSocket optimizado**: `updateDebateListMeta()` en vez de `renderDebateList()` completo
+- ✅ **CI/CD fixes**: Import HTTPException en main.py, f-strings sin placeholders eliminados
+- ✅ **Seguridad**: CVE-2026-40347 (`python-multipart`) parcheado, safety policy actualizada
 
 ### **Fase 10: Unificación Visual Editorial (Completada - v2.9)**
 
