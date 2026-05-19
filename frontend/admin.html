@@ -440,10 +440,15 @@ async function renderDebateExpanded(sid) {
   if (!body) return;
   body.innerHTML = '<div class="loading">Cargando...</div>';
 
-  // Try memory first (for running debates), then history
+  // Check if it's a running debate (in memory) or completed (in DB)
+  const activeCheck = await api('GET', '/api/v1/debates/list');
+  const isActive = activeCheck.status === 200 && (activeCheck.data.sessions || []).some(s => s.session_id === sid);
+
   let session = null;
-  const m = await api('GET', `/api/v1/debates/${sid}`);
-  if (m.status === 200) session = m.data;
+  if (isActive) {
+    const m = await api('GET', `/api/v1/debates/${sid}`);
+    if (m.status === 200) session = m.data;
+  }
 
   if (!session) {
     const h = await api('GET', `/api/v1/debates/history/${sid}`);
