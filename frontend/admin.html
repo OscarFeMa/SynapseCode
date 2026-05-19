@@ -10,126 +10,121 @@
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'Inter',system-ui,sans-serif; background:#F5F3EE; color:#1a1a1a; }
-  header { background:#FFFFFF; padding:12px 24px; display:flex; align-items:center; gap:20px; border-bottom:1px solid #E0DDD7; }
-  h1 { font-family:'Instrument Serif',serif; color:#23403B; font-size:1.4rem; font-weight:400; font-style:italic; }
-  .badge { font-size:0.7rem; padding:3px 10px; border-radius:4px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; }
+  header { background:#FFFFFF; padding:10px 20px; display:flex; align-items:center; gap:16px; border-bottom:1px solid #E0DDD7; }
+  h1 { font-family:'Instrument Serif',serif; color:#23403B; font-size:1.2rem; font-weight:400; font-style:italic; }
+  .badge { font-size:0.65rem; padding:2px 8px; border-radius:3px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; }
   .ok { background:#D4E6D9; color:#23403B; }
   .err { background:#E8D5D5; color:#8B2E2E; }
   .warn { background:#E8DFC8; color:#6B5A2E; }
   .skip { background:#E0DDD7; color:#6B6560; }
-  .container { display:flex; height:calc(100vh - 52px); }
-  nav { width:200px; background:#FFFFFF; padding:10px 0; border-right:1px solid #E0DDD7; }
-  nav a { display:block; padding:10px 20px; color:#6B6560; text-decoration:none; font-size:0.85rem; cursor:pointer; font-weight:500; }
-  nav a:hover, nav a.active { background:#F5F3EE; color:#23403B; border-left:3px solid #23403B; padding-left:17px; }
-  .content { flex:1; padding:24px; overflow-y:auto; }
+  .container { display:flex; height:calc(100vh - 46px); }
+  nav { width:180px; background:#FFFFFF; padding:8px 0; border-right:1px solid #E0DDD7; }
+  nav a { display:block; padding:8px 16px; color:#6B6560; text-decoration:none; font-size:0.8rem; cursor:pointer; font-weight:500; }
+  nav a:hover, nav a.active { background:#F5F3EE; color:#23403B; border-left:3px solid #23403B; padding-left:13px; }
+  .content { flex:1; padding:16px; overflow-y:auto; }
   .tab { display:none; }
   .tab.active { display:block; }
 
-  /* Dashboard cards */
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; margin-bottom:24px; }
-  .card { background:#FFFFFF; border-radius:6px; padding:18px; border:1px solid #E0DDD7; }
-  .card h3 { color:#6B6560; font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; font-weight:600; }
-  .card .value { font-size:1.3rem; font-weight:700; color:#23403B; }
-  .card .sub { font-size:0.75rem; color:#8B8580; margin-top:6px; }
+  /* Dashboard compact grid */
+  .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  .dash-section { background:#FFFFFF; border:1px solid #E0DDD7; border-radius:6px; padding:12px; }
+  .dash-section h3 { font-family:'Instrument Serif',serif; color:#23403B; font-size:0.9rem; font-style:italic; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+  .dash-section h3 button { font-size:0.65rem; padding:2px 8px; }
 
-  /* Forms */
-  .form-group { margin-bottom:16px; }
-  .form-group label { display:block; color:#23403B; font-size:0.8rem; margin-bottom:6px; font-weight:600; }
-  .form-group input, .form-group select, .form-group textarea {
-    width:100%; max-width:600px; padding:10px 14px; background:#FFFFFF; color:#1a1a1a;
-    border:1px solid #D0CDC7; border-radius:4px; font-size:0.9rem; font-family:'Inter',sans-serif;
-  }
-  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-    outline:none; border-color:#23403B; box-shadow:0 0 0 2px rgba(35,64,59,0.1);
-  }
-  .form-group textarea { height:80px; font-family:monospace; }
-  .form-row { display:flex; gap:16px; flex-wrap:wrap; }
-  .form-row .form-group { flex:1; min-width:180px; }
+  /* Service status row */
+  .svc-row { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:0.75rem; border-bottom:1px solid #F5F3EE; }
+  .svc-row:last-child { border-bottom:none; }
+  .svc-name { width:100px; font-weight:500; color:#6B6560; }
+  .svc-status { flex:1; }
 
-  /* Toggle switch */
-  .toggle-group { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
-  .toggle-group label { color:#23403B; font-size:0.8rem; font-weight:600; }
-  .toggle { position:relative; width:44px; height:24px; }
-  .toggle input { opacity:0; width:0; height:0; }
-  .toggle .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:#D0CDC7; border-radius:24px; transition:0.2s; }
-  .toggle .slider:before { content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:white; border-radius:50%; transition:0.2s; }
-  .toggle input:checked + .slider { background:#23403B; }
-  .toggle input:checked + .slider:before { transform:translateX(20px); }
+  /* Health table compact */
+  .health-table { width:100%; border-collapse:collapse; font-size:0.7rem; }
+  .health-table th, .health-table td { text-align:left; padding:4px 6px; border-bottom:1px solid #F5F3EE; }
+  .health-table th { color:#6B6560; font-weight:600; font-size:0.6rem; text-transform:uppercase; }
 
-  /* Buttons */
-  .btn { padding:10px 24px; border:none; border-radius:4px; cursor:pointer; font-size:0.9rem; font-weight:600; font-family:'Inter',sans-serif; transition:all 0.15s ease; }
-  .btn-primary { background:#23403B; color:#FFFFFF; }
-  .btn-primary:hover { background:#1A302C; }
-  .btn-success { background:#2D5A4E; color:#FFFFFF; }
-  .btn-success:hover { background:#23403B; }
-  .btn-danger { background:#8B2E2E; color:#FFFFFF; }
-  .btn-danger:hover { background:#6B2323; }
-  .btn-sm { padding:5px 12px; font-size:0.75rem; }
+  /* Metrics mini */
+  .metrics-row { display:flex; gap:12px; flex-wrap:wrap; }
+  .metric-mini { flex:1; min-width:80px; text-align:center; padding:8px; background:#F5F3EE; border-radius:4px; }
+  .metric-mini .val { font-size:1.1rem; font-weight:700; color:#23403B; }
+  .metric-mini .label { font-size:0.6rem; color:#6B6560; text-transform:uppercase; margin-top:2px; }
 
-  /* Section headings */
-  h2 { font-family:'Instrument Serif',serif; color:#23403B; font-size:1.5rem; font-weight:400; font-style:italic; margin-bottom:20px; }
-  h3 { font-family:'Instrument Serif',serif; color:#23403B; }
-  code { background:#F5F3EE; padding:2px 6px; border-radius:3px; font-size:0.85rem; }
-
-  /* Debate cards (expandable) */
-  .debate-card { background:#FFFFFF; border:1px solid #E0DDD7; border-radius:6px; margin-bottom:8px; overflow:hidden; }
-  .debate-card-header { display:flex; align-items:center; padding:12px 16px; cursor:pointer; gap:12px; }
-  .debate-card-header:hover { background:#FAF9F6; }
-  .debate-card-header .topic { flex:1; font-weight:500; font-size:0.9rem; color:#1a1a1a; }
-  .debate-card-header .meta { color:#6B6560; font-size:0.75rem; display:flex; gap:12px; align-items:center; }
-  .debate-card-header .arrow { transition:transform 0.2s; font-size:0.8rem; color:#6B6560; }
-  .debate-card.open .arrow { transform:rotate(90deg); }
-  .debate-card-body { display:none; padding:16px; border-top:1px solid #E0DDD7; }
-  .debate-card.open .debate-card-body { display:block; }
-
-  /* Sequential turns */
-  .turn { padding:12px 16px; margin:8px 0; background:#F5F3EE; border-radius:4px; border-left:3px solid #23403B; }
-  .turn.failed { border-left-color:#8B2E2E; background:#FDF5F5; }
-  .turn .meta { color:#6B6560; font-size:0.7rem; margin-bottom:6px; display:flex; gap:8px; flex-wrap:wrap; }
-  .turn .meta strong { color:#23403B; }
-  .turn .text { white-space:pre-wrap; font-size:0.82rem; line-height:1.5; color:#1a1a1a; }
-  .turn .text.collapsed { max-height:80px; overflow:hidden; position:relative; }
-  .turn .text.collapsed::after { content:''; position:absolute; bottom:0; left:0; right:0; height:40px; background:linear-gradient(transparent,#F5F3EE); }
-  .turn .expand-text { color:#23403B; font-size:0.75rem; cursor:pointer; font-weight:500; margin-top:4px; }
-
-  /* Verdict */
-  .verdict { background:#F5F3EE; padding:16px; border-radius:6px; margin-top:12px; border:1px solid #E0DDD7; }
-  .verdict h4 { color:#23403B; margin-bottom:8px; font-size:0.85rem; }
-  .verdict .text { white-space:pre-wrap; font-size:0.82rem; line-height:1.5; }
-
-  /* Live indicator */
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
-  .live-dot { animation:pulse 1.5s infinite; color:#23403B; font-size:0.75rem; font-weight:600; }
-
-  /* Logs */
-  #log-area { background:#FFFFFF; border:1px solid #E0DDD7; border-radius:4px; padding:14px; height:300px; overflow-y:auto; font-family:monospace; font-size:0.75rem; }
+  /* Logs mini */
+  .log-mini { max-height:150px; overflow-y:auto; font-family:monospace; font-size:0.65rem; background:#FAF9F6; padding:8px; border-radius:4px; }
+  .log-mini div { padding:1px 0; border-bottom:1px solid #F5F3EE; }
   .log-info { color:#1a1a1a; }
   .log-warn { color:#6B5A2E; }
   .log-error { color:#8B2E2E; }
 
-  /* Loading */
+  /* Debate cards */
+  .debate-card { background:#FFFFFF; border:1px solid #E0DDD7; border-radius:6px; margin-bottom:6px; overflow:hidden; }
+  .debate-card-header { display:flex; align-items:center; padding:10px 14px; cursor:pointer; gap:10px; }
+  .debate-card-header:hover { background:#FAF9F6; }
+  .debate-card-header .topic { flex:1; font-weight:500; font-size:0.85rem; color:#1a1a1a; }
+  .debate-card-header .meta { color:#6B6560; font-size:0.7rem; display:flex; gap:10px; align-items:center; }
+  .debate-card-header .arrow { transition:transform 0.2s; font-size:0.75rem; color:#6B6560; }
+  .debate-card.open .arrow { transform:rotate(90deg); }
+  .debate-card-body { display:none; padding:14px; border-top:1px solid #E0DDD7; }
+  .debate-card.open .debate-card-body { display:block; }
+
+  /* Sequential turns */
+  .turn { padding:10px 14px; margin:6px 0; background:#F5F3EE; border-radius:4px; border-left:3px solid #23403B; }
+  .turn.failed { border-left-color:#8B2E2E; background:#FDF5F5; }
+  .turn .meta { color:#6B6560; font-size:0.65rem; margin-bottom:4px; display:flex; gap:6px; flex-wrap:wrap; }
+  .turn .meta strong { color:#23403B; }
+  .turn .text { white-space:pre-wrap; font-size:0.78rem; line-height:1.5; color:#1a1a1a; }
+  .turn .text.collapsed { max-height:70px; overflow:hidden; position:relative; }
+  .turn .text.collapsed::after { content:''; position:absolute; bottom:0; left:0; right:0; height:35px; background:linear-gradient(transparent,#F5F3EE); }
+  .turn .expand-text { color:#23403B; font-size:0.7rem; cursor:pointer; font-weight:500; margin-top:3px; }
+
+  /* Verdict */
+  .verdict { background:#F5F3EE; padding:12px; border-radius:6px; margin-top:10px; border:1px solid #E0DDD7; }
+  .verdict h4 { color:#23403B; margin-bottom:6px; font-size:0.8rem; }
+  .verdict .text { white-space:pre-wrap; font-size:0.78rem; line-height:1.5; }
+
+  /* Live indicator */
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  .live-dot { animation:pulse 1.5s infinite; color:#23403B; font-size:0.7rem; font-weight:600; }
+
+  /* Forms */
+  .form-group { margin-bottom:12px; }
+  .form-group label { display:block; color:#23403B; font-size:0.75rem; margin-bottom:4px; font-weight:600; }
+  .form-group input, .form-group select, .form-group textarea {
+    width:100%; max-width:500px; padding:8px 12px; background:#FFFFFF; color:#1a1a1a;
+    border:1px solid #D0CDC7; border-radius:4px; font-size:0.85rem; font-family:'Inter',sans-serif;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline:none; border-color:#23403B; box-shadow:0 0 0 2px rgba(35,64,59,0.1);
+  }
+  .form-group textarea { height:60px; font-family:monospace; }
+  .form-row { display:flex; gap:12px; flex-wrap:wrap; }
+  .form-row .form-group { flex:1; min-width:150px; }
+
+  .toggle-group { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .toggle-group label { color:#23403B; font-size:0.75rem; font-weight:600; }
+  .toggle { position:relative; width:40px; height:22px; }
+  .toggle input { opacity:0; width:0; height:0; }
+  .toggle .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:#D0CDC7; border-radius:22px; transition:0.2s; }
+  .toggle .slider:before { content:''; position:absolute; height:16px; width:16px; left:3px; bottom:3px; background:white; border-radius:50%; transition:0.2s; }
+  .toggle input:checked + .slider { background:#23403B; }
+  .toggle input:checked + .slider:before { transform:translateX(18px); }
+
+  /* Buttons */
+  .btn { padding:8px 18px; border:none; border-radius:4px; cursor:pointer; font-size:0.8rem; font-weight:600; font-family:'Inter',sans-serif; transition:all 0.15s ease; }
+  .btn-primary { background:#23403B; color:#FFFFFF; }
+  .btn-primary:hover { background:#1A302C; }
+  .btn-success { background:#2D5A4E; color:#FFFFFF; }
+  .btn-success:hover { background:#23403B; }
+  .btn-sm { padding:4px 10px; font-size:0.7rem; }
+
+  h2 { font-family:'Instrument Serif',serif; color:#23403B; font-size:1.2rem; font-weight:400; font-style:italic; margin-bottom:14px; }
+  h3 { font-family:'Instrument Serif',serif; color:#23403B; }
+  code { background:#F5F3EE; padding:2px 5px; border-radius:3px; font-size:0.8rem; }
+
   .loading { color:#6B6560; font-style:italic; }
+  .divider { border:none; border-top:1px solid #E0DDD7; margin:16px 0; }
 
-  /* Badge */
-  .badge { font-size:0.7rem; padding:3px 10px; border-radius:4px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; }
-  .ok { background:#D4E6D9; color:#23403B; }
-  .err { background:#E8D5D5; color:#8B2E2E; }
-  .warn { background:#E8DFC8; color:#6B5A2E; }
-  .skip { background:#E0DDD7; color:#6B6560; }
-
-  /* Tables */
-  table { width:100%; border-collapse:collapse; font-size:0.85rem; }
-  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid #E0DDD7; }
-  th { color:#6B6560; font-weight:600; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px; }
-  tr:hover { background:#FAF9F6; }
-
-  /* Tabs in content */
-  .sub-tabs { display:flex; gap:4px; margin-bottom:20px; border-bottom:2px solid #E0DDD7; }
-  .sub-tabs button { background:none; border:none; color:#6B6560; padding:10px 16px; cursor:pointer; font-size:0.85rem; font-weight:500; font-family:'Inter',sans-serif; }
-  .sub-tabs button.active { color:#23403B; border-bottom:2px solid #23403B; margin-bottom:-2px; }
-
-  /* Divider */
-  .divider { border:none; border-top:1px solid #E0DDD7; margin:24px 0; }
+  /* Export buttons row */
+  .export-row { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
 </style>
 </head>
 <body>
@@ -140,35 +135,62 @@
   <span id="worker-badge" class="badge">Worker: ⏳</span>
   <span style="flex:1"></span>
   <button class="btn btn-primary btn-sm" onclick="window.open('/docs')">🌐 API</button>
-  <span id="clock" style="color:#6B6560;font-size:0.8rem"></span>
+  <span id="clock" style="color:#6B6560;font-size:0.75rem"></span>
 </header>
 
 <div class="container">
   <nav>
     <a class="active" onclick="showTab('dashboard')">📊 Dashboard</a>
-    <a onclick="showTab('debates')">📋 Debates<span id="active-count" style="display:none;background:#23403B;color:white;font-size:0.65rem;padding:1px 6px;border-radius:8px;margin-left:4px">0</span></a>
-    <a onclick="showTab('worker')">🤖 Worker</a>
-    <a onclick="showTab('health')">🩺 Diagnóstico</a>
-    <a onclick="showTab('logs')">📝 Logs</a>
-    <a onclick="showTab('metrics')">📈 Métricas</a>
+    <a onclick="showTab('debates')">📋 Debates <span id="active-count" style="display:none;background:#23403B;color:white;font-size:0.6rem;padding:1px 5px;border-radius:8px;margin-left:3px">0</span></a>
     <a onclick="showTab('settings')">⚙️ Configuración</a>
   </nav>
 
   <div class="content">
 
-    <!-- ─── DASHBOARD ──────────────────────────── -->
+    <!-- ─── DASHBOARD (compact: worker + health + metrics + logs) ── -->
     <div id="tab-dashboard" class="tab active">
-      <div class="grid" id="status-grid">
-        <div class="card"><h3>Cargando...</h3></div>
+      <div class="dash-grid">
+
+        <!-- Worker + Services -->
+        <div class="dash-section">
+          <h3>🤖 Worker & Servicios <button class="btn btn-sm btn-primary" onclick="refreshWorkerSection()">↻</button></h3>
+          <div id="dash-worker-status"></div>
+          <div id="dash-services" style="margin-top:8px"></div>
+        </div>
+
+        <!-- Health -->
+        <div class="dash-section">
+          <h3>🩺 Diagnóstico <button class="btn btn-sm btn-primary" onclick="refreshHealthSection()">↻</button></h3>
+          <div id="dash-health-summary" style="margin-bottom:6px"></div>
+          <table class="health-table"><thead><tr><th>Servicio</th><th>Estado</th><th>Fallos</th><th>Uptime</th></tr></thead>
+          <tbody id="dash-health-tbody"></tbody></table>
+        </div>
+
+        <!-- Metrics -->
+        <div class="dash-section">
+          <h3>📈 Métricas <button class="btn btn-sm btn-primary" onclick="refreshMetricsSection()">↻</button></h3>
+          <div id="dash-metrics" class="metrics-row"></div>
+        </div>
+
+        <!-- Logs -->
+        <div class="dash-section">
+          <h3>📝 Logs Recientes</h3>
+          <div id="dash-logs" class="log-mini"></div>
+        </div>
+
       </div>
     </div>
 
-    <!-- ─── DEBATES (unified: create + history) ── -->
-    <div id="tab-debates" class="tab active">
-      <h2>➕ Lanzar Debate</h2>
+    <!-- ─── DEBATES (create + recent + link to all) ── -->
+    <div id="tab-debates" class="tab">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <h2 style="margin-bottom:0">➕ Lanzar Debate</h2>
+        <button class="btn btn-primary" onclick="window.open('/admin/all-debates','_blank')">📂 Ver todos los debates</button>
+      </div>
+
       <div class="form-group">
         <label>Tema o pregunta</label>
-        <textarea id="new-topic" placeholder="Ej: ¿Debe la IA tener límites éticos programados?" style="height:60px"></textarea>
+        <textarea id="new-topic" placeholder="Ej: ¿Debe la IA tener límites éticos programados?"></textarea>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -202,87 +224,40 @@
         </label>
         <label>Búsqueda web preliminar (DuckDuckGo)</label>
       </div>
-      <div style="margin-bottom:16px">
-        <span style="font-size:0.75rem;color:#6B6560">Todos los debates incluyen: Tribunal de Magistrados · Consenso Forzado · Reducción al Absurdo · Análisis de Sesgos</span>
+      <div style="margin-bottom:12px">
+        <span style="font-size:0.7rem;color:#6B6560">Todos los debates incluyen: Tribunal · Consenso · Reducción al Absurdo · Análisis de Sesgos</span>
       </div>
       <button class="btn btn-success" onclick="startDebate()">▶ Iniciar Debate</button>
-      <div id="debate-result" style="margin-top:12px"></div>
+      <div id="debate-result" style="margin-top:10px"></div>
 
       <hr class="divider">
 
       <h2>📜 Historial Reciente</h2>
       <div id="debate-list"></div>
-      <div id="debate-expanded" style="display:none"></div>
-    </div>
-
-    <!-- ─── WORKER ────────────────────────────── -->
-    <div id="tab-worker" class="tab">
-      <h2 style="color:#23403B;margin-bottom:16px">🤖 Worker Services</h2>
-      <div class="grid" id="worker-grid"></div>
-      <button class="btn btn-primary" onclick="launchWorker()" style="margin-top:12px">🚀 Lanzar todos</button>
-    </div>
-
-    <!-- ─── LOGS ──────────────────────────────── -->
-    <div id="tab-logs" class="tab">
-      <h2 style="color:#23403B;margin-bottom:16px">📝 Logs del Sistema</h2>
-      <div id="log-area"></div>
-    </div>
-
-    <!-- ─── MÉTRICAS ──────────────────────────── -->
-    <div id="tab-metrics" class="tab">
-      <h2 style="color:#23403B;margin-bottom:16px">📈 Métricas</h2>
-      <div class="grid" id="metrics-grid"></div>
-      <pre id="metrics-detail" style="background:#FFFFFF;padding:16px;border-radius:6px;margin-top:12px;font-size:0.8rem;border:1px solid #E0DDD7"></pre>
-    </div>
-
-    <!-- ─── DIAGNÓSTICO ──────────────────────── -->
-    <div id="tab-health" class="tab">
-      <h2 style="color:#23403B;margin-bottom:16px">🩺 Diagnóstico de Servicios</h2>
-      <div style="margin-bottom:12px">
-        <button class="btn btn-primary btn-sm" onclick="refreshHealthHistory()">🔄 Actualizar</button>
-        <span id="server-uptime" style="color:#6B6560;margin-left:12px;font-size:0.85rem"></span>
-      </div>
-      <table><thead><tr><th>Servicio</th><th>Estado</th><th>Último Error</th><th>Fallos Seguidos</th><th>Tasa Fallo</th><th>Uptime</th><th>Respuesta</th><th>Solución</th></tr></thead>
-      <tbody id="health-tbody"></tbody></table>
-      <div id="health-summary" style="margin-top:16px"></div>
     </div>
 
     <!-- ─── CONFIGURACIÓN ─────────────────────── -->
     <div id="tab-settings" class="tab">
-      <h2 style="color:#23403B;margin-bottom:16px">⚙️ Configuración del Sistema</h2>
-      <div class="sub-tabs">
-        <button class="active" onclick="showSettingsSub('keys')">🔑 API Keys</button>
-        <button onclick="showSettingsSub('timeouts')">⏱️ Timeouts</button>
-        <button onclick="showSettingsSub('export')">📥 Exportar</button>
-      </div>
-      <div id="settings-keys">
-        <div class="grid" id="keys-grid"></div>
-        <div class="form-group" style="margin-top:16px">
+      <h2>⚙️ Configuración del Sistema</h2>
+      <div class="dash-section" style="margin-bottom:12px">
+        <h3>🔑 API Keys</h3>
+        <div id="keys-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:8px 0"></div>
+        <div class="form-group">
           <label>Actualizar API Key</label>
-          <select id="key-service" style="max-width:200px">
+          <select id="key-service" style="max-width:180px">
             <option value="groq">Groq</option>
             <option value="gemini">Gemini</option>
             <option value="huggingface">HuggingFace</option>
           </select>
-          <input id="key-value" placeholder="Nueva API key..." style="max-width:400px">
-          <button class="btn btn-primary btn-sm" onclick="updateApiKey()" style="margin-left:8px">Actualizar</button>
+          <input id="key-value" placeholder="Nueva API key..." style="max-width:350px">
+          <button class="btn btn-primary btn-sm" onclick="updateApiKey()" style="margin-left:6px">Actualizar</button>
         </div>
-        <div id="key-result" style="margin-top:8px"></div>
+        <div id="key-result" style="margin-top:6px"></div>
       </div>
-      <div id="settings-timeouts" style="display:none">
-        <table><thead><tr><th>Patrón Modelo</th><th>Timeout (s)</th></tr></thead>
+      <div class="dash-section">
+        <h3>⏱️ Timeouts por Modelo</h3>
+        <table class="health-table"><thead><tr><th>Patrón</th><th>Timeout</th></tr></thead>
         <tbody id="timeouts-tbody"></tbody></table>
-      </div>
-      <div id="settings-export" style="display:none">
-        <h3 style="color:#23403B;margin-bottom:12px">Exportar Resultados</h3>
-        <div class="form-group">
-          <label>Session ID</label>
-          <input id="report-sid" placeholder="Pega el Session ID del debate">
-        </div>
-        <button class="btn btn-sm" style="background:#23403B;color:white" onclick="exportReport('json')">📥 JSON</button>
-        <button class="btn btn-sm" style="background:#2D5A4E;color:white" onclick="exportReport('markdown')">📥 Markdown</button>
-        <button class="btn btn-sm" style="background:#6B5A2E;color:white" onclick="exportReport('pdf')">📥 PDF</button>
-        <div id="report-result" style="margin-top:12px"></div>
       </div>
     </div>
 
@@ -298,7 +273,6 @@ let wsReconnectTimer = null;
 let debatePoller = null;
 let expandedDebateSid = null;
 let expandedDebatePoller = null;
-let activeDebateIds = new Set();
 
 function $(id) { return document.getElementById(id); }
 function showTab(name) {
@@ -312,10 +286,6 @@ function showTab(name) {
 function renderTab(name) {
   if (name === 'dashboard') refreshDashboard();
   if (name === 'debates') { renderDebateList(); startDebatePolling(); }
-  if (name === 'worker') refreshWorker();
-  if (name === 'health') refreshHealthHistory();
-  if (name === 'logs') renderLogs();
-  if (name === 'metrics') refreshMetrics();
   if (name === 'settings') refreshSettings();
 }
 
@@ -340,16 +310,21 @@ function log(type, msg) {
   const time = new Date().toLocaleTimeString();
   logBuffer.push({time,type,msg});
   if (logBuffer.length > 200) logBuffer.shift();
+  renderDashLogs();
+}
+
+function formatUptime(seconds) {
+  if (seconds < 60) return Math.round(seconds) + 's';
+  if (seconds < 3600) return Math.round(seconds/60) + 'm';
+  if (seconds < 86400) return Math.round(seconds/3600) + 'h';
+  return Math.round(seconds/86400) + 'd';
 }
 
 // ─── DASHBOARD ──────────────────────────────────
 async function refreshDashboard() {
   const h = await api('GET','/health');
-  document.getElementById('master-badge').innerHTML = 'Master: ' + (h.status===200 ? badge('online') : badge('error'));
-  if (h.status !== 200) {
-    document.getElementById('status-grid').innerHTML = '<div class="card"><h3>Error</h3><div class="err">Servidor no responde</div></div>';
-    return;
-  }
+  $('master-badge').innerHTML = 'Master: ' + (h.status===200 ? badge('online') : badge('error'));
+  if (h.status !== 200) return;
   const svc = h.data.services || {};
   const cards = [
     {title:'Servidor', val:h.data.status||'?', sub:'v'+h.data.version, st:h.data.status},
@@ -361,30 +336,113 @@ async function refreshDashboard() {
     {title:'Web Agent', val:svc.web_agent?.status||'?', sub:svc.web_agent?.playwright_installed ? 'Playwright' : '', st:svc.web_agent?.status},
     {title:'HuggingFace', val:svc.huggingface?.status||'?', sub:svc.huggingface?.user||'', st:svc.huggingface?.status},
   ];
-  document.getElementById('status-grid').innerHTML = cards.map(c =>
-    `<div class="card"><h3>${c.title}</h3><div class="value">${badge(c.st)}</div><div class="sub">${c.sub}</div></div>`
+  $('dash-services').innerHTML = cards.map(c =>
+    `<div class="svc-row"><span class="svc-name">${c.title}</span><span class="svc-status">${badge(c.st)}</span><span style="color:#8B8580;font-size:0.65rem">${c.sub}</span></div>`
+  ).join('');
+  refreshWorkerSection();
+  refreshHealthSection();
+  refreshMetricsSection();
+}
+
+async function refreshWorkerSection() {
+  const r = await api('GET','/api/v1/system/worker/services');
+  if (r.status !== 200) {
+    $('worker-badge').innerHTML = 'Worker: ' + badge('offline');
+    $('dash-worker-status').innerHTML = '<div style="color:#8B2E2E;font-size:0.75rem">Worker offline</div>';
+    return;
+  }
+  $('worker-badge').innerHTML = 'Worker: ' + badge('online') + ' ' + (r.data.worker_ip||'');
+  const svc = r.data.services || {};
+  $('dash-worker-status').innerHTML = Object.entries(svc).map(([k,v]) =>
+    `<div class="svc-row"><span class="svc-name">${k}</span><span class="svc-status">${badge(v.status)}</span><span style="color:#8B8580;font-size:0.65rem">:${v.port||'?'}</span></div>`
   ).join('');
 }
 
-// ─── DEBATE LIST (unified: form + history) ──────
+async function refreshHealthSection() {
+  const r = await api('GET', '/health/history');
+  if (r.status !== 200) {
+    $('dash-health-tbody').innerHTML = '<tr><td colspan="4" style="color:#8B2E2E">Sin datos</td></tr>';
+    return;
+  }
+  const summary = r.data.summary || {};
+  $('dash-health-summary').innerHTML = `<span style="font-size:0.7rem;color:#6B6560">${summary.totalServices||0} servicios · ${summary.healthyServices||0} sanos · ${badge(summary.overallHealth||'unknown')}</span>`;
+  const services = r.data.services || {};
+  $('dash-health-tbody').innerHTML = Object.entries(services).map(([name, s]) =>
+    `<tr><td>${name}</td><td>${badge(s.status)}</td><td style="color:${s.consecutiveFailures>2?'#8B2E2E':'#6B6560'}">${s.consecutiveFailures||0}</td><td>${formatUptime(s.uptimeSeconds||0)}</td></tr>`
+  ).join('');
+}
+
+async function refreshMetricsSection() {
+  const h = await api('GET','/api/v1/debates/history/list');
+  if (h.status !== 200) return;
+  const sessions = h.data.sessions || [];
+  const completed = sessions.filter(s => s.status === 'completed');
+  const totalTokens = completed.reduce((a,s) => a + (s.total_tokens_out||0), 0);
+  const totalTurns = completed.reduce((a,s) => a + (s.total_turns||0), 0);
+  const totalTime = completed.reduce((a,s) => a + (s.total_latency_ms||0), 0);
+  $('dash-metrics').innerHTML = [
+    {val:sessions.length, label:'Total'},
+    {val:completed.length, label:'Completados'},
+    {val:(totalTokens||0).toLocaleString(), label:'Tokens'},
+    {val:totalTurns||0, label:'Turnos'},
+    {val:(totalTime/1000).toFixed(0)+'s', label:'Tiempo'},
+  ].map(m => `<div class="metric-mini"><div class="val">${m.val}</div><div class="label">${m.label}</div></div>`).join('');
+}
+
+function renderDashLogs() {
+  const el = $('dash-logs');
+  if (!el) return;
+  el.innerHTML = logBuffer.slice(-50).map(l =>
+    `<div class="log-${l.type}">[${l.time}] ${l.msg}</div>`
+  ).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+// ─── DEBATE LIST ────────────────────────────────
 async function renderDebateList() {
   const h = await api('GET','/api/v1/debates/history/list');
   if (h.status !== 200) return;
   const sessions = h.data.sessions || [];
 
-  // Update active count
   const active = sessions.filter(s => s.status === 'running');
-  const countBadge = document.getElementById('active-count');
-  if (active.length > 0) {
-    countBadge.style.display = 'inline';
-    countBadge.textContent = active.length;
-  } else {
-    countBadge.style.display = 'none';
+  const countBadge = $('active-count');
+  if (countBadge) {
+    countBadge.style.display = active.length > 0 ? 'inline' : 'none';
+    countBadge.textContent = active.length > 0 ? active.length : '0';
   }
 
-  const list = document.getElementById('debate-list');
+  if (expandedDebateSid) {
+    const card = document.getElementById('card-' + expandedDebateSid);
+    if (card) {
+      const session = sessions.find(s => s.id === expandedDebateSid);
+      if (session) {
+        const meta = card.querySelector('.meta');
+        if (meta) {
+          const isRunning = session.status === 'running';
+          const date = (session.created_at||'').slice(0,10);
+          const tokens = (session.total_tokens_out||0).toLocaleString();
+          const turns = session.total_turns||0;
+          meta.innerHTML = `
+            ${isRunning ? '<span class="live-dot">● EN VIVO</span>' : ''}
+            ${badge(session.status)}
+            <span>${turns} turnos</span>
+            <span>${tokens} tok</span>
+            <span>${session.mode||'-'}</span>
+            <span>${date}</span>
+          `;
+        }
+      }
+    }
+    return;
+  }
+
+  const currentIds = sessions.slice(0,10).map(s => s.id).join(',');
+  if (renderDebateList._lastIds === currentIds) return;
+  renderDebateList._lastIds = currentIds;
+
+  const list = $('debate-list');
   if (sessions.length === 0) {
-    list.innerHTML = '<div style="color:#6B6560;text-align:center;padding:40px">No hay debates</div>';
+    list.innerHTML = '<div style="color:#6B6560;text-align:center;padding:30px">No hay debates</div>';
     return;
   }
 
@@ -393,7 +451,7 @@ async function renderDebateList() {
     const date = (s.created_at||'').slice(0,10);
     const tokens = (s.total_tokens_out||0).toLocaleString();
     const turns = s.total_turns||0;
-    return `<div class="debate-card ${expandedDebateSid===s.id?'open':''}" id="card-${s.id}">
+    return `<div class="debate-card" id="card-${s.id}">
       <div class="debate-card-header" onclick="toggleDebateCard('${s.id}')">
         <span class="arrow">▶</span>
         <span class="topic">${(s.topic||'').slice(0,80)}</span>
@@ -409,9 +467,6 @@ async function renderDebateList() {
       <div class="debate-card-body" id="body-${s.id}"></div>
     </div>`;
   }).join('');
-
-  // Auto-expand running debates
-  active.forEach(s => { if (expandedDebateSid === s.id) renderDebateExpanded(s.id); });
 }
 
 async function toggleDebateCard(sid) {
@@ -422,14 +477,11 @@ async function toggleDebateCard(sid) {
     document.getElementById('body-' + sid).innerHTML = '';
     return;
   }
-
-  // Close previous
   if (expandedDebateSid) {
     document.getElementById('card-' + expandedDebateSid)?.classList.remove('open');
     document.getElementById('body-' + expandedDebateSid).innerHTML = '';
     if (expandedDebatePoller) { clearInterval(expandedDebatePoller); expandedDebatePoller = null; }
   }
-
   expandedDebateSid = sid;
   document.getElementById('card-' + sid)?.classList.add('open');
   await renderDebateExpanded(sid);
@@ -440,7 +492,6 @@ async function renderDebateExpanded(sid) {
   if (!body) return;
   body.innerHTML = '<div class="loading">Cargando...</div>';
 
-  // Check if it's a running debate (in memory) or completed (in DB)
   const activeCheck = await api('GET', '/api/v1/debates/list');
   const isActive = activeCheck.status === 200 && (activeCheck.data.sessions || []).some(s => s.session_id === sid);
 
@@ -449,57 +500,56 @@ async function renderDebateExpanded(sid) {
     const m = await api('GET', `/api/v1/debates/${sid}`);
     if (m.status === 200) session = m.data;
   }
-
   if (!session) {
     const h = await api('GET', `/api/v1/debates/history/${sid}`);
     if (h.status === 200) session = h.data;
   }
-
   if (!session) {
     body.innerHTML = '<div class="err">Debate no encontrado</div>';
     return;
   }
 
   const isRunning = session.status === 'running';
-  let html = `<div style="margin-bottom:12px">
+  let html = `<div style="margin-bottom:10px">
     ${badge(session.status)}
-    ${isRunning ? '<span class="live-dot" style="margin-left:8px">● EN VIVO</span>' : ''}
-    <span style="color:#6B6560;margin-left:12px;font-size:0.8rem">Tokens: ${(session.total_tokens_out||0).toLocaleString()} · Tiempo: ${((session.total_latency_ms||0)/1000).toFixed(1)}s</span>
-    <span style="color:#6B6560;font-size:0.8rem;margin-left:8px">${session.mode||''}</span>
-    <button class="btn btn-sm btn-primary" style="margin-left:12px" onclick="exportDirect('${sid}','json')">JSON</button>
-    <button class="btn btn-sm" style="background:#6B5A2E;color:white" onclick="exportDirect('${sid}','md')">MD</button>
+    ${isRunning ? '<span class="live-dot" style="margin-left:6px">● EN VIVO</span>' : ''}
+    <span style="color:#6B6560;margin-left:10px;font-size:0.75rem">Tokens: ${(session.total_tokens_out||0).toLocaleString()} · Tiempo: ${((session.total_latency_ms||0)/1000).toFixed(1)}s</span>
+    <span style="color:#6B6560;font-size:0.75rem;margin-left:6px">${session.mode||''}</span>
+    <div class="export-row">
+      <button class="btn btn-sm btn-primary" onclick="exportDirect('${sid}','json')">JSON</button>
+      <button class="btn btn-sm" style="background:#2D5A4E;color:white" onclick="exportDirect('${sid}','docx')">DOCX</button>
+      <button class="btn btn-sm" style="background:#6B5A2E;color:white" onclick="exportDirect('${sid}','pdf')">PDF</button>
+      <button class="btn btn-sm" style="background:#4A4A4A;color:white" onclick="exportDirect('${sid}','txt')">TXT</button>
+    </div>
   </div>`;
 
-  // Sequential turns: who said what
   const turns = session.turns || [];
   if (turns.length > 0) {
-    html += '<div style="font-size:0.75rem;color:#6B6560;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Secuencia de intervenciones</div>';
+    html += '<div style="font-size:0.7rem;color:#6B6560;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Secuencia</div>';
     turns.forEach(t => {
       const isFailed = t.status === 'FAILED';
-      const text = (t.response_received || t.response || '').substring(0, 800);
-      const needsExpand = (t.response_received || t.response || '').length > 800;
+      const text = (t.response_received || t.response || '').substring(0, 600);
+      const needsExpand = (t.response_received || t.response || '').length > 600;
       html += `<div class="turn ${isFailed?'failed':''}">
         <div class="meta">
-          <strong>${t.agent_name || t.agent_name || 'Agente'}</strong>
+          <strong>${t.agent_name || 'Agente'}</strong>
           <span>${t.model||''}</span>
-          <span>${t.tokens_out||0} tokens</span>
+          <span>${t.tokens_out||0} tok</span>
           <span>${(t.latency_ms||0)}ms</span>
           ${isFailed ? '<span style="color:#8B2E2E">FALLO</span>' : ''}
         </div>
-        <div class="text ${needsExpand?'collapsed':''}" id="turn-text-${sid}-${t.turn_number}">${isFailed ? text : text}</div>
+        <div class="text ${needsExpand?'collapsed':''}">${text}</div>
         ${needsExpand ? `<div class="expand-text" onclick="this.previousElementSibling.classList.remove('collapsed');this.style.display='none'">Mostrar completo</div>` : ''}
       </div>`;
     });
   }
 
-  // Verdict
   if (session.final_verdict) {
-    html += `<div class="verdict"><h4>Veredicto del Tribunal</h4><div class="text">${session.final_verdict.substring(0, 1000)}</div></div>`;
+    html += `<div class="verdict"><h4>Veredicto</h4><div class="text">${session.final_verdict.substring(0, 800)}</div></div>`;
   }
 
   body.innerHTML = html;
 
-  // Poll if running
   if (isRunning) {
     if (expandedDebatePoller) clearInterval(expandedDebatePoller);
     expandedDebatePoller = setInterval(() => {
@@ -509,7 +559,6 @@ async function renderDebateExpanded(sid) {
   }
 }
 
-// ─── DEBATE POLLING ─────────────────────────────
 function startDebatePolling() {
   if (debatePoller) clearInterval(debatePoller);
   debatePoller = setInterval(renderDebateList, 5000);
@@ -527,7 +576,7 @@ function connectWebSocket() {
       const type = msg.type || msg.event || '';
       if (type.includes('completed') || type.includes('error') || type.includes('turn')) {
         if (expandedDebateSid) renderDebateExpanded(expandedDebateSid);
-        renderDebateList();
+        updateDebateListMeta();
       }
     } catch(e) {}
   };
@@ -535,139 +584,73 @@ function connectWebSocket() {
   ws.onerror = () => { ws.close(); };
 }
 
+async function updateDebateListMeta() {
+  const h = await api('GET','/api/v1/debates/history/list');
+  if (h.status !== 200) return;
+  const sessions = h.data.sessions || [];
+  const active = sessions.filter(s => s.status === 'running');
+  const countBadge = $('active-count');
+  if (countBadge) {
+    countBadge.style.display = active.length > 0 ? 'inline' : 'none';
+    countBadge.textContent = active.length > 0 ? active.length : '0';
+  }
+  if (expandedDebateSid) {
+    const card = document.getElementById('card-' + expandedDebateSid);
+    if (card) {
+      const session = sessions.find(s => s.id === expandedDebateSid);
+      if (session) {
+        const meta = card.querySelector('.meta');
+        if (meta) {
+          const isRunning = session.status === 'running';
+          const date = (session.created_at||'').slice(0,10);
+          const tokens = (session.total_tokens_out||0).toLocaleString();
+          const turns = session.total_turns||0;
+          meta.innerHTML = `
+            ${isRunning ? '<span class="live-dot">● EN VIVO</span>' : ''}
+            ${badge(session.status)}
+            <span>${turns} turnos</span>
+            <span>${tokens} tok</span>
+            <span>${session.mode||'-'}</span>
+            <span>${date}</span>
+          `;
+        }
+      }
+    }
+    return;
+  }
+  const currentIds = sessions.slice(0,10).map(s => s.id).join(',');
+  if (renderDebateList._lastIds !== currentIds) await renderDebateList();
+}
+
 // ─── NUEVO DEBATE ──────────────────────────────
 async function startDebate() {
-  const topic = document.getElementById('new-topic').value.trim();
+  const topic = $('new-topic').value.trim();
   if (!topic) { alert('Ingresa un tema'); return; }
-  const mode = document.getElementById('new-mode').value;
-  const result = document.getElementById('debate-result');
-  result.innerHTML = '<span class="loading">Iniciando debate...</span>';
-
+  const mode = $('new-mode').value;
+  $('debate-result').innerHTML = '<span class="loading">Iniciando debate...</span>';
   const r = await api('POST','/api/v1/debates/create', {topic, mode});
   if (r.status === 200 || r.status === 202) {
     const sid = r.data.session_id;
-    result.innerHTML = `<span style="color:#23403B"> Debate creado</span><br>
+    $('debate-result').innerHTML = `<span style="color:#23403B"> Debate creado</span><br>
     <small>ID: ${sid}<br>
     <a href="#" onclick="toggleDebateCard('${sid}');return false">Ver en vivo</a> |
-    <a href="/api/v1/debates/${sid}/export/json" target="_blank">Exportar JSON</a> |
-    <a href="/api/v1/debates/${sid}/report" target="_blank">Reporte</a></small>`;
+    <a href="/api/v1/debates/${sid}/export/json" target="_blank">JSON</a> |
+    <a href="/api/v1/debates/${sid}/export/docx" target="_blank">DOCX</a> |
+    <a href="/api/v1/debates/${sid}/export/pdf" target="_blank">PDF</a></small>`;
     log('info',`Debate ${sid.slice(0,8)} creado: "${topic.slice(0,50)}"`);
     renderDebateList();
   } else {
-    result.innerHTML = `<span style="color:#8B2E2E"> Error: ${JSON.stringify(r.data)}</span>`;
+    $('debate-result').innerHTML = `<span style="color:#8B2E2E"> Error: ${JSON.stringify(r.data)}</span>`;
   }
 }
 
 // ─── EXPORT ─────────────────────────────────────
 function exportDirect(sid, format) {
-  const map = {json:'export/json', md:'export/markdown', pdf:'export/pdf', markdown:'export/markdown'};
+  const map = {json:'export/json', docx:'export/docx', pdf:'export/pdf', txt:'export/txt'};
   if (map[format]) {
     window.open(`/api/v1/debates/${sid}/${map[format]}`, '_blank');
     log('info',`Exportando ${format} de ${sid.slice(0,8)}`);
   }
-}
-
-// ─── WORKER ─────────────────────────────────────
-async function refreshWorker() {
-  const r = await api('GET','/api/v1/system/worker/services');
-  if (r.status !== 200) {
-    document.getElementById('worker-badge').innerHTML = 'Worker: ' + badge('offline');
-    document.getElementById('worker-grid').innerHTML = '<div class="card"><h3>Sin conexion</h3></div>';
-    return;
-  }
-  document.getElementById('worker-badge').innerHTML = 'Worker: ' + badge('online') + ' ' + (r.data.worker_ip||'');
-  const svc = r.data.services || {};
-  document.getElementById('worker-grid').innerHTML = Object.entries(svc).map(([k,v]) =>
-    `<div class="card"><h3>${k}</h3><div class="value">${badge(v.status)}</div><div class="sub">Puerto :${v.port||'?'}</div></div>`
-  ).join('');
-}
-
-async function launchWorker() {
-  const r = await api('POST','/api/v1/system/worker/services/launch', {service:'all'});
-  alert('Worker: ' + (r.data.success ? ' OK' : ' Fallo parcial'));
-  refreshWorker();
-}
-
-// ─── LOGS ───────────────────────────────────────
-function renderLogs() {
-  document.getElementById('log-area').innerHTML = logBuffer.map(l =>
-    `<div class="log-${l.type}">[${l.time}] [${l.type}] ${l.msg}</div>`
-  ).join('');
-  const el = document.getElementById('log-area');
-  el.scrollTop = el.scrollHeight;
-}
-
-// ─── MÉTRICAS ──────────────────────────────────
-async function refreshMetrics() {
-  const h = await api('GET','/api/v1/debates/history/list');
-  if (h.status !== 200) return;
-  const sessions = h.data.sessions || [];
-  const completed = sessions.filter(s => s.status === 'completed');
-  const totalTokens = completed.reduce((a,s) => a + (s.total_tokens_out||0), 0);
-  const totalTurns = completed.reduce((a,s) => a + (s.total_turns||0), 0);
-  const totalTime = completed.reduce((a,s) => a + (s.total_latency_ms||0), 0);
-  document.getElementById('metrics-grid').innerHTML = [
-    {title:'Debates totales', val:sessions.length, sub:'creados'},
-    {title:'Completados', val:completed.length, sub:'exitosos'},
-    {title:'Tokens generados', val:(totalTokens||0).toLocaleString(), sub:'totales'},
-    {title:'Turnos totales', val:totalTurns||0, sub:'ejecutados'},
-    {title:'Tiempo total', val:(totalTime/1000).toFixed(0)+'s', sub:'de proceso'},
-    {title:'Promedio tokens/debate', val:completed.length ? Math.round(totalTokens/completed.length).toLocaleString() : 0, sub:'por debate'},
-  ].map(c => `<div class="card"><h3>${c.title}</h3><div class="value">${c.val}</div><div class="sub">${c.sub}</div></div>`).join('');
-  const top = [...completed].sort((a,b) => (b.total_tokens_out||0) - (a.total_tokens_out||0)).slice(0,5);
-  document.getElementById('metrics-detail').textContent = 'TOP 5 DEBATES POR TOKENS:\n' +
-    top.map((s,i) => `${i+1}. ${(s.topic||'').slice(0,60)} — ${(s.total_tokens_out||0).toLocaleString()} tokens`).join('\n');
-}
-
-// ─── DIAGNÓSTICO ───────────────────────────────
-async function refreshHealthHistory() {
-  const r = await api('GET', '/health/history');
-  if (r.status !== 200) {
-    document.getElementById('health-tbody').innerHTML = '<tr><td colspan="8" class="err">Sin datos</td></tr>';
-    return;
-  }
-  const uptime = r.data.serverUptimeSeconds || 0;
-  document.getElementById('server-uptime').textContent = `Servidor activo: ${formatUptime(uptime)}`;
-  const summary = r.data.summary || {};
-  document.getElementById('health-summary').innerHTML = `
-    <div class="grid">
-      <div class="card"><h3>Servicios Totales</h3><div class="value">${summary.totalServices||0}</div></div>
-      <div class="card"><h3>Saludables</h3><div class="value" style="color:#23403B">${summary.healthyServices||0}</div></div>
-      <div class="card"><h3>Degradados</h3><div class="value" style="color:#6B5A2E">${summary.degradedServices||0}</div></div>
-      <div class="card"><h3>Estado General</h3><div class="value">${badge(summary.overallHealth||'unknown')}</div></div>
-    </div>`;
-  const services = r.data.services || {};
-  const fixes = {
-    ollama: 'Verifica Ollama en Worker: ollama serve',
-    lm_studio: 'Activa Local Inference Server en LM Studio',
-    jan: 'Activa servidor API en Jan',
-    groq: 'Verifica GROQ_API_KEY en .env',
-    gemini: 'Verifica GEMINI_API_KEY en .env',
-    huggingface: 'Obtén token en huggingface.co/settings/tokens',
-    web_agent: 'Ejecuta: playwright install chromium',
-    database: 'Revisa la base de datos SQLite',
-  };
-  document.getElementById('health-tbody').innerHTML = Object.entries(services).map(([name, s]) => {
-    const fix = fixes[name] || 'Revisa logs del servidor';
-    const errDisplay = s.lastError ? `<span title="${s.lastError}" style="color:#8B2E2E;max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.lastError.slice(0,50)}...</span>` : '<span style="color:#6B6560">—</span>';
-    return `<tr>
-      <td><strong>${name}</strong></td>
-      <td>${badge(s.status)}</td>
-      <td>${errDisplay}</td>
-      <td style="color:${s.consecutiveFailures > 2 ? '#8B2E2E' : '#6B6560'}">${s.consecutiveFailures||0}</td>
-      <td>${s.failureRate||0}%</td>
-      <td>${formatUptime(s.uptimeSeconds||0)}</td>
-      <td>${s.avgResponseMs||0}ms</td>
-      <td style="color:#6B6560;font-size:0.75rem">${fix}</td>
-    </tr>`;
-  }).join('');
-}
-
-function formatUptime(seconds) {
-  if (seconds < 60) return Math.round(seconds) + 's';
-  if (seconds < 3600) return Math.round(seconds/60) + 'm';
-  if (seconds < 86400) return Math.round(seconds/3600) + 'h';
-  return Math.round(seconds/86400) + 'd';
 }
 
 // ─── CONFIGURACIÓN ─────────────────────────────
@@ -681,8 +664,8 @@ async function refreshSettings() {
       {name:'HuggingFace', status:svc.huggingface?.status, configured: !!svc.huggingface && svc.huggingface.status !== 'skipped'},
       {name:'DeepSeek', status:svc.deepseek?.status, configured: !!svc.deepseek && svc.deepseek.status !== 'skipped'},
     ];
-    document.getElementById('keys-grid').innerHTML = keys.map(k =>
-      `<div class="card"><h3>${k.name}</h3><div class="value">${badge(k.status)}</div><div class="sub">${k.configured ? ' Configurada' : ' No configurada'}</div></div>`
+    $('keys-grid').innerHTML = keys.map(k =>
+      `<div class="dash-section" style="padding:8px"><h3 style="font-size:0.8rem">${k.name}</h3><div style="margin-top:4px">${badge(k.status)}</div><div style="font-size:0.65rem;color:#8B8580">${k.configured ? 'Configurada' : 'No configurada'}</div></div>`
     ).join('');
   }
   const timeouts = {
@@ -692,58 +675,43 @@ async function refreshSettings() {
     "codellama:70b": 300, "nemotron": 300, "70b": 300, "405b": 600,
     "ollama (default)": 600, "lm_studio (default)": 120,
   };
-  document.getElementById('timeouts-tbody').innerHTML = Object.entries(timeouts).map(([p, t]) =>
+  $('timeouts-tbody').innerHTML = Object.entries(timeouts).map(([p, t]) =>
     `<tr><td><code>${p}</code></td><td>${t}s</td></tr>`
   ).join('');
 }
 
-function showSettingsSub(name) {
-  document.querySelectorAll('#tab-settings .sub-tabs button').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
-  document.getElementById('settings-keys').style.display = name === 'keys' ? '' : 'none';
-  document.getElementById('settings-timeouts').style.display = name === 'timeouts' ? '' : 'none';
-  document.getElementById('settings-export').style.display = name === 'export' ? '' : 'none';
-}
-
 async function updateApiKey() {
-  const service = document.getElementById('key-service').value;
-  const value = document.getElementById('key-value').value.trim();
+  const service = $('key-service').value;
+  const value = $('key-value').value.trim();
   if (!value) { alert('Ingresa una API key'); return; }
   const r = await api('POST', `/api/v1/system/config/${service}/key`, { api_key: value });
-  const el = document.getElementById('key-result');
   if (r.status === 200) {
-    el.innerHTML = '<span style="color:#23403B"> Key actualizada</span>';
-    document.getElementById('key-value').value = '';
+    $('key-result').innerHTML = '<span style="color:#23403B"> Key actualizada</span>';
+    $('key-value').value = '';
     refreshSettings();
   } else {
-    el.innerHTML = `<span style="color:#8B2E2E"> Error: ${JSON.stringify(r.data)}</span>`;
+    $('key-result').innerHTML = `<span style="color:#8B2E2E"> Error: ${JSON.stringify(r.data)}</span>`;
   }
-}
-
-function exportReport(format) {
-  const sid = document.getElementById('report-sid').value.trim();
-  if (!sid) { alert('Ingresa un Session ID'); return; }
-  exportDirect(sid, format);
 }
 
 // ─── CLOCK & AUTO-REFRESH ──────────────────────
 function updateClock() {
-  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+  $('clock').textContent = new Date().toLocaleTimeString();
 }
 setInterval(updateClock, 1000);
 updateClock();
 
 refreshDashboard();
-refreshWorker();
 refreshMetrics();
 renderDebateList();
-setInterval(refreshDashboard, 5000);
-setInterval(refreshWorker, 10000);
+setInterval(refreshDashboard, 15000);
+setInterval(refreshWorkerSection, 20000);
+setInterval(refreshHealthSection, 30000);
+setInterval(refreshMetricsSection, 30000);
 startDebatePolling();
 connectWebSocket();
 
 log('info','Synapse Control Center iniciado');
-log('info','Conectando al servidor...');
 </script>
 </body>
 </html>

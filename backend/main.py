@@ -242,6 +242,15 @@ async def admin_panel():
     return HTMLResponse("<h1>Admin panel no encontrado</h1>", status_code=404)
 
 
+@app.get("/admin/all-debates", include_in_schema=False)
+async def all_debates_panel():
+    """Ventana completa de todos los debates"""
+    debates_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "all-debates.html")
+    if os.path.exists(debates_path):
+        return FileResponse(debates_path)
+    return HTMLResponse("<h1>All debates view no encontrado</h1>", status_code=404)
+
+
 if __name__ == "__main__":
     import uvicorn
 
