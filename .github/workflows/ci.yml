@@ -144,7 +144,9 @@ jobs:
         run: bandit -r backend/ -ll -ii --skip B101,B105,B106,B107
 
       - name: Check dependencies for known vulnerabilities
-        run: safety check -r backend/requirements.txt --policy-file .safety-policy.yml
+        run: |
+          pip install --upgrade python-multipart
+          safety check -r backend/requirements.txt --policy-file .safety-policy.yml
 
   build:
     runs-on: ubuntu-latest
