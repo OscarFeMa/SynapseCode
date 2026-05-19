@@ -214,10 +214,12 @@ logger.info("debug_router.enabled")
 async def root(request: Request):
     """Endpoint raíz: landing page para navegadores, JSON para APIs"""
     accept = request.headers.get("accept", "")
-    if "text/html" in accept or "*/*" in accept:
+    # Serve HTML for browsers (text/html or */* without application/json)
+    is_browser = "text/html" in accept or ("*/*" in accept and "application/json" not in accept)
+    if is_browser:
         landing_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "web", "index.html")
         if os.path.exists(landing_path):
-            return FileResponse(landing_path)
+            return FileResponse(landing_path, media_type="text/html")
     return {
         "name": "SynapseCode",
         "version": "3.0.0",
