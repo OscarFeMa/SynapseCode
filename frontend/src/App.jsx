@@ -15,6 +15,7 @@ import { ModelsPage } from './pages/ModelsPage'
 import { CachePage } from './pages/CachePage'
 import { SettingsPage } from './pages/SettingsPage'
 import { DebateLivePage } from './pages/DebateLivePage'
+import { SharePage } from './pages/SharePage'
 
 function Layout({ children }) {
   return (
@@ -103,6 +104,7 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/session/:sessionId" element={<SessionPage />} />
         <Route path="/history" element={<AppLayout><HistoryPage /></AppLayout>} />
+        <Route path="/share/:sessionId" element={<SharePage />} />
 
         {/* New dashboard routes */}
         <Route

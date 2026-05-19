@@ -1115,6 +1115,31 @@ def _build_structured_export_from_db(session_id: str, debate_data: dict[str, Any
         "iterations": [],
     }
 
+@router.get("/{session_id}/export-static")
+async def export_debate_as_static_json(session_id: str):
+    """Genera JSON empaquetado para compartir."""
+    try:
+        session = debate_controller.get_session(session_id)
+        if not session:
+            session_data = await debate_controller.get_debate_from_db(session_id)
+            if not session_data:
+                raise HTTPException(status_code=404, detail="Debate no encontrado")
+            # Extraer diccionario
+            data = session_data if isinstance(session_data, dict) else session_data.__dict__
+        else:
+            data = session.model_dump()
+
+        return {
+            "version": "3.0",
+            "exported_at": datetime.utcnow().isoformat(),
+            "share_url": f"https://synapsecode.org/app/share/{session_id}",
+            "debate": data
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/{session_id}/export/json")
 async def export_debate_json(session_id: str):
