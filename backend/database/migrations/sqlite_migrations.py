@@ -94,6 +94,13 @@ def _migrate_sequential_debates(conn: Connection) -> None:
         "pause_reason",
         "pause_reason TEXT",
     )
+    _add_column_if_missing(
+        conn,
+        "sequential_debates",
+        columns,
+        "web_context",
+        "web_context JSON",
+    )
 
 
 def run_sqlite_migrations(conn: Connection) -> None:
