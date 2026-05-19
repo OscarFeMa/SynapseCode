@@ -131,7 +131,7 @@ class TCPHandshake:
                 logger.warning("Handshake inválido, conexión rechazada")
                 return None
 
-        except socket.timeout:
+        except TimeoutError:
             logger.warning("Timeout esperando conexión de Worker")
             return None
         except Exception as e:

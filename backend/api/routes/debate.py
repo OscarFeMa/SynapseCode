@@ -746,7 +746,7 @@ async def get_debate_file(session_id: str):
 
     filepath = debate["transcript_path"]
     if os.path.exists(filepath):
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             content = f.read()
         return {
             "session_id": session_id,

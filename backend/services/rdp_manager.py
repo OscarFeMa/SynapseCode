@@ -221,7 +221,7 @@ class RDPManager:
             # 2. Inyectar nuevas credenciales (sin shell=True)
             add_cmd = [
                 "cmdkey",
-                "/generic:TERMSRV/{ip}".format(ip=ip),
+                f"/generic:TERMSRV/{ip}",
                 f"/user:{username}",
                 f"/pass:{password}",
             ]

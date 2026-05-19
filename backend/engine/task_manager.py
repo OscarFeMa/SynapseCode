@@ -158,7 +158,7 @@ class BackgroundTaskManager:
             self._worker_task.cancel()
             try:
                 await asyncio.wait_for(self._worker_task, timeout=1.0)
-            except (asyncio.CancelledError, asyncio.TimeoutError):
+            except (TimeoutError, asyncio.CancelledError):
                 pass
 
         # Cancelar tareas pendientes
@@ -172,7 +172,7 @@ class BackgroundTaskManager:
                     asyncio.gather(*pending_tasks, return_exceptions=True),
                     timeout=timeout,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(
                     "task_manager.shutdown_timeout",
                     remaining=len(self._tasks),
@@ -290,7 +290,7 @@ class BackgroundTaskManager:
                 # Esperar tarea con timeout para poder verificar shutdown
                 try:
                     task_id, coro, config = await asyncio.wait_for(self._queue.get(), timeout=1.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
 
                 # Procesar con semáforo de concurrencia
@@ -343,8 +343,8 @@ class BackgroundTaskManager:
 
                 return
 
-            except asyncio.TimeoutError:
-                last_error = asyncio.TimeoutError(f"Task timed out after {config.timeout_seconds}s")
+            except TimeoutError:
+                last_error = TimeoutError(f"Task timed out after {config.timeout_seconds}s")
                 task_info.error = str(last_error)
 
                 if attempt <= config.max_retries:

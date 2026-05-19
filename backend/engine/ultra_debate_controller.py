@@ -1,6 +1,19 @@
 """
-Synapse Council v2.2 - UltraDebateController
-Orquestador de alta densidad con cruce recursivo y agentes multinodo.
+Synapse Council — Ultra Debate Controller
+==========================================
+Motor de debate de alta carga para sesiones con 12+ agentes y 4+ etapas.
+
+Diferencias respecto al Sequential Controller:
+- Fases multiples con puntos de sincronizacion
+- Cruzamiento de argumentos entre grupos (Master + Worker)
+- Soporte para veredicto paralelo de magistrados
+- Context Sliding Window automatico (turnos antiguos resumidos, recientes completos)
+- Busqueda web preliminar con DuckDuckGo + Trafilatura
+
+Uso:
+    from backend.engine.ultra_debate_controller import UltraDebateController
+    controller = UltraDebateController()
+    session_id = await controller.create_ultra_debate(topic, config)
 """
 
 import asyncio
@@ -381,15 +394,44 @@ class UltraDebateController:
             return session_id
 
     def _build_stage_context(self, session: DebateSession) -> str:
-        """Construye el resumen del debate para la siguiente etapa"""
+        """Construye el resumen del debate para la siguiente etapa con sliding window.
+
+        Turnos recientes se incluyen completos, turnos antiguos se resumen
+        para evitar context blowup en debates con muchos agentes.
+        """
         if not session.turns:
             return "Inicio del debate."
 
+        SLIDING_WINDOW_RECENT = 6  # Ultimos 6 turnos en detalle
+        SLIDING_WINDOW_MAX_CHARS = 1500  # Max chars por turno antiguo resumido
+
         lines = []
-        for t in session.turns:
-            lines.append(f"--- INTERVENCION DE {t.agent.name} ({t.agent.model}) ---")
-            lines.append(t.response_received[:2000])  # Evitar context blowup
+        total = len(session.turns)
+
+        if total <= SLIDING_WINDOW_RECENT:
+            # Todos caben en la ventana, incluir completos (truncados a 2000)
+            for t in session.turns:
+                lines.append(f"--- INTERVENCION DE {t.agent.name} ({t.agent.model}) ---")
+                lines.append(t.response_received[:2000])
+                lines.append("")
+        else:
+            # Turnos antiguos: resumen compacto
+            old_turns = session.turns[: total - SLIDING_WINDOW_RECENT]
+            lines.append(f"=== RESUMEN DE {len(old_turns)} INTERVENCIONES ANTERIORES (contexto comprimido) ===")
+            for t in old_turns:
+                text = t.response_received[:SLIDING_WINDOW_MAX_CHARS]
+                # Extraer primera oracion como resumen
+                first_sentence = text.split(".")[0] + "." if "." in text else text[:200]
+                lines.append(f"[{t.agent.name}/{t.agent.model}] {first_sentence}")
             lines.append("")
+
+            # Turnos recientes: detalle completo
+            lines.append("=== INTERVENCIONES RECIENTES (detalle completo) ===")
+            for t in session.turns[total - SLIDING_WINDOW_RECENT :]:
+                lines.append(f"--- INTERVENCION DE {t.agent.name} ({t.agent.model}) ---")
+                lines.append(t.response_received[:2000])
+                lines.append("")
+
         return "\n".join(lines)
 
     def _get_dynamic_system_prompt(self, agent: AgentConfig, stage_name: str, stage_idx: int) -> str:

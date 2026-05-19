@@ -6,7 +6,6 @@ Pydantic Settings para validación de variables de entorno
 import json
 import socket
 from functools import lru_cache
-from typing import Union
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -168,7 +167,7 @@ class Settings(BaseSettings):
     # ─── Servidor ─────────────────────────────────────────────
     HOST: str = "0.0.0.0"  # nosec B104 - Required for multi-node communication
     PORT: int = 8000
-    CORS_ORIGINS: Union[str, list[str]] = (
+    CORS_ORIGINS: str | list[str] = (
         "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177,http://localhost:5178,http://localhost:5179,http://localhost:5180,http://localhost:8080"
     )
     LOG_LEVEL: str = "INFO"
@@ -307,7 +306,7 @@ class Settings(BaseSettings):
         return engine_defaults.get(engine.lower(), self.OLLAMA_TIMEOUT_SECONDS)
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Obtiene configuración cacheada (singleton)"""
     return Settings()

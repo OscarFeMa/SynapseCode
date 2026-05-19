@@ -110,7 +110,7 @@ async def lifespan(app: FastAPI):
                     try:
                         r = await asyncio.wait_for(worker_service_manager.launch_service_rdp(name), timeout=5)
                         logger.info(f"worker.{name}_launch_result", success=r.get("success"))
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         logger.warning(f"worker.{name}_launch_timeout")
                 else:
                     logger.info(f"worker.{name}_already_running")
@@ -261,7 +261,7 @@ async def get_project_doc(doc_name: str):
     path = doc_map.get(doc_name.lower())
     if not path or not os.path.exists(path):
         raise HTTPException(status_code=404, detail=f"Document '{doc_name}' not found")
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return PlainTextResponse(content=f.read(), media_type="text/markdown; charset=utf-8")
 
 

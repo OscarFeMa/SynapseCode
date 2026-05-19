@@ -50,7 +50,7 @@ class HybridMemoryV2:
             try:
                 # Esperar a que se procese la cola actual
                 await asyncio.wait_for(self._queue.join(), timeout=timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("hybrid_memory_v2.stop_timeout", pending=self._queue.qsize())
 
             self._task.cancel()
@@ -120,7 +120,7 @@ class HybridMemoryV2:
                     self._queue.task_done()
                     await self._update_queue_gauge()
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Normal, continuar loop
                 continue
             except asyncio.CancelledError:

@@ -173,6 +173,6 @@ class TestDataWarehouse:
             "ANALYTICS_QUERIES.md",
         )
         assert os.path.exists(doc_path)
-        with open(doc_path, "r", encoding="utf-8") as f:
+        with open(doc_path, encoding="utf-8") as f:
             content = f.read()
         assert "SELECT" in content or "sql" in content.lower()

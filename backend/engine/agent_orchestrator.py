@@ -394,7 +394,7 @@ class AgentOrchestrator:
                 role=config.role_label,
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             agent_call.status = "TIMEOUT"
             agent_call.error_message = "Request timeout"
             agent_call.completed_at = datetime.utcnow()
