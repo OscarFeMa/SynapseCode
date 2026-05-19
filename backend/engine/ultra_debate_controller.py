@@ -1,19 +1,18 @@
 """
 Synapse Council — Ultra Debate Controller
 ==========================================
-Motor de debate de alta carga para sesiones con 12+ agentes y 4+ etapas.
+Motor de debate de alta carga para sesiones con 12+ agentes y 4+ rondas.
 
 Diferencias respecto al Sequential Controller:
-- Fases multiples con puntos de sincronizacion
-- Cruzamiento de argumentos entre grupos (Master + Worker)
+- Fases múltiples con puntos de sincronización
+- Cruzamiento de argumentos entre grupos
 - Soporte para veredicto paralelo de magistrados
-- Context Sliding Window automatico (turnos antiguos resumidos, recientes completos)
-- Busqueda web preliminar con DuckDuckGo + Trafilatura
+- Context Sliding Window automático (ver ContextWindowManager)
 
 Uso:
     from backend.engine.ultra_debate_controller import UltraDebateController
     controller = UltraDebateController()
-    session_id = await controller.create_ultra_debate(topic, config)
+    session = await controller.create_ultra_debate(topic, config)
 """
 
 import asyncio

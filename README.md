@@ -51,6 +51,11 @@ Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.43) eje
 - **Reducción al Absurdo**: Eliminación de sesgos de complacencia
 - **Taxonomía de Intervenciones**: Clasificación de actos discursivos
 
+| Controlador | Agentes | Fases | Cruzamiento | Gestión Contexto |
+|---|---|---|---|---|
+| **Sequential** | 4-6 | Lineal | Limitado | Completo |
+| **Ultra (v2.9)** | 12+ | Múltiples con sincro | Master+Worker | Context Sliding Window |
+
 ### Tribunal de Magistrados
 - **3 Roles Especializados**: Defensor, Fiscal, Árbitro
 - **Fallback Chains**: Si un modelo falla, usa el siguiente automáticamente
