@@ -10,6 +10,7 @@ from datetime import datetime
 import structlog
 
 from backend.api.websocket import websocket_manager
+from backend.config import get_settings
 from backend.database.local_db import AsyncSessionLocal
 from backend.database.models import SequentialDebate, SequentialDebateTurn
 from backend.engine.agent_orchestrator import AgentConfig, AgentOrchestrator
@@ -20,8 +21,10 @@ from backend.engine.debate_models import (
     DebateTurn,
 )
 from backend.engine.tribunal import TribunalCouncil
+from backend.engine.web_search_service import get_web_search_service
 
 logger = structlog.get_logger()
+settings = get_settings()
 
 
 class UltraDebateController:
@@ -121,6 +124,31 @@ class UltraDebateController:
 
         logger.info("ultra_debate.start", session_id=session_id, topic=topic)
 
+        # Lanzar busqueda web al inicio del debate para enriquecer contexto
+        if settings.WEB_AGENT_ENABLED:
+            try:
+                logger.info("ultra_debate.web_search_starting", session_id=session_id)
+                web_search = get_web_search_service()
+                web_ctx = await web_search.search_for_debate(topic, timeout_per_site=90)
+                session.web_context = web_ctx.to_dict()
+                logger.info(
+                    "ultra_debate.web_search_completed",
+                    session_id=session_id,
+                    sites=len(web_ctx.searches),
+                )
+
+                # Guardar web_context en la base de datos
+                try:
+                    async with AsyncSessionLocal() as db_session:
+                        db_debate = await db_session.get(SequentialDebate, session_id)
+                        if db_debate:
+                            db_debate.web_context = web_ctx.to_dict()
+                            await db_session.commit()
+                except Exception as e:
+                    logger.warning("ultra_debate.web_context_db_failed", error=str(e))
+            except Exception as e:
+                logger.warning("ultra_debate.web_search_failed", error=str(e))
+
         try:
             async with AsyncSessionLocal():
                 for stage_idx, stage in enumerate(self.stages):
@@ -169,8 +197,30 @@ class UltraDebateController:
                     tasks = []
                     for agent_cfg in stage["agents"]:
                         system_prompt = self._get_dynamic_system_prompt(agent_cfg, stage["name"], stage_idx)
+
+                        # Inyectar contexto web si esta disponible
+                        web_context_block = ""
+                        if session.web_context:
+                            try:
+                                from backend.engine.web_search_service import WebContext
+
+                                web_ctx = WebContext.from_dict(session.web_context)
+                                if web_ctx.searches:
+                                    lines = [f"## Informacion Actualizada (Busqueda Web)"]
+                                    lines.append("Resultados de busquedas web en tiempo real sobre el tema:")
+                                    lines.append("")
+                                    for result in web_ctx.searches:
+                                        if result.success:
+                                            lines.append(f"### {result.site_label}")
+                                            lines.append(result.response[:2000])
+                                            lines.append("")
+                                    web_context_block = "\n".join(lines)
+                                    web_context_block = f"\n\n{web_context_block}\n"
+                            except Exception:
+                                pass
+
                         user_prompt = (
-                            f"Tema: {topic}\n\nContexto del debate hasta ahora:\n{context}\n\nTu tarea: {stage['name']}"
+                            f"Tema: {topic}{web_context_block}\nContexto del debate hasta ahora:\n{context}\n\nTu tarea: {stage['name']}"
                         )
                         tasks.append(call_with_own_session(agent_cfg, system_prompt, user_prompt))
 
@@ -380,6 +430,7 @@ class UltraDebateController:
                     total_latency_ms=sum(t.latency_ms for t in session.turns),
                     final_verdict=session.final_verdict,
                     structured_report=session.tribunal_verdict,
+                    web_context=session.web_context,
                     created_at=session.created_at,
                     completed_at=session.completed_at,
                 )
