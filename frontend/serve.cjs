@@ -18,37 +18,43 @@ const mimeTypes = {
   '.woff2': 'font/woff2',
 }
 
-http.createServer((req, res) => {
-  // Strip query string
-  const urlPath = req.url.split('?')[0]
-  let filePath = path.join(dist, urlPath)
-
-  // If file doesn't exist and it's not a static asset, serve index.html (SPA fallback)
+function serveFile(filePath, res) {
   const ext = path.extname(filePath)
-  if (!fs.existsSync(filePath) && !ext) {
-    filePath = path.join(dist, 'index.html')
-  }
-
-  const contentType = mimeTypes[path.extname(filePath)] || 'text/plain'
-
+  const contentType = mimeTypes[ext] || 'text/plain'
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      // Final fallback
-      const fallback = path.join(dist, 'index.html')
-      fs.readFile(fallback, (err2, data2) => {
-        if (err2) {
-          res.writeHead(404)
-          res.end('Not found')
-        } else {
-          res.writeHead(200, { 'Content-Type': 'text/html' })
-          res.end(data2)
-        }
-      })
+      res.writeHead(404)
+      res.end('Not found')
     } else {
       res.writeHead(200, { 'Content-Type': contentType })
       res.end(data)
     }
   })
+}
+
+http.createServer((req, res) => {
+  const urlPath = req.url.split('?')[0]
+
+  // /app/* → servir desde dist/ (React SPA build)
+  if (urlPath.startsWith('/app')) {
+    const appPath = urlPath.replace('/app', '') || '/index.html'
+    const filePath = path.join(__dirname, 'dist', appPath)
+    if (!fs.existsSync(filePath) || !path.extname(filePath)) {
+      return serveFile(path.join(__dirname, 'dist', 'index.html'), res)
+    }
+    return serveFile(filePath, res)
+  }
+
+  // / → landing page
+  const webPath = path.join(__dirname, 'web', urlPath === '/' ? 'index.html' : urlPath)
+  if (fs.existsSync(webPath) && fs.statSync(webPath).isFile()) {
+    return serveFile(webPath, res)
+  }
+
+  // Fallback → landing
+  serveFile(path.join(__dirname, 'web', 'index.html'), res)
 }).listen(port, '0.0.0.0', () => {
   console.log(`Serving SynapseCode on http://localhost:${port}`)
+  console.log(`Landing page: http://localhost:${port}/`)
+  console.log(`React App: http://localhost:${port}/app/`)
 })

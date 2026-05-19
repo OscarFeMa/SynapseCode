@@ -87,9 +87,17 @@ function HistoryPageLegacy() {
   )
 }
 
+const IS_DEMO = !import.meta.env.VITE_API_BASE_URL
+
 function App() {
   return (
     <Router>
+      {IS_DEMO && (
+        <div className="bg-[#23403B] text-[#F5F3EE] p-2 text-center text-sm font-medium">
+          ⚠️ Modo demo — asegúrate de tener el backend local corriendo en localhost:8000.
+          <a href="https://github.com/OscarFeMa/SynapseCode#quickstart" target="_blank" rel="noreferrer" className="underline ml-2 hover:text-white transition-colors">Ver instrucciones</a>
+        </div>
+      )}
       <Routes>
         {/* Legacy routes - still work */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
