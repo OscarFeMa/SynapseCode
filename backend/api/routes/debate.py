@@ -1386,29 +1386,45 @@ async def export_debate_txt(session_id: str):
         if not debate_data:
             raise HTTPException(status_code=404, detail="Debate not found")
         from backend.engine.debate_models import AgentRole, DebateAgent, DebateSession, DebateTurn
+
         turns = []
         for t in debate_data.get("turns", []):
             if t.get("status", "").startswith("completed"):
                 agent = DebateAgent(
-                    id=t.get("agent_id", ""), name=t.get("agent_name", ""),
-                    role=AgentRole(t.get("agent_role", "analyst")), node=t.get("node", "LOCAL"),
-                    engine=t.get("engine", "ollama"), model=t.get("model", ""), provider=t.get("provider", ""),
+                    id=t.get("agent_id", ""),
+                    name=t.get("agent_name", ""),
+                    role=AgentRole(t.get("agent_role", "analyst")),
+                    node=t.get("node", "LOCAL"),
+                    engine=t.get("engine", "ollama"),
+                    model=t.get("model", ""),
+                    provider=t.get("provider", ""),
                 )
-                turns.append(DebateTurn(
-                    turn_number=t.get("turn_number", 0), agent=agent,
-                    response_received=t.get("response_received", ""), tokens_in=t.get("tokens_in", 0),
-                    tokens_out=t.get("tokens_out", 0), latency_ms=t.get("latency_ms", 0),
-                    status=t.get("status", "completed"), started_at=t.get("started_at"), completed_at=t.get("completed_at"),
-                ))
+                turns.append(
+                    DebateTurn(
+                        turn_number=t.get("turn_number", 0),
+                        agent=agent,
+                        response_received=t.get("response_received", ""),
+                        tokens_in=t.get("tokens_in", 0),
+                        tokens_out=t.get("tokens_out", 0),
+                        latency_ms=t.get("latency_ms", 0),
+                        status=t.get("status", "completed"),
+                        started_at=t.get("started_at"),
+                        completed_at=t.get("completed_at"),
+                    )
+                )
         session = DebateSession(
-            id=session_id, topic=debate_data.get("topic", ""), status=debate_data.get("status", "completed"),
-            turns=turns, final_verdict=debate_data.get("final_verdict"),
-            created_at=debate_data.get("created_at"), completed_at=debate_data.get("completed_at"),
+            id=session_id,
+            topic=debate_data.get("topic", ""),
+            status=debate_data.get("status", "completed"),
+            turns=turns,
+            final_verdict=debate_data.get("final_verdict"),
+            created_at=debate_data.get("created_at"),
+            completed_at=debate_data.get("completed_at"),
         )
 
     lines = []
     lines.append("=" * 80)
-    lines.append(f"SYNAPSE DEBATE REPORT")
+    lines.append("SYNAPSE DEBATE REPORT")
     lines.append("=" * 80)
     lines.append(f"Topic: {session.topic}")
     lines.append(f"Date: {session.created_at.strftime('%d/%m/%Y %H:%M') if session.created_at else 'N/A'}")

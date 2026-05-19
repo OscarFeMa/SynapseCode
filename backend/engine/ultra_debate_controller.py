@@ -206,7 +206,7 @@ class UltraDebateController:
 
                                 web_ctx = WebContext.from_dict(session.web_context)
                                 if web_ctx.searches:
-                                    lines = [f"## Informacion Actualizada (Busqueda Web)"]
+                                    lines = ["## Informacion Actualizada (Busqueda Web)"]
                                     lines.append("Resultados de busquedas web en tiempo real sobre el tema:")
                                     lines.append("")
                                     for result in web_ctx.searches:
@@ -219,9 +219,7 @@ class UltraDebateController:
                             except Exception:
                                 pass
 
-                        user_prompt = (
-                            f"Tema: {topic}{web_context_block}\nContexto del debate hasta ahora:\n{context}\n\nTu tarea: {stage['name']}"
-                        )
+                        user_prompt = f"Tema: {topic}{web_context_block}\nContexto del debate hasta ahora:\n{context}\n\nTu tarea: {stage['name']}"
                         tasks.append(call_with_own_session(agent_cfg, system_prompt, user_prompt))
 
                     results = await asyncio.gather(*tasks, return_exceptions=True)
