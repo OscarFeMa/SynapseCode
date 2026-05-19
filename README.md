@@ -1,21 +1,23 @@
-# 🧠 SynapseCode v2.8
+# 🧠 SynapseCode v2.9
 
 Plataforma de **razonamiento colectivo híbrido** que orquesta múltiples modelos de IA en debates estructurados por roles, con veredicto del **Tribunal de Magistrados**.
 
 Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.43) ejecuta modelos locales.
 
+**Diseño Editorial**: Background `#F5F3EE` (cream paper), Accent `#23403B` (petroleum green), Typography `Instrument Serif` + `Inter`.
+
 ---
 
 ## 🎯 Características Principales
 
-### Control Center v2.8
+### Control Center v2.9
 - **Panel Web Completo**: 6 pestañas — Command, Launcher, Metrics, Tribunal, Models, History
 - **Zero Dependencies**: Vanilla JS puro, sin build, sin node_modules
 - **Estado en Tiempo Real**: Polling automático cada 10s
 - **Conexión Master ↔ Worker**: Detección automática de IP, heartbeat monitoring
 - **Monitor de Servicios**: Ollama, LM Studio, Jan con auto-lanzamiento
 - **Panel de Bases de Datos**: SQLite local + Supabase Cloud con sync status
-- **Diseño Neural Terminal**: Dark mode, grid de circuito, animaciones CSS
+- **Diseño Editorial**: Light theme con petroleum green accent, Instrument Serif + Inter
 
 ### Búsqueda Web en Tiempo Real
 - **DuckDuckGo Search** (`ddgs`): Resultados reales sin API key
@@ -100,7 +102,7 @@ Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.43) eje
 
 ### Backend
 ```bash
-cd D:\proyectos\SynapseCode
+cd D:\proyectos\Synapse
 
 # 1. Crear entorno virtual (primera vez)
 python -m venv venv
@@ -112,21 +114,23 @@ python -m venv venv
 copy .env.example .env
 
 # 4. Iniciar backend
-run_backend.bat
+start_backend.bat
 # o manualmente:
 set PYTHONPATH=.
 .\venv\Scripts\python.exe -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
-### Control Center
+### Admin Panel
 ```bash
-# Opción 1: Script
-open_control_center.bat
+# El backend sirve el panel en /admin automáticamente
+# Abrir http://localhost:8000/admin
+```
 
-# Opción 2: Manual
-cd frontend\control-center
-python -m http.server 8080
-# Abrir http://localhost:8080
+### React SPA (Development)
+```bash
+cd frontend
+npm run dev
+# Abrir http://localhost:5173
 ```
 
 ### Verificar
@@ -400,7 +404,7 @@ SynapseCode/
 ## 🧪 Tests
 
 ```bash
-cd D:\proyectos\SynapseCode
+cd D:\proyectos\Synapse
 .\venv\Scripts\python -m pytest backend/tests/ -v
 ```
 
@@ -414,4 +418,4 @@ MIT
 
 ---
 
-*SynapseCode v2.8 · OscarFeMa · Mayo 2026 · [synapsecode.org](https://synapsecode.org)*
+*SynapseCode v2.9 · OscarFeMa · Mayo 2026 · [synapsecode.org](https://synapsecode.org)*
