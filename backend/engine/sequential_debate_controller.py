@@ -1279,11 +1279,13 @@ DEBATE:
 INSTRUCCIONES CRÍTICAS:
 1. RESPONDE ÚNICAMENTE CON UN OBJETO JSON VÁLIDO
 2. NO incluyas texto antes o después del JSON
-3. NO uses bloques de código ```json```
-4. El JSON debe tener esta estructura exacta:
+3. NO uses bloques de código markdown (```json o ```)
+4. Usa comillas dobles para todas las claves y strings
+5. NO uses comas trailing (último elemento sin coma)
+6. El JSON debe tener esta estructura exacta:
 {{
   "summary": "Resumen de 2 párrafos",
-  "consensus_level": 0-100 (int),
+  "consensus_level": 0-100,
   "key_findings": ["punto 1", "punto 2"],
   "risks_identified": ["riesgo 1"],
   "action_items": ["acción 1"]
@@ -1313,6 +1315,34 @@ JSON:"""
                 )
                 return report_data
 
+            # Si falla el parsing, intentar reparar con enfoque más agresivo
+            logger.warning(
+                "sequential_debate.structured_report.parsing_failed_retrying",
+                session_id=session_id,
+                response_preview=response_text[:300],
+            )
+
+            # Intentar extraer cualquier JSON válido del texto
+            import re
+
+            # Buscar el bloque JSON más grande posible
+            json_candidates = re.findall(r"\{[\s\S]*\}", response_text)
+            for candidate in sorted(json_candidates, key=len, reverse=True):
+                # Limpiar y reparar
+                cleaned = candidate.strip()
+                cleaned = re.sub(r",\s*([}\]])", r"\1", cleaned)  # Comas trailing
+                cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", cleaned)  # Caracteres de control
+                try:
+                    report_data = json.loads(cleaned)
+                    report_data["generated_by"] = "llama3:8b_repaired"
+                    logger.info(
+                        "sequential_debate.structured_report.repaired_successfully",
+                        session_id=session_id,
+                    )
+                    return report_data
+                except json.JSONDecodeError:
+                    continue
+
             logger.warning(
                 "sequential_debate.structured_report.no_json_found",
                 session_id=session_id,
@@ -1329,52 +1359,105 @@ JSON:"""
 
     def _extract_json_from_llm_response(self, text: str) -> dict | None:
         """
-        Extrae JSON de respuestas LLM que pueden contener:
+        Extrae JSON de respuestas LLM con múltiples estrategias de recuperación.
+
+        Maneja:
         - JSON puro
-        - JSON dentro de ```json ... ```
-        - JSON dentro de ``` ... ```
-        - JSON precedido por texto explicativo
+        - JSON dentro de ```json ... ``` o ``` ... ```
+        - JSON precedido/sucedido por texto explicativo
+        - Comas trailing, comillas simples, caracteres de escape
         """
         import re
 
-        # Estrategia 1: JSON puro
-        text_stripped = text.strip()
-        if text_stripped.startswith("{") and text_stripped.endswith("}"):
-            try:
-                return json.loads(text_stripped)
-            except json.JSONDecodeError:
-                pass
+        if not text or not text.strip():
+            return None
 
-        # Estrategia 2: Bloque ```json ... ```
+        # Pre-limpieza: quitar BOM, caracteres invisibles
+        text = text.strip().lstrip("\ufeff").strip()
+
+        def try_parse(json_str: str) -> dict | None:
+            """Intenta parsear JSON con reparaciones comunes"""
+            if not json_str or not json_str.strip():
+                return None
+
+            cleaned = json_str.strip()
+
+            # Reparación 1: Comas trailing antes de } o ]
+            cleaned = re.sub(r",\s*([}\]])", r"\1", cleaned)
+
+            # Reparación 2: Comillas simples por dobles (solo si no hay dobles dentro)
+            if "'" in cleaned and '"' not in cleaned:
+                cleaned = cleaned.replace("'", '"')
+
+            # Reparación 3: Quitar caracteres de control no válidos
+            cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", cleaned)
+
+            # Reparación 4: Asegurar que empieza con { y termina con }
+            brace_start = cleaned.find("{")
+            brace_end = cleaned.rfind("}")
+            if brace_start != -1 and brace_end > brace_start:
+                cleaned = cleaned[brace_start : brace_end + 1]
+
+            try:
+                return json.loads(cleaned)
+            except json.JSONDecodeError as e:
+                logger.debug("sequential_debate.json_parse_failed", error=str(e), snippet=cleaned[:200])
+                return None
+
+        # Estrategia 1: Bloque ```json ... ``` (más específico primero)
         match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
         if match:
-            try:
-                return json.loads(match.group(1))
-            except json.JSONDecodeError:
-                pass
+            result = try_parse(match.group(1))
+            if result:
+                return result
 
-        # Estrategia 3: Bloque ``` ... ``` genérico
+        # Estrategia 2: Bloque ``` ... ``` genérico
         match = re.search(r"```\s*([\s\S]*?)\s*```", text)
         if match:
-            try:
-                return json.loads(match.group(1))
-            except json.JSONDecodeError:
-                pass
+            result = try_parse(match.group(1))
+            if result:
+                return result
+
+        # Estrategia 3: JSON puro (empieza con { y termina con })
+        if text.startswith("{") and text.endswith("}"):
+            result = try_parse(text)
+            if result:
+                return result
 
         # Estrategia 4: Encontrar el primer { ... } balanceado
         brace_start = text.find("{")
         if brace_start != -1:
             depth = 0
-            for i, ch in enumerate(text[brace_start:], brace_start):
-                if ch == "{":
-                    depth += 1
-                elif ch == "}":
-                    depth -= 1
-                    if depth == 0:
-                        try:
-                            return json.loads(text[brace_start : i + 1])
-                        except json.JSONDecodeError:
+            in_string = False
+            escape_next = False
+            for i in range(brace_start, len(text)):
+                ch = text[i]
+                if escape_next:
+                    escape_next = False
+                    continue
+                if ch == "\\":
+                    escape_next = True
+                    continue
+                if ch == '"':
+                    in_string = not in_string
+                    continue
+                if not in_string:
+                    if ch == "{":
+                        depth += 1
+                    elif ch == "}":
+                        depth -= 1
+                        if depth == 0:
+                            result = try_parse(text[brace_start : i + 1])
+                            if result:
+                                return result
                             break
+
+        # Estrategia 5: Buscar cualquier objeto JSON en el texto (último recurso)
+        matches = re.findall(r"\{[^{}]*\}", text)
+        for m in reversed(matches):  # Intentar desde el más grande
+            result = try_parse(m)
+            if result:
+                return result
 
         return None
 
