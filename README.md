@@ -1,4 +1,4 @@
-# 🧠 SynapseCode v2.9
+# 🧠 SynapseCode v3.0
 
 Plataforma de **razonamiento colectivo híbrido** que orquesta múltiples modelos de IA en debates estructurados por roles, con veredicto del **Tribunal de Magistrados**.
 
@@ -54,7 +54,7 @@ Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.43) eje
 | Controlador | Agentes | Fases | Cruzamiento | Gestión Contexto |
 |---|---|---|---|---|
 | **Sequential** | 4-6 | Lineal | Limitado | Completo |
-| **Ultra (v2.9)** | 12+ | Múltiples con sincro | Master+Worker | Context Sliding Window |
+| **Ultra (v3.0)** | 12+ | Múltiples con sincro | Master+Worker | Context Sliding Window |
 
 ### Tribunal de Magistrados
 - **3 Roles Especializados**: Defensor, Fiscal, Árbitro
