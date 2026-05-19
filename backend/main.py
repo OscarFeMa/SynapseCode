@@ -251,6 +251,20 @@ async def all_debates_panel():
     return HTMLResponse("<h1>All debates view no encontrado</h1>", status_code=404)
 
 
+@app.get("/api/v1/docs/{doc_name}", include_in_schema=False)
+async def get_project_doc(doc_name: str):
+    """Sirve documentos del proyecto (README, HISTORY) como markdown"""
+    doc_map = {
+        "readme": os.path.join(os.path.dirname(__file__), "..", "README.md"),
+        "history": os.path.join(os.path.dirname(__file__), "..", "HISTORY.md"),
+    }
+    path = doc_map.get(doc_name.lower())
+    if not path or not os.path.exists(path):
+        raise HTTPException(status_code=404, detail=f"Document '{doc_name}' not found")
+    with open(path, "r", encoding="utf-8") as f:
+        return PlainTextResponse(content=f.read(), media_type="text/markdown; charset=utf-8")
+
+
 if __name__ == "__main__":
     import uvicorn
 
