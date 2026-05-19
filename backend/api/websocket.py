@@ -315,7 +315,7 @@ async def handle_websocket(websocket: WebSocket, session_id: str):
             # Recibir mensajes del cliente (comandos, heartbeat, etc.) con timeout
             try:
                 data = await asyncio.wait_for(websocket.receive_text(), timeout=300.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("websocket.timeout_closing", session_id=session_id)
                 break
 

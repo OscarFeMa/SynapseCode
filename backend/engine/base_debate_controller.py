@@ -461,7 +461,7 @@ class BaseDebateController(ABC):
         """Lee transcript desde archivo"""
         import aiofiles
 
-        async with aiofiles.open(path, "r", encoding="utf-8") as f:
+        async with aiofiles.open(path, encoding="utf-8") as f:
             content = await f.read()
             import json
 

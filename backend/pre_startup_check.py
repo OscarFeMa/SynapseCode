@@ -51,7 +51,7 @@ async def check_rdp():
             transport.close()
             print(f"    [OK] RDP: Conexion exitosa a {ip}:3389")
             return True
-        except (asyncio.TimeoutError, ConnectionRefusedError, OSError):
+        except (TimeoutError, ConnectionRefusedError, OSError):
             print(f"    [ERROR] RDP: Puerto 3389 cerrado en {ip}. ¿Esta el Worker encendido?")
             return False
 

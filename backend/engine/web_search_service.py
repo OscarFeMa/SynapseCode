@@ -172,7 +172,7 @@ class WebSearchService:
                     response=response,
                     success=True,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("web_search.timeout", site=site)
                 return WebSearchResult(
                     site=site,

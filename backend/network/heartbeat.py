@@ -127,7 +127,7 @@ class HeartbeatManager:
                         daemon=True,
                     ).start()
 
-                except socket.timeout:
+                except TimeoutError:
                     # Verificar timeout de heartbeat
                     if self.last_heartbeat:
                         elapsed = (datetime.now() - self.last_heartbeat).total_seconds()
@@ -167,7 +167,7 @@ class HeartbeatManager:
                     except json.JSONDecodeError:
                         logger.warning("Mensaje heartbeat inválido")
 
-                except socket.timeout:
+                except TimeoutError:
                     break
 
         except Exception as e:

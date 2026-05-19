@@ -89,7 +89,7 @@ class WorkerServiceManager:
             writer.close()
             await writer.wait_closed()
             return True
-        except (OSError, asyncio.TimeoutError, ConnectionRefusedError):
+        except (TimeoutError, OSError, ConnectionRefusedError):
             return False
 
     async def check_http_health(self, base_url: str, timeout: float = 3.0) -> bool:
@@ -305,7 +305,7 @@ class WorkerServiceManager:
                         "service": service_name,
                         "action": "launched_via_rdp",
                     }
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 rdp_result = {"success": False, "error": "timeout"}
         else:
             rdp_result = {"success": False, "error": "RDP disabled"}

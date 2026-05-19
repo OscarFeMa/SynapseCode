@@ -976,7 +976,7 @@ class SequentialDebateController:
 
         try:
             await asyncio.wait_for(_generate_tokens(), timeout=timeout_seconds)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(
                 "sequential_debate.local_agent_timeout",
                 model=agent.model,
@@ -1093,7 +1093,7 @@ class SequentialDebateController:
 
         try:
             await asyncio.wait_for(_run_cloud_request(), timeout=timeout_seconds)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(
                 "sequential_debate.cloud_agent_timeout",
                 model=agent.model,
