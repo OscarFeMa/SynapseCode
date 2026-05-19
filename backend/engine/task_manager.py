@@ -24,6 +24,7 @@ from enum import Enum
 from typing import Any, Optional
 
 import structlog
+import contextlib
 
 logger = structlog.get_logger()
 
@@ -156,10 +157,8 @@ class BackgroundTaskManager:
         # Cancelar worker
         if self._worker_task and not self._worker_task.done():
             self._worker_task.cancel()
-            try:
+            with contextlib.suppress(TimeoutError, asyncio.CancelledError):
                 await asyncio.wait_for(self._worker_task, timeout=1.0)
-            except (TimeoutError, asyncio.CancelledError):
-                pass
 
         # Cancelar tareas pendientes
         pending_tasks = list(self._tasks.values())

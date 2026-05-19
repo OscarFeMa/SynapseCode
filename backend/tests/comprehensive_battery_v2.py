@@ -258,10 +258,7 @@ api_tests = [
 
 for label, path, expected, desc in api_tests:
     try:
-        if "POST" in label:
-            r = client.post(path, json={})
-        else:
-            r = client.get(path)
+        r = client.post(path, json={}) if "POST" in label else client.get(path)
 
         if r.status_code == expected:
             record("API", label, "passed", f"status={r.status_code} ({desc})")

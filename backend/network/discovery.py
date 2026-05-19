@@ -14,6 +14,7 @@ from typing import Any
 import structlog
 
 from backend.config import get_settings
+import contextlib
 
 logger = structlog.get_logger()
 settings = get_settings()
@@ -235,10 +236,8 @@ class NodeDiscoverer:
         self.is_running = False
         if self._broadcast_task:
             self._broadcast_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._broadcast_task
-            except asyncio.CancelledError:
-                pass
 
         if self._transport:
             self._transport.close()

@@ -2622,7 +2622,7 @@ JSON:"""
 
         previous_model = None
 
-        for idx, agent_config in enumerate(agents_config, 1):
+        for _idx, agent_config in enumerate(agents_config, 1):
             # Liberar modelo anterior
             if previous_model and agent_config.node == "LOCAL" and agent_config.engine == "ollama":
                 try:

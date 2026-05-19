@@ -338,10 +338,7 @@ FORMATO DE RESPUESTA:
     ) -> str:
         """Construye prompt para síntesis de nodo incluyendo el objetivo original"""
 
-        if node == "LOCAL":
-            template = cls.SYNTHESIS_LOCAL
-        else:
-            template = cls.SYNTHESIS_CLOUD
+        template = cls.SYNTHESIS_LOCAL if node == "LOCAL" else cls.SYNTHESIS_CLOUD
 
         # Formatear análisis y críticas
         analyses_text = "\n\n".join([f"### Análisis de {name}:\n{content}" for name, content in analyses.items()])

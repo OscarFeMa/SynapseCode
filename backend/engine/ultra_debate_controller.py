@@ -264,7 +264,7 @@ class UltraDebateController:
                     results = valid_results
 
                     # Guardar turnos en la sesión (para contexto acumulado)
-                    for agent_cfg, result in zip(stage["agents"], results):
+                    for agent_cfg, result in zip(stage["agents"], results, strict=False):
                         # Mapear rol basado en el nombre del agente o etapa
                         role = AgentRole.ANALYST
                         if "proposer" in agent_cfg.slot:

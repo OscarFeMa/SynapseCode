@@ -79,7 +79,7 @@ class ModelEvaluator:
             arena_score = entry.get("arena_rating", entry.get("score", 0))
 
             # Buscar modelo en registry por nombre similar
-            for model_id, spec in self.registry._models.items():
+            for spec in self.registry._models.values():
                 if self._names_match(model_name, spec.name):
                     spec.lmsys_rank = int(arena_score) if arena_score else 0
                     break
@@ -104,10 +104,7 @@ class ModelEvaluator:
             return True
         if "qwen" in lmsys_lower and "qwen" in spec_lower:
             return True
-        if "mistral" in lmsys_lower and "mistral" in spec_lower:
-            return True
-
-        return False
+        return bool("mistral" in lmsys_lower and "mistral" in spec_lower)
 
     def _get_fallback_lmsys_rankings(self) -> dict[str, dict]:
         """

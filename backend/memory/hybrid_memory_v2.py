@@ -19,6 +19,7 @@ from backend.monitoring.prometheus import (
     set_supabase_sync_queue_size,
 )
 from backend.services.supabase_sync import get_supabase_service
+import contextlib
 
 logger = structlog.get_logger()
 
@@ -54,10 +55,8 @@ class HybridMemoryV2:
                 logger.warning("hybrid_memory_v2.stop_timeout", pending=self._queue.qsize())
 
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
 
             logger.info("hybrid_memory_v2.stopped", stats=self._stats)
 

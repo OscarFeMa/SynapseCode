@@ -979,7 +979,7 @@ def _generate_bar_chart_svg(labels: list[str], data: list[int], colors: list[str
     padding_bottom = 60
 
     bars = ""
-    for i, (label, val, color) in enumerate(zip(labels, data, colors)):
+    for i, (label, val, color) in enumerate(zip(labels, data, colors, strict=False)):
         x = 20 + i * (bar_width + gap)
         bar_height = (val / max_val) * (chart_height - padding_top - padding_bottom) if max_val > 0 else 0
         y = chart_height - padding_bottom - bar_height
@@ -1024,7 +1024,7 @@ def _generate_line_chart_svg(labels: list[str], data: list[int], color: str, tit
 
     dots = ""
     labels_svg = ""
-    for i, ((x, y), label) in enumerate(zip(points, labels)):
+    for i, ((x, y), label) in enumerate(zip(points, labels, strict=False)):
         dots += f'<circle cx="{x}" cy="{y}" r="5" fill="{color}" stroke="#fff" stroke-width="2"/>'
         dots += f'<text x="{x}" y="{y - 12}" text-anchor="middle" fill="#f1f5f9" font-size="11" font-weight="600">{data[i]}ms</text>'
         labels_svg += f'<text x="{x}" y="{chart_height - 10}" text-anchor="middle" fill="#94a3b8" font-size="9">{label[:15]}</text>'
@@ -1053,7 +1053,7 @@ def _generate_bar_chart_svg_light(labels: list[str], data: list[int], colors: li
     padding_left = 30
 
     bars = ""
-    for i, (label, val, color) in enumerate(zip(labels, data, colors)):
+    for i, (label, val, color) in enumerate(zip(labels, data, colors, strict=False)):
         x = padding_left + i * (bar_width + gap)
         bar_height = (val / max_val) * (chart_height - padding_top - padding_bottom) if max_val > 0 else 0
         y = chart_height - padding_bottom - bar_height
@@ -1117,7 +1117,7 @@ def _generate_line_chart_svg_light(labels: list[str], data: list[int], color: st
 
     dots = ""
     labels_svg = ""
-    for i, ((x, y), label) in enumerate(zip(points, labels)):
+    for i, ((x, y), label) in enumerate(zip(points, labels, strict=False)):
         dots += f'<circle cx="{x}" cy="{y}" r="4" fill="{color}" stroke="#fff" stroke-width="2"/>'
         dots += f'<text x="{x}" y="{y - 10}" text-anchor="middle" fill="#1e293b" font-size="9" font-weight="600">{data[i]}ms</text>'
         labels_svg += f'<text x="{x}" y="{chart_height - 8}" text-anchor="middle" fill="#64748b" font-size="8">{label[:12]}</text>'

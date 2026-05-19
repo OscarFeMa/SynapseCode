@@ -15,6 +15,7 @@ import structlog
 
 from backend.adapters.http_client_manager import ClientConfig, HTTPClientManager
 from backend.config import get_settings
+import contextlib
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -187,10 +188,8 @@ class SQLiteBackupService:
         finally:
             # Limpiar archivo temporal
             if backup_path and Path(backup_path).exists():
-                try:
+                with contextlib.suppress(OSError):
                     os.remove(backup_path)
-                except OSError:
-                    pass
 
     async def list_backups(self, limit: int = 20) -> list[dict[str, Any]]:
         """

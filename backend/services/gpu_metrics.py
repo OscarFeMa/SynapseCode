@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any
 
 import structlog
+import contextlib
 
 logger = structlog.get_logger()
 
@@ -92,10 +93,8 @@ class GPUMetricsCollector:
 
             # Parse processes (simplified - just memory usage)
             if proc_mem and proc_mem != "N/A":
-                try:
+                with contextlib.suppress(ValueError):
                     metrics.processes = [{"gpu_memory_mb": float(proc_mem)}]
-                except ValueError:
-                    pass
 
             # Add to history
             self._history.append(metrics)

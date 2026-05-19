@@ -255,10 +255,7 @@ class ConvergenceEvaluator:
                     start = match.start()
                     rest = text[start:]
                     next_section = rest.find("\n##", 10)
-                    if next_section == -1:
-                        section_content = rest
-                    else:
-                        section_content = rest[:next_section]
+                    section_content = rest if next_section == -1 else rest[:next_section]
 
                     if len(section_content) > 20:
                         dissent.append(section_content[:200].strip())

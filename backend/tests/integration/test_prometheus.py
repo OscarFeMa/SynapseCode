@@ -25,16 +25,16 @@ class TestPrometheusMetrics:
         try:
             record_debate_completed(total_tokens_out=500, total_latency_ms=3000, mode="standard")
         except Exception as e:
-            assert False, f"record_debate_completed raised: {e}"
+            raise AssertionError(f"record_debate_completed raised: {e}")
 
     def test_prometheus_cache_hit_recording(self):
         try:
             record_prompt_cache_hit("deterministic")
         except Exception as e:
-            assert False, f"record_prompt_cache_hit raised: {e}"
+            raise AssertionError(f"record_prompt_cache_hit raised: {e}")
 
     def test_prometheus_report_cache_hit_recording(self):
         try:
             record_debate_report_cache_hit("memory")
         except Exception as e:
-            assert False, f"record_debate_report_cache_hit raised: {e}"
+            raise AssertionError(f"record_debate_report_cache_hit raised: {e}")
