@@ -82,6 +82,10 @@
   /* Loading */
   .loading { color:#6B6560; font-style:italic; }
 
+  /* Live indicator */
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  .live-dot { animation: pulse 1.5s infinite; }
+
   /* Section headings */
   h2 { font-family:'Instrument Serif',serif; color:#23403B; font-size:1.5rem; font-weight:400; font-style:italic; margin-bottom:20px; }
   h3 { font-family:'Instrument Serif',serif; color:#23403B; }
@@ -102,7 +106,7 @@
 <div class="container">
   <nav>
     <a class="active" onclick="showTab('dashboard')">📊 Dashboard</a>
-    <a onclick="showTab('debates')">📋 Debates</a>
+    <a onclick="showTab('debates')">📋 Debates<span id="active-count" style="display:none;background:#23403B;color:white;font-size:0.65rem;padding:1px 6px;border-radius:8px;margin-left:4px">0</span></a>
     <a onclick="showTab('new-debate')">➕ Nuevo Debate</a>
     <a onclick="showTab('worker')">🤖 Worker</a>
     <a onclick="showTab('health')">🩺 Diagnóstico</a>
@@ -254,7 +258,14 @@
 
 <script>
 const API = '';
+const WS_BASE = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host;
 let logBuffer = [];
+let ws = null;
+let wsReconnectTimer = null;
+let activeDebatePoller = null;
+let liveDebateSid = null;
+let liveDebatePoller = null;
+let activeDebateIds = new Set();
 
 function $(id) { return document.getElementById(id); }
 function showTab(name) {
@@ -280,7 +291,12 @@ function showDebateSub(name) {
   event.target.classList.add('active');
   document.getElementById('debate-history').style.display = name === 'history' ? '' : 'none';
   document.getElementById('debate-active').style.display = name === 'active' ? '' : 'none';
-  if (name === 'active') refreshActiveDebates();
+  if (name === 'active') {
+    refreshActiveDebates();
+    startActiveDebatePolling();
+  } else {
+    stopActiveDebatePolling();
+  }
 }
 
 async function api(method, path, data) {
@@ -353,48 +369,145 @@ async function refreshDebates() {
   refreshActiveDebates();
 }
 
-async function refreshActiveDebates() {
-  const h = await api('GET','/api/v1/debates/list');
-  if (h.status !== 200) return;
-  const sessions = h.data.sessions || [];
-  document.getElementById('active-tbody').innerHTML = sessions.map(s =>
-    `<tr><td>${(s.topic||'').slice(0,50)}</td>
-    <td>${badge(s.status)}</td>
-    <td>${s.turns_completed||0}/${s.total_turns||'?'}</td>
-    <td>local_only</td>
-    <td><button class="btn btn-sm btn-primary" onclick="showDebateDetail('${s.session_id}')">Ver</button></td></tr>`
-  ).join('');
+// ─── WEBSOCKET ──────────────────────────────────
+function connectWebSocket() {
+  if (ws) { ws.close(); ws = null; }
+  const url = WS_BASE + '/ws/sessions/default?token=';
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    log('info', 'WebSocket conectado');
+    if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+  };
+
+  ws.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      const type = msg.type || msg.event || '';
+      if (type.includes('token') || type.includes('turn') || type.includes('stage') || type.includes('phase')) {
+        if (liveDebateSid) refreshLiveDebate();
+      }
+      if (type.includes('completed') || type.includes('error')) {
+        if (liveDebateSid) refreshLiveDebate();
+        refreshActiveDebates();
+      }
+    } catch(e) {}
+  };
+
+  ws.onclose = () => {
+    log('warn', 'WebSocket desconectado, reconectando en 3s...');
+    wsReconnectTimer = setTimeout(connectWebSocket, 3000);
+  };
+
+  ws.onerror = () => { ws.close(); };
+}
+
+// ─── LIVE DEBATE DETAIL ─────────────────────────
+async function refreshLiveDebate() {
+  if (!liveDebateSid) return;
+  const div = document.getElementById('debate-detail');
+  if (div.style.display === 'none') return;
+
+  const m = await api('GET', `/api/v1/debates/${liveDebateSid}`);
+  if (m.status !== 200) return;
+  const session = m.data;
+
+  let html = `<h3 style="color:#23403B">${session.topic}</h3>
+  <div style="margin:8px 0">
+    <span class="badge ${session.status==='completed'?'ok':session.status==='running'?'warn':'err'}">${session.status}</span>
+    <span style="color:#6B6560;margin-left:12px">Tokens: ${(session.total_tokens_out||0).toLocaleString()} | Tiempo: ${((session.total_latency_ms||0)/1000).toFixed(1)}s</span>
+    ${session.status==='running' ? '<span style="color:#23403B;margin-left:8px;font-size:0.75rem">● EN VIVO</span>' : ''}
+  </div>`;
+
+  if (session.final_verdict) {
+    html += `<div style="background:#F5F3EE;padding:12px;border-radius:6px;margin:8px 0"><strong>Veredicto:</strong><br>${session.final_verdict.slice(0,500)}</div>`;
+  }
+
+  (session.turns||[]).forEach(t => {
+    html += `<div class="turn"><div class="meta">Turno ${t.turn_number} | ${t.agent_name} (${t.agent_role}) | ${t.model} | ${(t.tokens_out||0)} tokens | ${(t.latency_ms||0)}ms</div>
+    <div class="text">${(t.response_received||t.response||'').substring(0,500)}</div></div>`;
+  });
+
+  div.innerHTML = html;
 }
 
 async function showDebateDetail(sid) {
   const div = document.getElementById('debate-detail');
   div.style.display = 'block';
+  liveDebateSid = sid;
   div.innerHTML = '<div class="loading">Cargando...</div>';
-  
-  // Try memory first, then DB
-  let session = null;
-  const m = await api('GET',`/api/v1/debates/${sid}`);
-  if (m.status === 200) session = m.data;
-  
-  if (!session) {
+
+  const m = await api('GET', `/api/v1/debates/${sid}`);
+  if (m.status !== 200) {
     div.innerHTML = '<div class="err">Debate no encontrado</div>';
     return;
   }
-  
+
+  const session = m.data;
   let html = `<h3 style="color:#23403B">${session.topic}</h3>
-  <div style="margin:8px 0"><span class="badge ${session.status==='completed'?'ok':'warn'}">${session.status}</span>
-  <span style="color:#6B6560;margin-left:12px">Tokens: ${(session.total_tokens_out||0).toLocaleString()} | Tiempo: ${((session.total_latency_ms||0)/1000).toFixed(1)}s</span></div>`;
-  
+  <div style="margin:8px 0">
+    <span class="badge ${session.status==='completed'?'ok':session.status==='running'?'warn':'err'}">${session.status}</span>
+    <span style="color:#6B6560;margin-left:12px">Tokens: ${(session.total_tokens_out||0).toLocaleString()} | Tiempo: ${((session.total_latency_ms||0)/1000).toFixed(1)}s</span>
+    ${session.status==='running' ? '<span style="color:#23403B;margin-left:8px;font-size:0.75rem">● EN VIVO</span>' : ''}
+  </div>`;
+
   if (session.final_verdict) {
     html += `<div style="background:#F5F3EE;padding:12px;border-radius:6px;margin:8px 0"><strong>Veredicto:</strong><br>${session.final_verdict.slice(0,500)}</div>`;
   }
-  
+
   (session.turns||[]).forEach(t => {
     html += `<div class="turn"><div class="meta">Turno ${t.turn_number} | ${t.agent_name} (${t.agent_role}) | ${t.model} | ${(t.tokens_out||0)} tokens | ${(t.latency_ms||0)}ms</div>
-    <div class="text">${(t.response_received||t.response||'').substring(0,300)}</div></div>`;
+    <div class="text">${(t.response_received||t.response||'').substring(0,500)}</div></div>`;
   });
-  
+
   div.innerHTML = html;
+
+  if (session.status === 'running') {
+    if (liveDebatePoller) clearInterval(liveDebatePoller);
+    liveDebatePoller = setInterval(refreshLiveDebate, 2000);
+  }
+}
+
+// ─── ACTIVE DEBATES AUTO-REFRESH ────────────────
+async function refreshActiveDebates() {
+  const h = await api('GET', '/api/v1/debates/list');
+  if (h.status !== 200) return;
+  const sessions = h.data.sessions || [];
+
+  const prevCount = activeDebateIds.size;
+  activeDebateIds = new Set(sessions.map(s => s.session_id));
+
+  const badge = document.getElementById('active-count');
+  if (sessions.length > 0) {
+    badge.style.display = 'inline';
+    badge.textContent = sessions.length;
+  } else {
+    badge.style.display = 'none';
+  }
+
+  if (sessions.length === 0) {
+    document.getElementById('active-tbody').innerHTML = '<tr><td colspan="5" style="color:#6B6560;text-align:center;padding:20px">No hay debates activos</td></tr>';
+    return;
+  }
+
+  document.getElementById('active-tbody').innerHTML = sessions.map(s =>
+    `<tr><td class="clickable" onclick="showDebateDetail('${s.session_id}')">${(s.topic||'').slice(0,50)}</td>
+    <td>${badge(s.status)}</td>
+    <td>${s.turns_completed||0}/${s.total_turns||'?'}</td>
+    <td style="color:#6B6560;font-size:0.8rem">${s.mode||'local_only'}</td>
+    <td><button class="btn btn-sm btn-primary" onclick="showDebateDetail('${s.session_id}')">Ver</button></td></tr>`
+  ).join('');
+}
+
+function startActiveDebatePolling() {
+  if (activeDebatePoller) clearInterval(activeDebatePoller);
+  activeDebatePoller = setInterval(refreshActiveDebates, 3000);
+}
+
+function stopActiveDebatePolling() {
+  if (activeDebatePoller) { clearInterval(activeDebatePoller); activeDebatePoller = null; }
+  if (liveDebatePoller) { clearInterval(liveDebatePoller); liveDebatePoller = null; }
+  liveDebateSid = null;
 }
 
 // ─── NUEVO DEBATE ──────────────────────────────
@@ -410,10 +523,11 @@ async function startDebate() {
     const sid = r.data.session_id;
     result.innerHTML = `<span style="color:#23403B">✅ Debate creado</span><br>
     <small>ID: ${sid}<br>
-    <a href="#" onclick="showDebateDetail('${sid}');return false">Ver detalle</a> |
+    <a href="#" onclick="showDebateDetail('${sid}');return false">Ver detalle en vivo</a> |
     <a href="/api/v1/debates/${sid}/export/json" target="_blank">Exportar JSON</a> |
     <a href="/api/v1/debates/${sid}/report" target="_blank">Reporte</a></small>`;
     log('info',`Debate ${sid.slice(0,8)} creado: "${topic.slice(0,50)}"`);
+    refreshActiveDebates();
   } else {
     result.innerHTML = `<span style="color:#8B2E2E">❌ Error: ${JSON.stringify(r.data)}</span>`;
   }
@@ -623,8 +737,13 @@ updateClock();
 refreshDashboard();
 refreshWorker();
 refreshMetrics();
+refreshActiveDebates();
 setInterval(refreshDashboard, 5000);
 setInterval(refreshWorker, 10000);
+startActiveDebatePolling();
+
+// WebSocket for real-time events
+connectWebSocket();
 
 log('info','Synapse Control Center iniciado');
 log('info','Conectando al servidor...');
