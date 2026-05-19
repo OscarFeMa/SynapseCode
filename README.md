@@ -105,7 +105,7 @@ Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.43) eje
 
 ### Backend
 ```bash
-cd D:\proyectos\Synapse
+cd <ruta-a-SynapseCode>
 
 # 1. Crear entorno virtual (primera vez)
 python -m venv venv
@@ -413,7 +413,7 @@ SynapseCode/
 ## 🧪 Tests
 
 ```bash
-cd D:\proyectos\Synapse
+cd <ruta-a-SynapseCode>
 .\venv\Scripts\python -m pytest backend/tests/ -v
 ```
 
