@@ -1,4 +1,4 @@
-# 📜 Historia de Desarrollo - Synapse Council v2.8
+# 📜 Historia de Desarrollo - Synapse Council v2.9
 
 ## Resumen del Proyecto
 
@@ -7,6 +7,25 @@ Synapse Council es una plataforma de razonamiento colectivo híbrido que orquest
 ---
 
 ## 🗓️ Línea Temporal de Desarrollo
+
+### **Fase 10: Unificación Visual Editorial (Completada - v2.9)**
+
+#### Mayo 19, 2026: Admin Panel Rediseño + SPA Routing + Backend Endpoints
+- ✅ **Admin Panel `/admin` rediseñado**: De dark theme (`#0f172a`) a diseño editorial light
+  - Background `#F5F3EE` (cream paper), Accent `#23403B` (petroleum green)
+  - Tipografía `Instrument Serif` (headings) + `Inter` (body) desde Google Fonts
+  - Cards blancas con bordes sutiles, badges con colores pastel
+  - Botones en verde petróleo, estados con colores suaves
+  - Todas las 8 pestañas unificadas: Dashboard, Debates, Nuevo Debate, Worker, Diagnóstico, Logs, Métricas, Configuración
+- ✅ **SPA Routing fix**: `serve.cjs` ahora maneja client-side routing con fallback a `index.html`
+- ✅ **Backend endpoints nuevos**:
+  - `GET /circuit-breakers/status` - Estado de circuit breakers
+  - `GET /model-registry/models` - Lista de modelos registrados
+  - `POST /api-keys/{service}` - Alias para actualizar API keys
+- ✅ **Process management**: `start_backend.bat` para lanzar backend como proceso persistente
+- ✅ **API field mapping normalized**: `topic` ↔ `title`/`query`, `session_id` ↔ `id`, status uppercase
+- ✅ **Circuit breakers**: Exposed via API y manejados graceful en frontend
+- ✅ **React SPA**: 19 componentes rediseñados con tema editorial (Dashboard, Debates, Monitor, etc.)
 
 ### **Fase 9: Asignación Inteligente de Modelos (Completada - v2.8)**
 
@@ -424,8 +443,8 @@ POST /api/v1/debate/consensus/create
 
 ---
 
-**Versión actual:** v2.8.0  
-**Última actualización:** 2026-05-18  
+**Versión actual:** v2.9.0  
+**Última actualización:** 2026-05-19  
 **Repositorio:** https://github.com/OscarFeMa/SynapseCode  
 **Web:** https://synapsecode.org  
 **Estado:** Production Ready ✅
