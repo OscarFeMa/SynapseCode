@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synapse - Todos los Debates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',system-ui,sans-serif; background:#F5F3EE; color:#1a1a1a; }
+  header { background:#FFFFFF; padding:10px 20px; display:flex; align-items:center; gap:16px; border-bottom:1px solid #E0DDD7; }
+  h1 { font-family:'Instrument Serif',serif; color:#23403B; font-size:1.2rem; font-weight:400; font-style:italic; }
+  .badge { font-size:0.65rem; padding:2px 8px; border-radius:3px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; }
+  .ok { background:#D4E6D9; color:#23403B; }
+  .err { background:#E8D5D5; color:#8B2E2E; }
+  .warn { background:#E8DFC8; color:#6B5A2E; }
+  .skip { background:#E0DDD7; color:#6B6560; }
+
+  .container { max-width:1100px; margin:0 auto; padding:16px; }
+
+  /* Toolbar */
+  .toolbar { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  .toolbar input { flex:1; min-width:200px; padding:8px 12px; border:1px solid #D0CDC7; border-radius:4px; font-size:0.85rem; font-family:'Inter',sans-serif; }
+  .toolbar input:focus { outline:none; border-color:#23403B; }
+  .toolbar select { padding:8px 12px; border:1px solid #D0CDC7; border-radius:4px; font-size:0.85rem; background:#FFFFFF; }
+  .toolbar .count { color:#6B6560; font-size:0.75rem; }
+
+  /* Debate cards */
+  .debate-card { background:#FFFFFF; border:1px solid #E0DDD7; border-radius:6px; margin-bottom:8px; overflow:hidden; }
+  .debate-card-header { display:flex; align-items:center; padding:12px 16px; cursor:pointer; gap:12px; }
+  .debate-card-header:hover { background:#FAF9F6; }
+  .debate-card-header .topic { flex:1; font-weight:500; font-size:0.9rem; color:#1a1a1a; }
+  .debate-card-header .meta { color:#6B6560; font-size:0.7rem; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .debate-card-header .arrow { transition:transform 0.2s; font-size:0.8rem; color:#6B6560; }
+  .debate-card.open .arrow { transform:rotate(90deg); }
+  .debate-card-body { display:none; padding:16px; border-top:1px solid #E0DDD7; }
+  .debate-card.open .debate-card-body { display:block; }
+
+  /* Turns */
+  .turn { padding:10px 14px; margin:6px 0; background:#F5F3EE; border-radius:4px; border-left:3px solid #23403B; }
+  .turn.failed { border-left-color:#8B2E2E; background:#FDF5F5; }
+  .turn .meta { color:#6B6560; font-size:0.65rem; margin-bottom:4px; display:flex; gap:6px; flex-wrap:wrap; }
+  .turn .meta strong { color:#23403B; }
+  .turn .text { white-space:pre-wrap; font-size:0.78rem; line-height:1.5; color:#1a1a1a; }
+  .turn .text.collapsed { max-height:80px; overflow:hidden; position:relative; }
+  .turn .text.collapsed::after { content:''; position:absolute; bottom:0; left:0; right:0; height:35px; background:linear-gradient(transparent,#F5F3EE); }
+  .turn .expand-text { color:#23403B; font-size:0.7rem; cursor:pointer; font-weight:500; margin-top:3px; }
+
+  /* Verdict */
+  .verdict { background:#F5F3EE; padding:12px; border-radius:6px; margin-top:10px; border:1px solid #E0DDD7; }
+  .verdict h4 { color:#23403B; margin-bottom:6px; font-size:0.8rem; }
+  .verdict .text { white-space:pre-wrap; font-size:0.78rem; line-height:1.5; }
+
+  /* Export row */
+  .export-row { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+
+  /* Buttons */
+  .btn { padding:6px 14px; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem; font-weight:600; font-family:'Inter',sans-serif; }
+  .btn-primary { background:#23403B; color:#FFFFFF; }
+  .btn-primary:hover { background:#1A302C; }
+  .btn-sm { padding:4px 10px; font-size:0.7rem; }
+
+  /* Live */
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  .live-dot { animation:pulse 1.5s infinite; color:#23403B; font-size:0.7rem; font-weight:600; }
+  .loading { color:#6B6560; font-style:italic; }
+
+  /* Pagination */
+  .pagination { display:flex; justify-content:center; gap:6px; margin-top:16px; }
+  .pagination button { padding:6px 12px; border:1px solid #D0CDC7; background:#FFFFFF; border-radius:4px; cursor:pointer; font-size:0.75rem; }
+  .pagination button.active { background:#23403B; color:#FFFFFF; border-color:#23403B; }
+  .pagination button:disabled { opacity:0.4; cursor:default; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📂 Synapse - Todos los Debates</h1>
+  <span style="flex:1"></span>
+  <span id="total-count" style="color:#6B6560;font-size:0.8rem"></span>
+  <button class="btn btn-primary btn-sm" onclick="window.close()">✕ Cerrar</button>
+</header>
+
+<div class="container">
+  <div class="toolbar">
+    <input id="search-input" placeholder="Buscar por tema..." oninput="filterDebates()">
+    <select id="filter-status" onchange="filterDebates()">
+      <option value="all">Todos los estados</option>
+      <option value="completed">Completados</option>
+      <option value="running">En vivo</option>
+      <option value="error">Error</option>
+    </select>
+    <select id="sort-by" onchange="filterDebates()">
+      <option value="newest">Más recientes</option>
+      <option value="oldest">Más antiguos</option>
+      <option value="tokens">Más tokens</option>
+    </select>
+    <span class="count" id="filtered-count"></span>
+  </div>
+
+  <div id="debate-list"></div>
+  <div class="pagination" id="pagination"></div>
+</div>
+
+<script>
+const API = '';
+let allDebates = [];
+let filteredDebates = [];
+let expandedSid = null;
+let expandedPoller = null;
+const PAGE_SIZE = 20;
+let currentPage = 0;
+
+async function api(method, path, data) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (data) opts.body = JSON.stringify(data);
+  const r = await fetch(API + path, opts);
+  const text = await r.text();
+  try { return { status: r.status, data: JSON.parse(text) }; }
+  catch { return { status: r.status, data: text }; }
+}
+
+function badge(s) {
+  if (!s) return '<span class="badge err">unknown</span>';
+  const map = { 'healthy':'ok','online':'ok','running':'ok','available':'ok','alive':'ok','completed':'ok',
+    'error':'err','unavailable':'err','offline':'err','failed':'err',
+    'warning':'warn','degraded':'warn','skipped':'skip','stopped':'skip','unconfigured':'skip' };
+  return `<span class="badge ${map[s]||'err'}">${s}</span>`;
+}
+
+async function loadDebates() {
+  const h = await api('GET','/api/v1/debates/history/list');
+  if (h.status !== 200) return;
+  allDebates = h.data.sessions || [];
+  $('total-count').textContent = `${allDebates.length} debates`;
+  filterDebates();
+}
+
+function filterDebates() {
+  const search = $('search-input').value.toLowerCase();
+  const status = $('filter-status').value;
+  const sort = $('sort-by').value;
+
+  filteredDebates = allDebates.filter(s => {
+    if (search && !(s.topic||'').toLowerCase().includes(search)) return false;
+    if (status !== 'all' && s.status !== status) return false;
+    return true;
+  });
+
+  if (sort === 'newest') filteredDebates.sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
+  else if (sort === 'oldest') filteredDebates.sort((a,b) => (a.created_at||'').localeCompare(b.created_at||''));
+  else if (sort === 'tokens') filteredDebates.sort((a,b) => (b.total_tokens_out||0) - (a.total_tokens_out||0));
+
+  $('filtered-count').textContent = `${filteredDebates.length} resultados`;
+  currentPage = 0;
+  renderPage();
+}
+
+function renderPage() {
+  const start = currentPage * PAGE_SIZE;
+  const page = filteredDebates.slice(start, start + PAGE_SIZE);
+  const totalPages = Math.ceil(filteredDebates.length / PAGE_SIZE);
+
+  const list = $('debate-list');
+  if (filteredDebates.length === 0) {
+    list.innerHTML = '<div style="color:#6B6560;text-align:center;padding:40px">No se encontraron debates</div>';
+    $('pagination').innerHTML = '';
+    return;
+  }
+
+  list.innerHTML = page.map(s => {
+    const isRunning = s.status === 'running';
+    const date = (s.created_at||'').slice(0,10);
+    const time = (s.created_at||'').slice(11,16);
+    const tokens = (s.total_tokens_out||0).toLocaleString();
+    const turns = s.total_turns||0;
+    return `<div class="debate-card ${expandedSid===s.id?'open':''}" id="card-${s.id}">
+      <div class="debate-card-header" onclick="toggleCard('${s.id}')">
+        <span class="arrow">▶</span>
+        <span class="topic">${s.topic||'Sin tema'}</span>
+        <span class="meta">
+          ${isRunning ? '<span class="live-dot">● EN VIVO</span>' : ''}
+          ${badge(s.status)}
+          <span>${turns} turnos</span>
+          <span>${tokens} tok</span>
+          <span>${s.mode||'-'}</span>
+          <span>${date} ${time}</span>
+        </span>
+      </div>
+      <div class="debate-card-body" id="body-${s.id}"></div>
+    </div>`;
+  }).join('');
+
+  // Pagination
+  let pagHtml = `<button onclick="goPage(${currentPage-1})" ${currentPage===0?'disabled':''}>← Anterior</button>`;
+  for (let i = 0; i < totalPages; i++) {
+    if (i === 0 || i === totalPages-1 || Math.abs(i - currentPage) <= 2) {
+      pagHtml += `<button class="${i===currentPage?'active':''}" onclick="goPage(${i})">${i+1}</button>`;
+    } else if (Math.abs(i - currentPage) === 3) {
+      pagHtml += `<button disabled>...</button>`;
+    }
+  }
+  pagHtml += `<button onclick="goPage(${currentPage+1})" ${currentPage>=totalPages-1?'disabled':''}>Siguiente →</button>`;
+  $('pagination').innerHTML = pagHtml;
+
+  if (expandedSid) renderExpanded(expandedSid);
+}
+
+function goPage(p) {
+  const totalPages = Math.ceil(filteredDebates.length / PAGE_SIZE);
+  if (p < 0 || p >= totalPages) return;
+  currentPage = p;
+  renderPage();
+  window.scrollTo(0, 0);
+}
+
+async function toggleCard(sid) {
+  if (expandedSid === sid) {
+    expandedSid = null;
+    if (expandedPoller) { clearInterval(expandedPoller); expandedPoller = null; }
+    document.getElementById('card-' + sid)?.classList.remove('open');
+    document.getElementById('body-' + sid).innerHTML = '';
+    return;
+  }
+  if (expandedSid) {
+    document.getElementById('card-' + expandedSid)?.classList.remove('open');
+    document.getElementById('body-' + expandedSid).innerHTML = '';
+    if (expandedPoller) { clearInterval(expandedPoller); expandedPoller = null; }
+  }
+  expandedSid = sid;
+  document.getElementById('card-' + sid)?.classList.add('open');
+  await renderExpanded(sid);
+}
+
+async function renderExpanded(sid) {
+  const body = document.getElementById('body-' + sid);
+  if (!body) return;
+  body.innerHTML = '<div class="loading">Cargando...</div>';
+
+  const activeCheck = await api('GET', '/api/v1/debates/list');
+  const isActive = activeCheck.status === 200 && (activeCheck.data.sessions || []).some(s => s.session_id === sid);
+
+  let session = null;
+  if (isActive) {
+    const m = await api('GET', `/api/v1/debates/${sid}`);
+    if (m.status === 200) session = m.data;
+  }
+  if (!session) {
+    const h = await api('GET', `/api/v1/debates/history/${sid}`);
+    if (h.status === 200) session = h.data;
+  }
+  if (!session) {
+    body.innerHTML = '<div style="color:#8B2E2E">Debate no encontrado</div>';
+    return;
+  }
+
+  const isRunning = session.status === 'running';
+  let html = `<div style="margin-bottom:10px">
+    ${badge(session.status)}
+    ${isRunning ? '<span class="live-dot" style="margin-left:6px">● EN VIVO</span>' : ''}
+    <span style="color:#6B6560;margin-left:10px;font-size:0.75rem">Tokens: ${(session.total_tokens_out||0).toLocaleString()} · Tiempo: ${((session.total_latency_ms||0)/1000).toFixed(1)}s · ${session.mode||''}</span>
+    <div class="export-row">
+      <button class="btn btn-sm btn-primary" onclick="exportDebate('${sid}','json')">📥 JSON</button>
+      <button class="btn btn-sm" style="background:#2D5A4E;color:white" onclick="exportDebate('${sid}','docx')">📥 DOCX</button>
+      <button class="btn btn-sm" style="background:#6B5A2E;color:white" onclick="exportDebate('${sid}','pdf')">📥 PDF</button>
+      <button class="btn btn-sm" style="background:#4A4A4A;color:white" onclick="exportDebate('${sid}','txt')">📥 TXT</button>
+    </div>
+  </div>`;
+
+  const turns = session.turns || [];
+  if (turns.length > 0) {
+    html += '<div style="font-size:0.7rem;color:#6B6560;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Secuencia de intervenciones</div>';
+    turns.forEach(t => {
+      const isFailed = t.status === 'FAILED';
+      const text = (t.response_received || t.response || '').substring(0, 800);
+      const needsExpand = (t.response_received || t.response || '').length > 800;
+      html += `<div class="turn ${isFailed?'failed':''}">
+        <div class="meta">
+          <strong>${t.agent_name || 'Agente'}</strong>
+          <span>${t.model||''}</span>
+          <span>${t.tokens_out||0} tok</span>
+          <span>${(t.latency_ms||0)}ms</span>
+          ${isFailed ? '<span style="color:#8B2E2E">FALLO</span>' : ''}
+        </div>
+        <div class="text ${needsExpand?'collapsed':''}">${text}</div>
+        ${needsExpand ? `<div class="expand-text" onclick="this.previousElementSibling.classList.remove('collapsed');this.style.display='none'">Mostrar completo</div>` : ''}
+      </div>`;
+    });
+  }
+
+  if (session.final_verdict) {
+    html += `<div class="verdict"><h4>Veredicto del Tribunal</h4><div class="text">${session.final_verdict.substring(0, 1200)}</div></div>`;
+  }
+
+  body.innerHTML = html;
+
+  if (isRunning) {
+    if (expandedPoller) clearInterval(expandedPoller);
+    expandedPoller = setInterval(() => {
+      if (expandedSid === sid) renderExpanded(sid);
+      else { clearInterval(expandedPoller); expandedPoller = null; }
+    }, 3000);
+  }
+}
+
+function exportDebate(sid, format) {
+  const map = {json:'export/json', docx:'export/docx', pdf:'export/pdf', txt:'export/txt'};
+  if (map[format]) {
+    window.open(`/api/v1/debates/${sid}/${map[format]}`, '_blank');
+  }
+}
+
+function $(id) { return document.getElementById(id); }
+
+// Auto-refresh for running debates
+setInterval(() => {
+  const hasRunning = allDebates.some(s => s.status === 'running');
+  if (hasRunning) loadDebates();
+}, 10000);
+
+loadDebates();
+</script>
+</body>
+</html>
