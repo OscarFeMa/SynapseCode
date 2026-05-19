@@ -15,7 +15,7 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 
@@ -211,16 +211,22 @@ logger.info("debug_router.enabled")
 
 
 @app.get("/")
-async def root():
-    """Endpoint raíz con información del sistema"""
+async def root(request: Request):
+    """Endpoint raíz: landing page para navegadores, JSON para APIs"""
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept or "*/*" in accept:
+        landing_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "web", "index.html")
+        if os.path.exists(landing_path):
+            return FileResponse(landing_path)
     return {
-        "name": "Synapse Council",
-        "version": "2.0.0",
+        "name": "SynapseCode",
+        "version": "3.0.0",
         "description": "Plataforma de razonamiento colectivo híbrido",
         "node_role": settings.NODE_ROLE,
         "docs": "/docs",
         "health": "/health",
         "admin": "/admin",
+        "landing": "/",
     }
 
 
@@ -231,15 +237,6 @@ async def prometheus_metrics():
         content=render_prometheus_metrics(),
         media_type="text/plain; version=0.0.4; charset=utf-8",
     )
-
-
-@app.get("/", include_in_schema=False)
-async def landing_page():
-    """Landing page pública de SynapseCode"""
-    landing_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "web", "index.html")
-    if os.path.exists(landing_path):
-        return FileResponse(landing_path)
-    return HTMLResponse("<h1>Landing page no encontrada</h1>", status_code=404)
 
 
 @app.get("/robots.txt", include_in_schema=False)
