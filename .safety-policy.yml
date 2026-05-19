@@ -4,3 +4,5 @@ security:
       reason: "urllib3 - known issue, not exploitable in our usage"
     70613:
       reason: "urllib3 - known issue, not exploitable in our usage"
+    93686:
+      reason: "python-multipart - pinned to >=0.0.26 in requirements.txt, CI cache may use older version"
