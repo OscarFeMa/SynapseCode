@@ -93,3 +93,8 @@ report_hybrid.*
 # ── Legacy/Deprecated ────────────────────────
 SynapseDashboard.py
 SynapseDashboard.spec
+
+# ── Docs eliminados en cleanup ────────────────
+REDUCTIO_ABSURDUM_INTEGRATION.md
+check_worker.py
+
