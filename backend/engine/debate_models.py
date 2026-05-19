@@ -22,6 +22,84 @@ SLIDING_WINDOW_KEEP_RECENT = 2  # Iteraciones recientes en detalle
 SLIDING_WINDOW_SUMMARY_CHARS = 500  # Max chars por iteracion resumida
 
 
+class ContextWindowManager:
+    """
+    Gestiona el contexto del debate aplicando una sliding window sobre
+    los turnos (``DebateTurn``) para evitar context blowup en debates
+    con muchos agentes o etapas.
+
+    Estrategia:
+    - Los ``recent_turns`` más recientes se incluyen con detalle completo.
+    - Los turnos anteriores se comprimen a una primera frase representativa.
+
+    Args:
+        recent_turns: Número de turnos recientes que se incluyen completos.
+        max_chars_per_old_turn: Máx. caracteres por turno antiguo (resumen).
+        max_chars_per_recent_turn: Máx. caracteres por turno reciente (detalle).
+
+    Example::
+
+        manager = ContextWindowManager(recent_turns=6)
+        context = manager.build_context(session.turns)
+    """
+
+    def __init__(
+        self,
+        recent_turns: int = 6,
+        max_chars_per_old_turn: int = 1500,
+        max_chars_per_recent_turn: int = 2000,
+    ) -> None:
+        self.recent_turns = recent_turns
+        self.max_chars_per_old_turn = max_chars_per_old_turn
+        self.max_chars_per_recent_turn = max_chars_per_recent_turn
+
+    def build_context(self, turns: "list[DebateTurn]") -> str:
+        """Devuelve el contexto formateado listo para inyectar en un prompt.
+
+        Args:
+            turns: Lista completa de ``DebateTurn`` de la sesión activa.
+
+        Returns:
+            String multilínea con el contexto comprimido/completo según la
+            posición de cada turno respecto a la ventana deslizante.
+        """
+        if not turns:
+            return "Inicio del debate."
+
+        total = len(turns)
+        lines: list[str] = []
+
+        if total <= self.recent_turns:
+            # Todos los turnos caben en la ventana — incluir completos
+            for t in turns:
+                lines.append(f"--- INTERVENCIÓN DE {t.agent.name} ({t.agent.model}) ---")
+                lines.append(t.response_received[: self.max_chars_per_recent_turn])
+                lines.append("")
+        else:
+            # Turnos antiguos: resumen compacto (primera frase significativa)
+            old_turns = turns[: total - self.recent_turns]
+            lines.append(
+                f"=== RESUMEN DE {len(old_turns)} INTERVENCIONES ANTERIORES"
+                " (contexto comprimido) ==="
+            )
+            for t in old_turns:
+                text = t.response_received[: self.max_chars_per_old_turn]
+                first_sentence = (
+                    text.split(".")[0] + "." if "." in text else text[:200]
+                )
+                lines.append(f"[{t.agent.name}/{t.agent.model}] {first_sentence}")
+            lines.append("")
+
+            # Turnos recientes: detalle completo
+            lines.append("=== INTERVENCIONES RECIENTES (detalle completo) ===")
+            for t in turns[total - self.recent_turns :]:
+                lines.append(f"--- INTERVENCIÓN DE {t.agent.name} ({t.agent.model}) ---")
+                lines.append(t.response_received[: self.max_chars_per_recent_turn])
+                lines.append("")
+
+        return "\n".join(lines)
+
+
 @dataclass
 class DebateAgent:
     """Configuracion de un agente en el debate"""

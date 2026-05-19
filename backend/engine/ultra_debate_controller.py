@@ -29,6 +29,7 @@ from backend.database.models import SequentialDebate, SequentialDebateTurn
 from backend.engine.agent_orchestrator import AgentConfig, AgentOrchestrator
 from backend.engine.debate_models import (
     AgentRole,
+    ContextWindowManager,
     DebateAgent,
     DebateSession,
     DebateTurn,
@@ -50,6 +51,11 @@ class UltraDebateController:
         self.orchestrator = AgentOrchestrator()
         self.tribunal = TribunalCouncil()
         self.active_sessions: dict[str, DebateSession] = {}
+        self.context_window_manager = ContextWindowManager(
+            recent_turns=6,
+            max_chars_per_old_turn=1500,
+            max_chars_per_recent_turn=2000,
+        )
 
     async def create_ultra_debate(self, topic: str) -> str:
         """Inicia un debate de ultra-alta densidad con ID autogenerado"""
@@ -394,45 +400,14 @@ class UltraDebateController:
             return session_id
 
     def _build_stage_context(self, session: DebateSession) -> str:
-        """Construye el resumen del debate para la siguiente etapa con sliding window.
+        """Construye el resumen del debate para la siguiente etapa.
 
-        Turnos recientes se incluyen completos, turnos antiguos se resumen
-        para evitar context blowup en debates con muchos agentes.
+        Delega en ``ContextWindowManager`` para aplicar una sliding window:
+        los turnos recientes se incluyen con detalle completo y los turnos
+        antiguos se comprimen en resúmenes de primera frase, evitando
+        context blowup en debates con muchos agentes o etapas.
         """
-        if not session.turns:
-            return "Inicio del debate."
-
-        SLIDING_WINDOW_RECENT = 6  # Ultimos 6 turnos en detalle
-        SLIDING_WINDOW_MAX_CHARS = 1500  # Max chars por turno antiguo resumido
-
-        lines = []
-        total = len(session.turns)
-
-        if total <= SLIDING_WINDOW_RECENT:
-            # Todos caben en la ventana, incluir completos (truncados a 2000)
-            for t in session.turns:
-                lines.append(f"--- INTERVENCION DE {t.agent.name} ({t.agent.model}) ---")
-                lines.append(t.response_received[:2000])
-                lines.append("")
-        else:
-            # Turnos antiguos: resumen compacto
-            old_turns = session.turns[: total - SLIDING_WINDOW_RECENT]
-            lines.append(f"=== RESUMEN DE {len(old_turns)} INTERVENCIONES ANTERIORES (contexto comprimido) ===")
-            for t in old_turns:
-                text = t.response_received[:SLIDING_WINDOW_MAX_CHARS]
-                # Extraer primera oracion como resumen
-                first_sentence = text.split(".")[0] + "." if "." in text else text[:200]
-                lines.append(f"[{t.agent.name}/{t.agent.model}] {first_sentence}")
-            lines.append("")
-
-            # Turnos recientes: detalle completo
-            lines.append("=== INTERVENCIONES RECIENTES (detalle completo) ===")
-            for t in session.turns[total - SLIDING_WINDOW_RECENT :]:
-                lines.append(f"--- INTERVENCION DE {t.agent.name} ({t.agent.model}) ---")
-                lines.append(t.response_received[:2000])
-                lines.append("")
-
-        return "\n".join(lines)
+        return self.context_window_manager.build_context(session.turns)
 
     def _get_dynamic_system_prompt(self, agent: AgentConfig, stage_name: str, stage_idx: int) -> str:
         """Genera el prompt de sistema dinámicamente"""
