@@ -92,7 +92,7 @@ function App() {
     <Router>
       <Routes>
         {/* Legacy routes - still work */}
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/session/:sessionId" element={<SessionPage />} />
         <Route path="/history" element={<AppLayout><HistoryPage /></AppLayout>} />
 
