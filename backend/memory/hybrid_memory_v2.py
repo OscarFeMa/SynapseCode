@@ -5,6 +5,7 @@ Si Supabase falla, el sistema continúa sin interrupciones.
 """
 
 import asyncio
+import contextlib
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -19,7 +20,6 @@ from backend.monitoring.prometheus import (
     set_supabase_sync_queue_size,
 )
 from backend.services.supabase_sync import get_supabase_service
-import contextlib
 
 logger = structlog.get_logger()
 

@@ -3,6 +3,7 @@ SynapseCode - SQLite Backup Service
 Automatic backup of SQLite database to Supabase Storage
 """
 
+import contextlib
 import os
 import shutil
 import tempfile
@@ -15,7 +16,6 @@ import structlog
 
 from backend.adapters.http_client_manager import ClientConfig, HTTPClientManager
 from backend.config import get_settings
-import contextlib
 
 settings = get_settings()
 logger = structlog.get_logger()

@@ -5,6 +5,7 @@ Reparado para funcionar en Windows con broadcast/multicast
 """
 
 import asyncio
+import contextlib
 import json
 import platform
 import socket
@@ -14,7 +15,6 @@ from typing import Any
 import structlog
 
 from backend.config import get_settings
-import contextlib
 
 logger = structlog.get_logger()
 settings = get_settings()

@@ -4,6 +4,7 @@ Cliente async para Ollama API (usa formato nativo, no OpenAI-compatible)
 """
 
 import asyncio
+import contextlib
 import json
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -13,7 +14,6 @@ import structlog
 
 from backend.adapters.http_client_manager import HTTPClientManager
 from backend.config import get_settings
-import contextlib
 
 logger = structlog.get_logger()
 

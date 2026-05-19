@@ -3,6 +3,7 @@ Synapse v2.8 - GPU Metrics Service
 Monitorea metricas GPU del Worker para dashboard y diagnostico.
 """
 
+import contextlib
 import platform
 import subprocess
 from dataclasses import dataclass, field
@@ -10,7 +11,6 @@ from datetime import datetime
 from typing import Any
 
 import structlog
-import contextlib
 
 logger = structlog.get_logger()
 

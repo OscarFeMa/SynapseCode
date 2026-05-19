@@ -16,6 +16,7 @@ Por:
 """
 
 import asyncio
+import contextlib
 import functools
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -24,7 +25,6 @@ from enum import Enum
 from typing import Any, Optional
 
 import structlog
-import contextlib
 
 logger = structlog.get_logger()
 
