@@ -233,6 +233,33 @@ async def prometheus_metrics():
     )
 
 
+@app.get("/", include_in_schema=False)
+async def landing_page():
+    """Landing page pública de SynapseCode"""
+    landing_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "web", "index.html")
+    if os.path.exists(landing_path):
+        return FileResponse(landing_path)
+    return HTMLResponse("<h1>Landing page no encontrada</h1>", status_code=404)
+
+
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt():
+    """Robots.txt para SEO"""
+    robots_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "web", "robots.txt")
+    if os.path.exists(robots_path):
+        return FileResponse(robots_path, media_type="text/plain")
+    return PlainTextResponse("User-agent: *\nAllow: /", media_type="text/plain")
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap_xml():
+    """Sitemap.xml para SEO"""
+    sitemap_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "web", "sitemap.xml")
+    if os.path.exists(sitemap_path):
+        return FileResponse(sitemap_path, media_type="application/xml")
+    return HTMLResponse("<h1>Sitemap no encontrado</h1>", status_code=404)
+
+
 @app.get("/admin", include_in_schema=False)
 async def admin_panel():
     """Panel de administración web"""
