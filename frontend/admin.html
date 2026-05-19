@@ -36,16 +36,28 @@
   .form-group { margin-bottom:16px; }
   .form-group label { display:block; color:#23403B; font-size:0.8rem; margin-bottom:6px; font-weight:600; }
   .form-group input, .form-group select, .form-group textarea {
-    width:100%; max-width:500px; padding:10px 14px; background:#FFFFFF; color:#1a1a1a;
+    width:100%; max-width:600px; padding:10px 14px; background:#FFFFFF; color:#1a1a1a;
     border:1px solid #D0CDC7; border-radius:4px; font-size:0.9rem; font-family:'Inter',sans-serif;
   }
   .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
     outline:none; border-color:#23403B; box-shadow:0 0 0 2px rgba(35,64,59,0.1);
   }
   .form-group textarea { height:80px; font-family:monospace; }
+  .form-row { display:flex; gap:16px; flex-wrap:wrap; }
+  .form-row .form-group { flex:1; min-width:180px; }
+
+  /* Toggle switch */
+  .toggle-group { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .toggle-group label { color:#23403B; font-size:0.8rem; font-weight:600; }
+  .toggle { position:relative; width:44px; height:24px; }
+  .toggle input { opacity:0; width:0; height:0; }
+  .toggle .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:#D0CDC7; border-radius:24px; transition:0.2s; }
+  .toggle .slider:before { content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:white; border-radius:50%; transition:0.2s; }
+  .toggle input:checked + .slider { background:#23403B; }
+  .toggle input:checked + .slider:before { transform:translateX(20px); }
 
   /* Buttons */
-  .btn { padding:8px 20px; border:none; border-radius:4px; cursor:pointer; font-size:0.85rem; font-weight:600; font-family:'Inter',sans-serif; transition:all 0.15s ease; }
+  .btn { padding:10px 24px; border:none; border-radius:4px; cursor:pointer; font-size:0.9rem; font-weight:600; font-family:'Inter',sans-serif; transition:all 0.15s ease; }
   .btn-primary { background:#23403B; color:#FFFFFF; }
   .btn-primary:hover { background:#1A302C; }
   .btn-success { background:#2D5A4E; color:#FFFFFF; }
@@ -54,24 +66,40 @@
   .btn-danger:hover { background:#6B2323; }
   .btn-sm { padding:5px 12px; font-size:0.75rem; }
 
-  /* Tables */
-  table { width:100%; border-collapse:collapse; font-size:0.85rem; }
-  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid #E0DDD7; }
-  th { color:#6B6560; font-weight:600; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px; }
-  tr:hover { background:#FAF9F6; }
-  .clickable { cursor:pointer; color:#23403B; font-weight:500; }
-  .clickable:hover { color:#1A302C; text-decoration:underline; }
+  /* Section headings */
+  h2 { font-family:'Instrument Serif',serif; color:#23403B; font-size:1.5rem; font-weight:400; font-style:italic; margin-bottom:20px; }
+  h3 { font-family:'Instrument Serif',serif; color:#23403B; }
+  code { background:#F5F3EE; padding:2px 6px; border-radius:3px; font-size:0.85rem; }
 
-  /* Tabs in content */
-  .sub-tabs { display:flex; gap:4px; margin-bottom:20px; border-bottom:2px solid #E0DDD7; }
-  .sub-tabs button { background:none; border:none; color:#6B6560; padding:10px 16px; cursor:pointer; font-size:0.85rem; font-weight:500; font-family:'Inter',sans-serif; }
-  .sub-tabs button.active { color:#23403B; border-bottom:2px solid #23403B; margin-bottom:-2px; }
+  /* Debate cards (expandable) */
+  .debate-card { background:#FFFFFF; border:1px solid #E0DDD7; border-radius:6px; margin-bottom:8px; overflow:hidden; }
+  .debate-card-header { display:flex; align-items:center; padding:12px 16px; cursor:pointer; gap:12px; }
+  .debate-card-header:hover { background:#FAF9F6; }
+  .debate-card-header .topic { flex:1; font-weight:500; font-size:0.9rem; color:#1a1a1a; }
+  .debate-card-header .meta { color:#6B6560; font-size:0.75rem; display:flex; gap:12px; align-items:center; }
+  .debate-card-header .arrow { transition:transform 0.2s; font-size:0.8rem; color:#6B6560; }
+  .debate-card.open .arrow { transform:rotate(90deg); }
+  .debate-card-body { display:none; padding:16px; border-top:1px solid #E0DDD7; }
+  .debate-card.open .debate-card-body { display:block; }
 
-  /* Debate detail */
-  #debate-detail { background:#FFFFFF; border-radius:6px; padding:20px; margin-top:20px; border:1px solid #E0DDD7; }
-  .turn { padding:14px; margin:10px 0; background:#F5F3EE; border-radius:4px; border-left:3px solid #23403B; }
-  .turn .meta { color:#6B6560; font-size:0.75rem; margin-bottom:4px; }
-  .turn .text { white-space:pre-wrap; font-size:0.85rem; line-height:1.5; }
+  /* Sequential turns */
+  .turn { padding:12px 16px; margin:8px 0; background:#F5F3EE; border-radius:4px; border-left:3px solid #23403B; }
+  .turn.failed { border-left-color:#8B2E2E; background:#FDF5F5; }
+  .turn .meta { color:#6B6560; font-size:0.7rem; margin-bottom:6px; display:flex; gap:8px; flex-wrap:wrap; }
+  .turn .meta strong { color:#23403B; }
+  .turn .text { white-space:pre-wrap; font-size:0.82rem; line-height:1.5; color:#1a1a1a; }
+  .turn .text.collapsed { max-height:80px; overflow:hidden; position:relative; }
+  .turn .text.collapsed::after { content:''; position:absolute; bottom:0; left:0; right:0; height:40px; background:linear-gradient(transparent,#F5F3EE); }
+  .turn .expand-text { color:#23403B; font-size:0.75rem; cursor:pointer; font-weight:500; margin-top:4px; }
+
+  /* Verdict */
+  .verdict { background:#F5F3EE; padding:16px; border-radius:6px; margin-top:12px; border:1px solid #E0DDD7; }
+  .verdict h4 { color:#23403B; margin-bottom:8px; font-size:0.85rem; }
+  .verdict .text { white-space:pre-wrap; font-size:0.82rem; line-height:1.5; }
+
+  /* Live indicator */
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  .live-dot { animation:pulse 1.5s infinite; color:#23403B; font-size:0.75rem; font-weight:600; }
 
   /* Logs */
   #log-area { background:#FFFFFF; border:1px solid #E0DDD7; border-radius:4px; padding:14px; height:300px; overflow-y:auto; font-family:monospace; font-size:0.75rem; }
@@ -82,14 +110,26 @@
   /* Loading */
   .loading { color:#6B6560; font-style:italic; }
 
-  /* Live indicator */
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
-  .live-dot { animation: pulse 1.5s infinite; }
+  /* Badge */
+  .badge { font-size:0.7rem; padding:3px 10px; border-radius:4px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; }
+  .ok { background:#D4E6D9; color:#23403B; }
+  .err { background:#E8D5D5; color:#8B2E2E; }
+  .warn { background:#E8DFC8; color:#6B5A2E; }
+  .skip { background:#E0DDD7; color:#6B6560; }
 
-  /* Section headings */
-  h2 { font-family:'Instrument Serif',serif; color:#23403B; font-size:1.5rem; font-weight:400; font-style:italic; margin-bottom:20px; }
-  h3 { font-family:'Instrument Serif',serif; color:#23403B; }
-  code { background:#F5F3EE; padding:2px 6px; border-radius:3px; font-size:0.85rem; }
+  /* Tables */
+  table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid #E0DDD7; }
+  th { color:#6B6560; font-weight:600; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px; }
+  tr:hover { background:#FAF9F6; }
+
+  /* Tabs in content */
+  .sub-tabs { display:flex; gap:4px; margin-bottom:20px; border-bottom:2px solid #E0DDD7; }
+  .sub-tabs button { background:none; border:none; color:#6B6560; padding:10px 16px; cursor:pointer; font-size:0.85rem; font-weight:500; font-family:'Inter',sans-serif; }
+  .sub-tabs button.active { color:#23403B; border-bottom:2px solid #23403B; margin-bottom:-2px; }
+
+  /* Divider */
+  .divider { border:none; border-top:1px solid #E0DDD7; margin:24px 0; }
 </style>
 </head>
 <body>
@@ -107,7 +147,6 @@
   <nav>
     <a class="active" onclick="showTab('dashboard')">📊 Dashboard</a>
     <a onclick="showTab('debates')">📋 Debates<span id="active-count" style="display:none;background:#23403B;color:white;font-size:0.65rem;padding:1px 6px;border-radius:8px;margin-left:4px">0</span></a>
-    <a onclick="showTab('new-debate')">➕ Nuevo Debate</a>
     <a onclick="showTab('worker')">🤖 Worker</a>
     <a onclick="showTab('health')">🩺 Diagnóstico</a>
     <a onclick="showTab('logs')">📝 Logs</a>
@@ -124,49 +163,56 @@
       </div>
     </div>
 
-    <!-- ─── DEBATES ────────────────────────────── -->
-    <div id="tab-debates" class="tab">
-      <div class="sub-tabs">
-        <button class="active" onclick="showDebateSub('history')">📜 Historial</button>
-        <button onclick="showDebateSub('active')">🔄 Activos</button>
-      </div>
-      <div id="debate-history">
-        <table><thead><tr><th>Tema</th><th>Estado</th><th>Turnos</th><th>Tokens</th><th>Modo</th><th>Fecha</th><th>Acción</th></tr></thead>
-        <tbody id="history-tbody"></tbody></table>
-      </div>
-      <div id="debate-active" style="display:none">
-        <table><thead><tr><th>Tema</th><th>Progreso</th><th>Turnos</th><th>Engine</th><th>Acción</th></tr></thead>
-        <tbody id="active-tbody"></tbody></table>
-      </div>
-      <div id="debate-detail" style="display:none"></div>
-    </div>
-
-    <!-- ─── NUEVO DEBATE ──────────────────────── -->
-    <div id="tab-new-debate" class="tab">
-      <h2 style="color:#23403B;margin-bottom:16px">➕ Nuevo Debate</h2>
+    <!-- ─── DEBATES (unified: create + history) ── -->
+    <div id="tab-debates" class="tab active">
+      <h2>➕ Lanzar Debate</h2>
       <div class="form-group">
-        <label>Tema</label>
-        <input id="new-topic" placeholder="Ej: ¿Debe la IA tener límites éticos?">
+        <label>Tema o pregunta</label>
+        <textarea id="new-topic" placeholder="Ej: ¿Debe la IA tener límites éticos programados?" style="height:60px"></textarea>
       </div>
-      <div class="form-group">
-        <label>Modo</label>
-        <select id="new-mode">
-          <option value="local_only">Local Only (Worker)</option>
-          <option value="standard">Standard (Mixto)</option>
-          <option value="iterative">Iterativo</option>
-          <option value="ultra_crossing">Ultra Crossing</option>
-        </select>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Modo</label>
+          <select id="new-mode">
+            <option value="standard">Standard (Mixto)</option>
+            <option value="ultra_crossing">Ultra Crossing (4 etapas)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Nº IAs</label>
+          <select id="new-agents">
+            <option value="4">4 agentes</option>
+            <option value="6">6 agentes</option>
+            <option value="8">8 agentes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Iteraciones Tribunal</label>
+          <select id="new-iterations">
+            <option value="1">1 iteración</option>
+            <option value="2">2 iteraciones</option>
+            <option value="3" selected>3 iteraciones</option>
+          </select>
+        </div>
       </div>
-      <div class="form-group">
-        <label>Engine (chat directo)</label>
-        <select id="new-engine">
-          <option value="groq">Groq (llama-3.1-8b)</option>
-          <option value="gemini">Gemini (2.5-flash)</option>
-          <option value="ollama">Ollama (local)</option>
-        </select>
+      <div class="toggle-group">
+        <label class="toggle">
+          <input type="checkbox" id="new-web-search" checked>
+          <span class="slider"></span>
+        </label>
+        <label>Búsqueda web preliminar (DuckDuckGo)</label>
+      </div>
+      <div style="margin-bottom:16px">
+        <span style="font-size:0.75rem;color:#6B6560">Todos los debates incluyen: Tribunal de Magistrados · Consenso Forzado · Reducción al Absurdo · Análisis de Sesgos</span>
       </div>
       <button class="btn btn-success" onclick="startDebate()">▶ Iniciar Debate</button>
       <div id="debate-result" style="margin-top:12px"></div>
+
+      <hr class="divider">
+
+      <h2>📜 Historial Reciente</h2>
+      <div id="debate-list"></div>
+      <div id="debate-expanded" style="display:none"></div>
     </div>
 
     <!-- ─── WORKER ────────────────────────────── -->
@@ -174,19 +220,6 @@
       <h2 style="color:#23403B;margin-bottom:16px">🤖 Worker Services</h2>
       <div class="grid" id="worker-grid"></div>
       <button class="btn btn-primary" onclick="launchWorker()" style="margin-top:12px">🚀 Lanzar todos</button>
-    </div>
-
-    <!-- ─── REPORTES ──────────────────────────── -->
-    <div id="tab-reports" class="tab">
-      <h2 style="color:#23403B;margin-bottom:16px">📄 Exportar Resultados</h2>
-      <div class="form-group">
-        <label>Session ID</label>
-        <input id="report-sid" placeholder="Pega el Session ID del debate">
-      </div>
-      <button class="btn btn-sm" style="background:#23403B;color:white" onclick="exportReport('json')">📥 JSON</button>
-      <button class="btn btn-sm" style="background:#2D5A4E;color:white" onclick="exportReport('markdown')">📥 Markdown</button>
-      <button class="btn btn-sm" style="background:#6B5A2E;color:white" onclick="exportReport('pdf')">📥 PDF</button>
-      <div id="report-result" style="margin-top:12px"></div>
     </div>
 
     <!-- ─── LOGS ──────────────────────────────── -->
@@ -262,9 +295,9 @@ const WS_BASE = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + w
 let logBuffer = [];
 let ws = null;
 let wsReconnectTimer = null;
-let activeDebatePoller = null;
-let liveDebateSid = null;
-let liveDebatePoller = null;
+let debatePoller = null;
+let expandedDebateSid = null;
+let expandedDebatePoller = null;
 let activeDebateIds = new Set();
 
 function $(id) { return document.getElementById(id); }
@@ -278,25 +311,12 @@ function showTab(name) {
 
 function renderTab(name) {
   if (name === 'dashboard') refreshDashboard();
-  if (name === 'debates') refreshDebates();
+  if (name === 'debates') { renderDebateList(); startDebatePolling(); }
   if (name === 'worker') refreshWorker();
   if (name === 'health') refreshHealthHistory();
   if (name === 'logs') renderLogs();
   if (name === 'metrics') refreshMetrics();
   if (name === 'settings') refreshSettings();
-}
-
-function showDebateSub(name) {
-  document.querySelectorAll('#tab-debates .sub-tabs button').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
-  document.getElementById('debate-history').style.display = name === 'history' ? '' : 'none';
-  document.getElementById('debate-active').style.display = name === 'active' ? '' : 'none';
-  if (name === 'active') {
-    refreshActiveDebates();
-    startActiveDebatePolling();
-  } else {
-    stopActiveDebatePolling();
-  }
 }
 
 async function api(method, path, data) {
@@ -310,7 +330,7 @@ async function api(method, path, data) {
 
 function badge(s) {
   if (!s) return '<span class="badge err">unknown</span>';
-  const map = { 'healthy':'ok','online':'ok','running':'ok','available':'ok','alive':'ok',
+  const map = { 'healthy':'ok','online':'ok','running':'ok','available':'ok','alive':'ok','completed':'ok',
     'error':'err','unavailable':'err','offline':'err','failed':'err',
     'warning':'warn','degraded':'warn','skipped':'skip','stopped':'skip','unconfigured':'skip' };
   return `<span class="badge ${map[s]||'err'}">${s}</span>`;
@@ -326,12 +346,10 @@ function log(type, msg) {
 async function refreshDashboard() {
   const h = await api('GET','/health');
   document.getElementById('master-badge').innerHTML = 'Master: ' + (h.status===200 ? badge('online') : badge('error'));
-  
   if (h.status !== 200) {
-    document.getElementById('status-grid').innerHTML = '<div class="card"><h3>❌ Error</h3><div class="err">Servidor no responde</div></div>';
+    document.getElementById('status-grid').innerHTML = '<div class="card"><h3>Error</h3><div class="err">Servidor no responde</div></div>';
     return;
   }
-  
   const svc = h.data.services || {};
   const cards = [
     {title:'Servidor', val:h.data.status||'?', sub:'v'+h.data.version, st:h.data.status},
@@ -340,33 +358,156 @@ async function refreshDashboard() {
     {title:'LM Studio', val:svc.lm_studio?.status||'?', sub:(svc.lm_studio?.models_available||'?')+' modelos', st:svc.lm_studio?.status},
     {title:'Groq', val:svc.groq?.status||'no config', sub:(svc.groq?.models_available||'?')+' modelos', st:svc.groq?.status},
     {title:'Gemini', val:svc.gemini?.status||'no config', sub:(svc.gemini?.models_available||'?')+' modelos', st:svc.gemini?.status},
-    {title:'Web Agent', val:svc.web_agent?.status||'?', sub:svc.web_agent?.playwright_installed ? '✅ Playwright' : '', st:svc.web_agent?.status},
+    {title:'Web Agent', val:svc.web_agent?.status||'?', sub:svc.web_agent?.playwright_installed ? 'Playwright' : '', st:svc.web_agent?.status},
     {title:'HuggingFace', val:svc.huggingface?.status||'?', sub:svc.huggingface?.user||'', st:svc.huggingface?.status},
   ];
-  
   document.getElementById('status-grid').innerHTML = cards.map(c =>
     `<div class="card"><h3>${c.title}</h3><div class="value">${badge(c.st)}</div><div class="sub">${c.sub}</div></div>`
   ).join('');
 }
 
-// ─── DEBATES ────────────────────────────────────
-async function refreshDebates() {
+// ─── DEBATE LIST (unified: form + history) ──────
+async function renderDebateList() {
   const h = await api('GET','/api/v1/debates/history/list');
   if (h.status !== 200) return;
   const sessions = h.data.sessions || [];
-  document.getElementById('history-tbody').innerHTML = sessions.slice(0,100).map(s =>
-    `<tr><td class="clickable" onclick="showDebateDetail('${s.id}')">${(s.topic||'').slice(0,60)}</td>
-    <td>${badge(s.status)}</td><td>${s.total_turns||0}</td>
-    <td>${(s.total_tokens_out||0).toLocaleString()}</td>
-    <td>${s.mode||'-'}</td>
-    <td>${(s.created_at||'').slice(0,10)}</td>
-    <td>
-      <button class="btn btn-sm btn-primary" onclick="showDebateDetail('${s.id}')">Ver</button>
-      <button class="btn btn-sm" style="background:#2D5A4E;color:white" onclick="exportDirect('${s.id}','json')">JSON</button>
-      <button class="btn btn-sm" style="background:#6B5A2E;color:white" onclick="exportDirect('${s.id}','md')">MD</button>
-    </td></tr>`
-  ).join('');
-  refreshActiveDebates();
+
+  // Update active count
+  const active = sessions.filter(s => s.status === 'running');
+  const countBadge = document.getElementById('active-count');
+  if (active.length > 0) {
+    countBadge.style.display = 'inline';
+    countBadge.textContent = active.length;
+  } else {
+    countBadge.style.display = 'none';
+  }
+
+  const list = document.getElementById('debate-list');
+  if (sessions.length === 0) {
+    list.innerHTML = '<div style="color:#6B6560;text-align:center;padding:40px">No hay debates</div>';
+    return;
+  }
+
+  list.innerHTML = sessions.slice(0, 10).map(s => {
+    const isRunning = s.status === 'running';
+    const date = (s.created_at||'').slice(0,10);
+    const tokens = (s.total_tokens_out||0).toLocaleString();
+    const turns = s.total_turns||0;
+    return `<div class="debate-card ${expandedDebateSid===s.id?'open':''}" id="card-${s.id}">
+      <div class="debate-card-header" onclick="toggleDebateCard('${s.id}')">
+        <span class="arrow">▶</span>
+        <span class="topic">${(s.topic||'').slice(0,80)}</span>
+        <span class="meta">
+          ${isRunning ? '<span class="live-dot">● EN VIVO</span>' : ''}
+          ${badge(s.status)}
+          <span>${turns} turnos</span>
+          <span>${tokens} tok</span>
+          <span>${s.mode||'-'}</span>
+          <span>${date}</span>
+        </span>
+      </div>
+      <div class="debate-card-body" id="body-${s.id}"></div>
+    </div>`;
+  }).join('');
+
+  // Auto-expand running debates
+  active.forEach(s => { if (expandedDebateSid === s.id) renderDebateExpanded(s.id); });
+}
+
+async function toggleDebateCard(sid) {
+  if (expandedDebateSid === sid) {
+    expandedDebateSid = null;
+    if (expandedDebatePoller) { clearInterval(expandedDebatePoller); expandedDebatePoller = null; }
+    document.getElementById('card-' + sid)?.classList.remove('open');
+    document.getElementById('body-' + sid).innerHTML = '';
+    return;
+  }
+
+  // Close previous
+  if (expandedDebateSid) {
+    document.getElementById('card-' + expandedDebateSid)?.classList.remove('open');
+    document.getElementById('body-' + expandedDebateSid).innerHTML = '';
+    if (expandedDebatePoller) { clearInterval(expandedDebatePoller); expandedDebatePoller = null; }
+  }
+
+  expandedDebateSid = sid;
+  document.getElementById('card-' + sid)?.classList.add('open');
+  await renderDebateExpanded(sid);
+}
+
+async function renderDebateExpanded(sid) {
+  const body = document.getElementById('body-' + sid);
+  if (!body) return;
+  body.innerHTML = '<div class="loading">Cargando...</div>';
+
+  // Try memory first (for running debates), then history
+  let session = null;
+  const m = await api('GET', `/api/v1/debates/${sid}`);
+  if (m.status === 200) session = m.data;
+
+  if (!session) {
+    const h = await api('GET', `/api/v1/debates/history/${sid}`);
+    if (h.status === 200) session = h.data;
+  }
+
+  if (!session) {
+    body.innerHTML = '<div class="err">Debate no encontrado</div>';
+    return;
+  }
+
+  const isRunning = session.status === 'running';
+  let html = `<div style="margin-bottom:12px">
+    ${badge(session.status)}
+    ${isRunning ? '<span class="live-dot" style="margin-left:8px">● EN VIVO</span>' : ''}
+    <span style="color:#6B6560;margin-left:12px;font-size:0.8rem">Tokens: ${(session.total_tokens_out||0).toLocaleString()} · Tiempo: ${((session.total_latency_ms||0)/1000).toFixed(1)}s</span>
+    <span style="color:#6B6560;font-size:0.8rem;margin-left:8px">${session.mode||''}</span>
+    <button class="btn btn-sm btn-primary" style="margin-left:12px" onclick="exportDirect('${sid}','json')">JSON</button>
+    <button class="btn btn-sm" style="background:#6B5A2E;color:white" onclick="exportDirect('${sid}','md')">MD</button>
+  </div>`;
+
+  // Sequential turns: who said what
+  const turns = session.turns || [];
+  if (turns.length > 0) {
+    html += '<div style="font-size:0.75rem;color:#6B6560;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Secuencia de intervenciones</div>';
+    turns.forEach(t => {
+      const isFailed = t.status === 'FAILED';
+      const text = (t.response_received || t.response || '').substring(0, 800);
+      const needsExpand = (t.response_received || t.response || '').length > 800;
+      html += `<div class="turn ${isFailed?'failed':''}">
+        <div class="meta">
+          <strong>${t.agent_name || t.agent_name || 'Agente'}</strong>
+          <span>${t.model||''}</span>
+          <span>${t.tokens_out||0} tokens</span>
+          <span>${(t.latency_ms||0)}ms</span>
+          ${isFailed ? '<span style="color:#8B2E2E">FALLO</span>' : ''}
+        </div>
+        <div class="text ${needsExpand?'collapsed':''}" id="turn-text-${sid}-${t.turn_number}">${isFailed ? text : text}</div>
+        ${needsExpand ? `<div class="expand-text" onclick="this.previousElementSibling.classList.remove('collapsed');this.style.display='none'">Mostrar completo</div>` : ''}
+      </div>`;
+    });
+  }
+
+  // Verdict
+  if (session.final_verdict) {
+    html += `<div class="verdict"><h4>Veredicto del Tribunal</h4><div class="text">${session.final_verdict.substring(0, 1000)}</div></div>`;
+  }
+
+  body.innerHTML = html;
+
+  // Poll if running
+  if (isRunning) {
+    if (expandedDebatePoller) clearInterval(expandedDebatePoller);
+    expandedDebatePoller = setInterval(() => {
+      if (expandedDebateSid === sid) renderDebateExpanded(sid);
+      else { clearInterval(expandedDebatePoller); expandedDebatePoller = null; }
+    }, 3000);
+  }
+}
+
+// ─── DEBATE POLLING ─────────────────────────────
+function startDebatePolling() {
+  if (debatePoller) clearInterval(debatePoller);
+  debatePoller = setInterval(renderDebateList, 5000);
 }
 
 // ─── WEBSOCKET ──────────────────────────────────
@@ -374,140 +515,19 @@ function connectWebSocket() {
   if (ws) { ws.close(); ws = null; }
   const url = WS_BASE + '/ws/sessions/default?token=';
   ws = new WebSocket(url);
-
-  ws.onopen = () => {
-    log('info', 'WebSocket conectado');
-    if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
-  };
-
+  ws.onopen = () => { log('info', 'WebSocket conectado'); if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; } };
   ws.onmessage = (evt) => {
     try {
       const msg = JSON.parse(evt.data);
       const type = msg.type || msg.event || '';
-      if (type.includes('token') || type.includes('turn') || type.includes('stage') || type.includes('phase')) {
-        if (liveDebateSid) refreshLiveDebate();
-      }
-      if (type.includes('completed') || type.includes('error')) {
-        if (liveDebateSid) refreshLiveDebate();
-        refreshActiveDebates();
+      if (type.includes('completed') || type.includes('error') || type.includes('turn')) {
+        if (expandedDebateSid) renderDebateExpanded(expandedDebateSid);
+        renderDebateList();
       }
     } catch(e) {}
   };
-
-  ws.onclose = () => {
-    log('warn', 'WebSocket desconectado, reconectando en 3s...');
-    wsReconnectTimer = setTimeout(connectWebSocket, 3000);
-  };
-
+  ws.onclose = () => { log('warn', 'WebSocket desconectado, reconectando en 3s...'); wsReconnectTimer = setTimeout(connectWebSocket, 3000); };
   ws.onerror = () => { ws.close(); };
-}
-
-// ─── LIVE DEBATE DETAIL ─────────────────────────
-async function refreshLiveDebate() {
-  if (!liveDebateSid) return;
-  const div = document.getElementById('debate-detail');
-  if (div.style.display === 'none') return;
-
-  const m = await api('GET', `/api/v1/debates/${liveDebateSid}`);
-  if (m.status !== 200) return;
-  const session = m.data;
-
-  let html = `<h3 style="color:#23403B">${session.topic}</h3>
-  <div style="margin:8px 0">
-    <span class="badge ${session.status==='completed'?'ok':session.status==='running'?'warn':'err'}">${session.status}</span>
-    <span style="color:#6B6560;margin-left:12px">Tokens: ${(session.total_tokens_out||0).toLocaleString()} | Tiempo: ${((session.total_latency_ms||0)/1000).toFixed(1)}s</span>
-    ${session.status==='running' ? '<span style="color:#23403B;margin-left:8px;font-size:0.75rem">● EN VIVO</span>' : ''}
-  </div>`;
-
-  if (session.final_verdict) {
-    html += `<div style="background:#F5F3EE;padding:12px;border-radius:6px;margin:8px 0"><strong>Veredicto:</strong><br>${session.final_verdict.slice(0,500)}</div>`;
-  }
-
-  (session.turns||[]).forEach(t => {
-    html += `<div class="turn"><div class="meta">Turno ${t.turn_number} | ${t.agent_name} (${t.agent_role}) | ${t.model} | ${(t.tokens_out||0)} tokens | ${(t.latency_ms||0)}ms</div>
-    <div class="text">${(t.response_received||t.response||'').substring(0,500)}</div></div>`;
-  });
-
-  div.innerHTML = html;
-}
-
-async function showDebateDetail(sid) {
-  const div = document.getElementById('debate-detail');
-  div.style.display = 'block';
-  liveDebateSid = sid;
-  div.innerHTML = '<div class="loading">Cargando...</div>';
-
-  const m = await api('GET', `/api/v1/debates/${sid}`);
-  if (m.status !== 200) {
-    div.innerHTML = '<div class="err">Debate no encontrado</div>';
-    return;
-  }
-
-  const session = m.data;
-  let html = `<h3 style="color:#23403B">${session.topic}</h3>
-  <div style="margin:8px 0">
-    <span class="badge ${session.status==='completed'?'ok':session.status==='running'?'warn':'err'}">${session.status}</span>
-    <span style="color:#6B6560;margin-left:12px">Tokens: ${(session.total_tokens_out||0).toLocaleString()} | Tiempo: ${((session.total_latency_ms||0)/1000).toFixed(1)}s</span>
-    ${session.status==='running' ? '<span style="color:#23403B;margin-left:8px;font-size:0.75rem">● EN VIVO</span>' : ''}
-  </div>`;
-
-  if (session.final_verdict) {
-    html += `<div style="background:#F5F3EE;padding:12px;border-radius:6px;margin:8px 0"><strong>Veredicto:</strong><br>${session.final_verdict.slice(0,500)}</div>`;
-  }
-
-  (session.turns||[]).forEach(t => {
-    html += `<div class="turn"><div class="meta">Turno ${t.turn_number} | ${t.agent_name} (${t.agent_role}) | ${t.model} | ${(t.tokens_out||0)} tokens | ${(t.latency_ms||0)}ms</div>
-    <div class="text">${(t.response_received||t.response||'').substring(0,500)}</div></div>`;
-  });
-
-  div.innerHTML = html;
-
-  if (session.status === 'running') {
-    if (liveDebatePoller) clearInterval(liveDebatePoller);
-    liveDebatePoller = setInterval(refreshLiveDebate, 2000);
-  }
-}
-
-// ─── ACTIVE DEBATES AUTO-REFRESH ────────────────
-async function refreshActiveDebates() {
-  const h = await api('GET', '/api/v1/debates/list');
-  if (h.status !== 200) return;
-  const sessions = h.data.sessions || [];
-
-  const prevCount = activeDebateIds.size;
-  activeDebateIds = new Set(sessions.map(s => s.session_id));
-
-  const badge = document.getElementById('active-count');
-  if (sessions.length > 0) {
-    badge.style.display = 'inline';
-    badge.textContent = sessions.length;
-  } else {
-    badge.style.display = 'none';
-  }
-
-  if (sessions.length === 0) {
-    document.getElementById('active-tbody').innerHTML = '<tr><td colspan="5" style="color:#6B6560;text-align:center;padding:20px">No hay debates activos</td></tr>';
-    return;
-  }
-
-  document.getElementById('active-tbody').innerHTML = sessions.map(s =>
-    `<tr><td class="clickable" onclick="showDebateDetail('${s.session_id}')">${(s.topic||'').slice(0,50)}</td>
-    <td>${badge(s.status)}</td>
-    <td>${s.turns_completed||0}/${s.total_turns||'?'}</td>
-    <td style="color:#6B6560;font-size:0.8rem">${s.mode||'local_only'}</td>
-    <td><button class="btn btn-sm btn-primary" onclick="showDebateDetail('${s.session_id}')">Ver</button></td></tr>`
-  ).join('');
-}
-
-function startActiveDebatePolling() {
-  if (activeDebatePoller) clearInterval(activeDebatePoller);
-  activeDebatePoller = setInterval(refreshActiveDebates, 3000);
-}
-
-function stopActiveDebatePolling() {
-  if (activeDebatePoller) { clearInterval(activeDebatePoller); activeDebatePoller = null; }
-  if (liveDebatePoller) { clearInterval(liveDebatePoller); liveDebatePoller = null; }
-  liveDebateSid = null;
 }
 
 // ─── NUEVO DEBATE ──────────────────────────────
@@ -517,19 +537,28 @@ async function startDebate() {
   const mode = document.getElementById('new-mode').value;
   const result = document.getElementById('debate-result');
   result.innerHTML = '<span class="loading">Iniciando debate...</span>';
-  
+
   const r = await api('POST','/api/v1/debates/create', {topic, mode});
   if (r.status === 200 || r.status === 202) {
     const sid = r.data.session_id;
-    result.innerHTML = `<span style="color:#23403B">✅ Debate creado</span><br>
+    result.innerHTML = `<span style="color:#23403B"> Debate creado</span><br>
     <small>ID: ${sid}<br>
-    <a href="#" onclick="showDebateDetail('${sid}');return false">Ver detalle en vivo</a> |
+    <a href="#" onclick="toggleDebateCard('${sid}');return false">Ver en vivo</a> |
     <a href="/api/v1/debates/${sid}/export/json" target="_blank">Exportar JSON</a> |
     <a href="/api/v1/debates/${sid}/report" target="_blank">Reporte</a></small>`;
     log('info',`Debate ${sid.slice(0,8)} creado: "${topic.slice(0,50)}"`);
-    refreshActiveDebates();
+    renderDebateList();
   } else {
-    result.innerHTML = `<span style="color:#8B2E2E">❌ Error: ${JSON.stringify(r.data)}</span>`;
+    result.innerHTML = `<span style="color:#8B2E2E"> Error: ${JSON.stringify(r.data)}</span>`;
+  }
+}
+
+// ─── EXPORT ─────────────────────────────────────
+function exportDirect(sid, format) {
+  const map = {json:'export/json', md:'export/markdown', pdf:'export/pdf', markdown:'export/markdown'};
+  if (map[format]) {
+    window.open(`/api/v1/debates/${sid}/${map[format]}`, '_blank');
+    log('info',`Exportando ${format} de ${sid.slice(0,8)}`);
   }
 }
 
@@ -542,7 +571,6 @@ async function refreshWorker() {
     return;
   }
   document.getElementById('worker-badge').innerHTML = 'Worker: ' + badge('online') + ' ' + (r.data.worker_ip||'');
-  
   const svc = r.data.services || {};
   document.getElementById('worker-grid').innerHTML = Object.entries(svc).map(([k,v]) =>
     `<div class="card"><h3>${k}</h3><div class="value">${badge(v.status)}</div><div class="sub">Puerto :${v.port||'?'}</div></div>`
@@ -551,23 +579,8 @@ async function refreshWorker() {
 
 async function launchWorker() {
   const r = await api('POST','/api/v1/system/worker/services/launch', {service:'all'});
-  alert('Worker: ' + (r.data.success ? '✅ OK' : '⚠️ Fallo parcial'));
+  alert('Worker: ' + (r.data.success ? ' OK' : ' Fallo parcial'));
   refreshWorker();
-}
-
-// ─── REPORTES ───────────────────────────────────
-function exportReport(format) {
-  const sid = document.getElementById('report-sid').value.trim();
-  if (!sid) { alert('Ingresa un Session ID'); return; }
-  exportDirect(sid, format);
-}
-
-function exportDirect(sid, format) {
-  const map = {json:'export/json', md:'export/markdown', pdf:'export/pdf'};
-  if (map[format]) {
-    window.open(`/api/v1/debates/${sid}/${map[format]}`, '_blank');
-    log('info',`Exportando ${format} de ${sid.slice(0,8)}`);
-  }
 }
 
 // ─── LOGS ───────────────────────────────────────
@@ -588,7 +601,6 @@ async function refreshMetrics() {
   const totalTokens = completed.reduce((a,s) => a + (s.total_tokens_out||0), 0);
   const totalTurns = completed.reduce((a,s) => a + (s.total_turns||0), 0);
   const totalTime = completed.reduce((a,s) => a + (s.total_latency_ms||0), 0);
-  
   document.getElementById('metrics-grid').innerHTML = [
     {title:'Debates totales', val:sessions.length, sub:'creados'},
     {title:'Completados', val:completed.length, sub:'exitosos'},
@@ -597,23 +609,20 @@ async function refreshMetrics() {
     {title:'Tiempo total', val:(totalTime/1000).toFixed(0)+'s', sub:'de proceso'},
     {title:'Promedio tokens/debate', val:completed.length ? Math.round(totalTokens/completed.length).toLocaleString() : 0, sub:'por debate'},
   ].map(c => `<div class="card"><h3>${c.title}</h3><div class="value">${c.val}</div><div class="sub">${c.sub}</div></div>`).join('');
-  
   const top = [...completed].sort((a,b) => (b.total_tokens_out||0) - (a.total_tokens_out||0)).slice(0,5);
   document.getElementById('metrics-detail').textContent = 'TOP 5 DEBATES POR TOKENS:\n' +
     top.map((s,i) => `${i+1}. ${(s.topic||'').slice(0,60)} — ${(s.total_tokens_out||0).toLocaleString()} tokens`).join('\n');
 }
 
-// ─── DIAGNÓSTICO (P2.2) ──────────────────────
+// ─── DIAGNÓSTICO ───────────────────────────────
 async function refreshHealthHistory() {
   const r = await api('GET', '/health/history');
   if (r.status !== 200) {
     document.getElementById('health-tbody').innerHTML = '<tr><td colspan="8" class="err">Sin datos</td></tr>';
     return;
   }
-  
   const uptime = r.data.serverUptimeSeconds || 0;
-  document.getElementById('server-uptime').textContent = `⏱️ Servidor activo: ${formatUptime(uptime)}`;
-  
+  document.getElementById('server-uptime').textContent = `Servidor activo: ${formatUptime(uptime)}`;
   const summary = r.data.summary || {};
   document.getElementById('health-summary').innerHTML = `
     <div class="grid">
@@ -622,7 +631,6 @@ async function refreshHealthHistory() {
       <div class="card"><h3>Degradados</h3><div class="value" style="color:#6B5A2E">${summary.degradedServices||0}</div></div>
       <div class="card"><h3>Estado General</h3><div class="value">${badge(summary.overallHealth||'unknown')}</div></div>
     </div>`;
-  
   const services = r.data.services || {};
   const fixes = {
     ollama: 'Verifica Ollama en Worker: ollama serve',
@@ -634,7 +642,6 @@ async function refreshHealthHistory() {
     web_agent: 'Ejecuta: playwright install chromium',
     database: 'Revisa la base de datos SQLite',
   };
-  
   document.getElementById('health-tbody').innerHTML = Object.entries(services).map(([name, s]) => {
     const fix = fixes[name] || 'Revisa logs del servidor';
     const errDisplay = s.lastError ? `<span title="${s.lastError}" style="color:#8B2E2E;max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.lastError.slice(0,50)}...</span>` : '<span style="color:#6B6560">—</span>';
@@ -658,9 +665,8 @@ function formatUptime(seconds) {
   return Math.round(seconds/86400) + 'd';
 }
 
-// ─── CONFIGURACIÓN (P2.3) ─────────────────────
+// ─── CONFIGURACIÓN ─────────────────────────────
 async function refreshSettings() {
-  // API Keys status
   const h = await api('GET', '/health');
   if (h.status === 200) {
     const svc = h.data.services || {};
@@ -671,11 +677,9 @@ async function refreshSettings() {
       {name:'DeepSeek', status:svc.deepseek?.status, configured: !!svc.deepseek && svc.deepseek.status !== 'skipped'},
     ];
     document.getElementById('keys-grid').innerHTML = keys.map(k =>
-      `<div class="card"><h3>${k.name}</h3><div class="value">${badge(k.status)}</div><div class="sub">${k.configured ? '✅ Configurada' : '❌ No configurada'}</div></div>`
+      `<div class="card"><h3>${k.name}</h3><div class="value">${badge(k.status)}</div><div class="sub">${k.configured ? ' Configurada' : ' No configurada'}</div></div>`
     ).join('');
   }
-  
-  // Timeouts
   const timeouts = {
     "llama3.1:70b": 300, "llama3:70b": 300, "llama3.1:405b": 600,
     "deepseek-r1:32b": 300, "deepseek-r1:70b": 600, "mistral-large": 180,
@@ -700,15 +704,14 @@ async function updateApiKey() {
   const service = document.getElementById('key-service').value;
   const value = document.getElementById('key-value').value.trim();
   if (!value) { alert('Ingresa una API key'); return; }
-  
   const r = await api('POST', `/api/v1/system/config/${service}/key`, { api_key: value });
   const el = document.getElementById('key-result');
   if (r.status === 200) {
-    el.innerHTML = '<span style="color:#23403B">✅ Key actualizada</span>';
+    el.innerHTML = '<span style="color:#23403B"> Key actualizada</span>';
     document.getElementById('key-value').value = '';
     refreshSettings();
   } else {
-    el.innerHTML = `<span style="color:#8B2E2E">❌ Error: ${JSON.stringify(r.data)}</span>`;
+    el.innerHTML = `<span style="color:#8B2E2E"> Error: ${JSON.stringify(r.data)}</span>`;
   }
 }
 
@@ -718,14 +721,6 @@ function exportReport(format) {
   exportDirect(sid, format);
 }
 
-function exportDirect(sid, format) {
-  const map = {json:'export/json', md:'export/markdown', pdf:'export/pdf', markdown:'export/markdown'};
-  if (map[format]) {
-    window.open(`/api/v1/debates/${sid}/${map[format]}`, '_blank');
-    log('info',`Exportando ${format} de ${sid.slice(0,8)}`);
-  }
-}
-
 // ─── CLOCK & AUTO-REFRESH ──────────────────────
 function updateClock() {
   document.getElementById('clock').textContent = new Date().toLocaleTimeString();
@@ -733,16 +728,13 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// Refresh dashboard every 5s, others on demand
 refreshDashboard();
 refreshWorker();
 refreshMetrics();
-refreshActiveDebates();
+renderDebateList();
 setInterval(refreshDashboard, 5000);
 setInterval(refreshWorker, 10000);
-startActiveDebatePolling();
-
-// WebSocket for real-time events
+startDebatePolling();
 connectWebSocket();
 
 log('info','Synapse Control Center iniciado');
