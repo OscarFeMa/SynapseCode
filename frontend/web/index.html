@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SynapseCode — Motor de Debate Multi-Agente</title>
+  <meta name="description" content="Plataforma de razonamiento colectivo híbrido que orquesta múltiples modelos de IA en debates estructurados con Tribunal de Magistrados.">
+  <meta name="keywords" content="AI, multi-agent, debate, LLM, Ollama, FastAPI, Python, reasoning">
+  <meta name="author" content="OscarFeMa">
+  <meta name="robots" content="index, follow">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="SynapseCode — Motor de Debate Multi-Agente">
+  <meta property="og:description" content="Razonamiento colectivo híbrido con múltiples LLMs locales y cloud, Tribunal de Magistrados y búsqueda web en tiempo real.">
+  <meta property="og:url" content="https://synapsecode.org">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_ES">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --cream: #F5F3EE;
+      --cream-dark: #EDEAE3;
+      --petroleum: #23403B;
+      --petroleum-light: #2D5A4E;
+      --petroleum-dark: #1A302C;
+      --text: #1a1a1a;
+      --text-muted: #6B6560;
+      --text-light: #8B8580;
+      --border: #E0DDD7;
+      --white: #FFFFFF;
+      --error: #8B2E2E;
+      --warn: #6B5A2E;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--cream);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── NAV ─────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+    }
+    .nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+    }
+    .nav-logo {
+      font-family: 'Instrument Serif', serif;
+      font-size: 1.2rem;
+      font-style: italic;
+      color: var(--petroleum);
+      text-decoration: none;
+    }
+    .nav-links {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--petroleum); }
+    .nav-cta {
+      background: var(--petroleum);
+      color: var(--white) !important;
+      padding: 6px 16px;
+      border-radius: 4px;
+      font-weight: 600 !important;
+      transition: background 0.2s;
+    }
+    .nav-cta:hover { background: var(--petroleum-dark); }
+
+    /* ─── HERO ───────────────────────────────── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 80px 24px 60px;
+      background: linear-gradient(180deg, var(--white) 0%, var(--cream) 100%);
+    }
+    .hero-content { max-width: 700px; }
+    .hero-badge {
+      display: inline-block;
+      background: var(--petroleum);
+      color: var(--white);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 20px;
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-family: 'Instrument Serif', serif;
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 400;
+      font-style: italic;
+      color: var(--petroleum);
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+    .hero p {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 550px;
+      margin: 0 auto 32px;
+      line-height: 1.7;
+    }
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-primary {
+      background: var(--petroleum);
+      color: var(--white);
+    }
+    .btn-primary:hover { background: var(--petroleum-dark); }
+    .btn-outline {
+      background: transparent;
+      color: var(--petroleum);
+      border: 1px solid var(--petroleum);
+    }
+    .btn-outline:hover { background: var(--petroleum); color: var(--white); }
+
+    /* ─── SECTIONS ────────────────────────────── */
+    section { padding: 80px 24px; }
+    .section-inner { max-width: 1100px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--petroleum);
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-family: 'Instrument Serif', serif;
+      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      font-weight: 400;
+      font-style: italic;
+      color: var(--petroleum);
+      margin-bottom: 16px;
+    }
+    .section-desc {
+      color: var(--text-muted);
+      max-width: 600px;
+      margin-bottom: 48px;
+      line-height: 1.7;
+    }
+
+    /* ─── FEATURES ───────────────────────────── */
+    #features { background: var(--white); }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--cream);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .feature-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(35,64,59,0.08);
+    }
+    .feature-icon {
+      font-size: 1.5rem;
+      margin-bottom: 12px;
+    }
+    .feature-card h3 {
+      font-family: 'Instrument Serif', serif;
+      font-size: 1.1rem;
+      font-style: italic;
+      color: var(--petroleum);
+      margin-bottom: 8px;
+    }
+    .feature-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ─── ARCHITECTURE ────────────────────────── */
+    #architecture { background: var(--cream); }
+    .arch-diagram {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 32px;
+      overflow-x: auto;
+    }
+    .arch-diagram pre {
+      font-family: 'Inter', monospace;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      color: var(--text);
+      white-space: pre;
+    }
+    .arch-diagram .node { color: var(--petroleum); font-weight: 600; }
+    .arch-diagram .arrow { color: var(--text-light); }
+    .arch-diagram .label { color: var(--text-muted); font-size: 0.75rem; }
+
+    /* ─── QUICKSTART ──────────────────────────── */
+    #quickstart { background: var(--white); }
+    .code-block {
+      background: var(--cream);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      overflow-x: auto;
+    }
+    .code-block code {
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: var(--text);
+    }
+    .code-block .comment { color: var(--text-light); }
+    .code-block .cmd { color: var(--petroleum); font-weight: 600; }
+
+    /* ─── STATS ───────────────────────────────── */
+    #stats {
+      background: var(--petroleum);
+      color: var(--white);
+      text-align: center;
+    }
+    #stats .section-label { color: rgba(255,255,255,0.6); }
+    #stats .section-title { color: var(--white); }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 32px;
+      margin-top: 40px;
+    }
+    .stat-value {
+      font-family: 'Instrument Serif', serif;
+      font-size: 2.5rem;
+      font-style: italic;
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.7);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ─── FOOTER ──────────────────────────────── */
+    footer {
+      background: var(--cream-dark);
+      border-top: 1px solid var(--border);
+      padding: 32px 24px;
+      text-align: center;
+    }
+    footer p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    footer a {
+      color: var(--petroleum);
+      text-decoration: none;
+    }
+    footer a:hover { text-decoration: underline; }
+
+    /* ─── RESPONSIVE ──────────────────────────── */
+    @media (max-width: 768px) {
+      .nav-links { gap: 16px; }
+      .nav-links a:not(.nav-cta) { display: none; }
+      section { padding: 60px 16px; }
+      .features-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">⚡ SynapseCode</a>
+      <div class="nav-links">
+        <a href="#features">Características</a>
+        <a href="#architecture">Arquitectura</a>
+        <a href="#quickstart">Inicio rápido</a>
+        <a href="https://github.com/OscarFeMa/SynapseCode" target="_blank">GitHub</a>
+        <a href="/admin" class="nav-cta">Panel Admin</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero" id="hero">
+    <div class="hero-content">
+      <span class="hero-badge">v3.0 · Open Source</span>
+      <h1>Razonamiento colectivo con múltiples IAs</h1>
+      <p>Plataforma híbrida que orquesta modelos locales y cloud en debates estructurados por roles, con veredicto del Tribunal de Magistrados y búsqueda web en tiempo real.</p>
+      <div class="hero-actions">
+        <a href="#quickstart" class="btn btn-primary">Empezar ahora</a>
+        <a href="https://github.com/OscarFeMa/SynapseCode" target="_blank" class="btn btn-outline">Ver en GitHub</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <div class="section-inner">
+      <div class="section-label">Características</div>
+      <h2 class="section-title">Todo lo que necesitas para debates multi-agente</h2>
+      <p class="section-desc">Desde la asignación inteligente de modelos hasta reportes profesionales en PDF y DOCX.</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🧠</div>
+          <h3>Debate Multi-Agente</h3>
+          <p>Orquesta 4-12+ agentes con roles especializados (Analista, Crítico, Sintetizador, Validador) en debates secuenciales o iterativos.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚖️</div>
+          <h3>Tribunal de Magistrados</h3>
+          <p>Defensor, Fiscal y Árbitro evalúan argumentos con fallback chains automáticos y protocolo de consenso configurable.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔍</div>
+          <h3>Búsqueda Web en Tiempo Real</h3>
+          <p>DuckDuckGo + Trafilatura inyectan contexto actualizado en los debates para verificación factual automática.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3>Asignación Inteligente</h3>
+          <p>Model Registry + Evaluator + Role Matcher asignan el mejor modelo por rol según especialidad, VRAM y rankings en vivo.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Reportes Profesionales</h3>
+          <p>Exporta debates como JSON, Markdown, PDF imprimible, DOCX (Word) o TXT con métricas y veredicto estructurado.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">️</div>
+          <h3>Arquitectura Master-Worker</h3>
+          <p>PC Master orquesta, PC Worker ejecuta modelos locales (Ollama, LM Studio, Jan) con auto-recuperación y monitoring GPU.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section id="stats">
+    <div class="section-inner">
+      <div class="section-label">Métricas del proyecto</div>
+      <h2 class="section-title">Números que hablan</h2>
+      <div class="stats-grid">
+        <div>
+          <div class="stat-value">12+</div>
+          <div class="stat-label">Adaptadores IA</div>
+        </div>
+        <div>
+          <div class="stat-value">25+</div>
+          <div class="stat-label">Modelos registrados</div>
+        </div>
+        <div>
+          <div class="stat-value">150+</div>
+          <div class="stat-label">Tests automatizados</div>
+        </div>
+        <div>
+          <div class="stat-value">4</div>
+          <div class="stat-label">Formatos de export</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section id="architecture">
+    <div class="section-inner">
+      <div class="section-label">Arquitectura</div>
+      <h2 class="section-title">Diseño Master-Worker híbrido</h2>
+      <p class="section-desc">Separación clara entre orquestación (Master) y ejecución de modelos (Worker) para máxima flexibilidad.</p>
+      <div class="arch-diagram">
+<pre>
+<span class="node">┌─────────────────────────────────────────────────────────────┐</span>
+<span class="node">│                      MASTER NODE                            │</span>
+<span class="node">│  FastAPI + SQLite + Supabase Sync + WebSocket Streaming     │</span>
+<span class="node">│                                                             │</span>
+<span class="node">│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │</span>
+<span class="node">│  │SequentialDeb.│  │UltraDebate   │  │ConsensusDeb. │      │</span>
+<span class="node">│  │Controller    │  │Controller    │  │Controller    │      │</span>
+<span class="node">│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │</span>
+<span class="node">│         └─────────────────┼─────────────────┘              │</span>
+<span class="node">│                           │                                 │</span>
+<span class="node">│              ┌────────────▼────────────┐                    │</span>
+<span class="node">│              │   Agent Orchestrator    │                    │</span>
+<span class="node">│              │  + Model Registry       │                    │</span>
+<span class="node">│              │  + Role Matcher         │                    │</span>
+<span class="node">│              └────────────┬────────────┘                    │</span>
+<span class="node">└───────────────────────────┼─────────────────────────────────┘</span>
+<span class="arrow">                            │ HTTP / WebSocket</span>
+<span class="arrow">                            ▼</span>
+<span class="node">┌───────────────────────────┼─────────────────────────────────┐</span>
+<span class="node">│                      WORKER NODE                            │</span>
+<span class="node">│  GPU ~13.5 GB · Ollama + LM Studio + Jan                   │</span>
+<span class="node">│                                                             │</span>
+<span class="node">│  ┌──────────┐  ┌──────────  ┌──────────┐  ┌──────────┐   │</span>
+<span class="node">│  │ llama3:8b│  │gemma3:4b │  │mistral:7b│  │deepseek  │   │</span>
+<span class="node">│  │          │  │          │  │          │  │-r1:7b    │   │</span>
+<span class="node">│  └──────────┘  └──────────┘  └──────────┘  └──────────   │</span>
+<span class="node">│                                                             │</span>
+<span class="node">│  ┌──────────────────────────────────────────────────────┐  │</span>
+<span class="node">│  │  Cloud Fallback: Groq · Gemini · OpenRouter · HF    │  │</span>
+<span class="node">│  └──────────────────────────────────────────────────────┘  │</span>
+<span class="node">└─────────────────────────────────────────────────────────────┘</span>
+</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUICKSTART -->
+  <section id="quickstart">
+    <div class="section-inner">
+      <div class="section-label">Inicio rápido</div>
+      <h2 class="section-title">Funcionando en 3 minutos</h2>
+      <p class="section-desc">Requiere Python 3.12+ y acceso a un PC Worker con Ollama (o usa solo modelos cloud).</p>
+      <div class="code-block">
+<code><span class="comment"># 1. Clonar el repositorio</span>
+<span class="cmd">git clone</span> https://github.com/OscarFeMa/SynapseCode.git
+<span class="cmd">cd</span> SynapseCode
+
+<span class="comment"># 2. Crear entorno virtual e instalar</span>
+<span class="cmd">python -m venv</span> venv
+<span class="cmd">.\venv\Scripts\pip install</span> -r backend/requirements.txt
+
+<span class="comment"># 3. Configurar variables de entorno</span>
+<span class="cmd">copy</span> .env.example .env
+<span class="comment"># Editar .env: añadir API keys de Groq/Gemini si se usan</span>
+
+<span class="comment"># 4. Iniciar el backend</span>
+<span class="cmd">start_backend.bat</span>
+<span class="comment"># o manualmente:</span>
+<span class="cmd">uvicorn</span> backend.main:app --host 0.0.0.0 --port 8000
+
+<span class="comment"># 5. Abrir el panel de administración</span>
+<span class="comment"># http://localhost:8000/admin</span></code>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>
+      <strong>SynapseCode v3.0</strong> · 
+      <a href="https://github.com/OscarFeMa/SynapseCode" target="_blank">GitHub</a> · 
+      <a href="/admin" target="_blank">Panel Admin</a> · 
+      <a href="https://synapsecode.org" target="_blank">synapsecode.org</a>
+      <br>
+      Desarrollado por OscarFeMa · Mayo 2026 · Licencia MIT
+    </p>
+  </footer>
+
+</body>
+</html>
