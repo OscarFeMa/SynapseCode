@@ -78,15 +78,10 @@ class ContextWindowManager:
         else:
             # Turnos antiguos: resumen compacto (primera frase significativa)
             old_turns = turns[: total - self.recent_turns]
-            lines.append(
-                f"=== RESUMEN DE {len(old_turns)} INTERVENCIONES ANTERIORES"
-                " (contexto comprimido) ==="
-            )
+            lines.append(f"=== RESUMEN DE {len(old_turns)} INTERVENCIONES ANTERIORES (contexto comprimido) ===")
             for t in old_turns:
                 text = t.response_received[: self.max_chars_per_old_turn]
-                first_sentence = (
-                    text.split(".")[0] + "." if "." in text else text[:200]
-                )
+                first_sentence = text.split(".")[0] + "." if "." in text else text[:200]
                 lines.append(f"[{t.agent.name}/{t.agent.model}] {first_sentence}")
             lines.append("")
 

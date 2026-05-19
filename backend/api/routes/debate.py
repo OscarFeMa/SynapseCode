@@ -1115,6 +1115,7 @@ def _build_structured_export_from_db(session_id: str, debate_data: dict[str, Any
         "iterations": [],
     }
 
+
 @router.get("/{session_id}/export-static")
 async def export_debate_as_static_json(session_id: str):
     """Genera JSON empaquetado para compartir."""
@@ -1133,7 +1134,7 @@ async def export_debate_as_static_json(session_id: str):
             "version": "3.0",
             "exported_at": datetime.utcnow().isoformat(),
             "share_url": f"https://synapsecode.org/app/share/{session_id}",
-            "debate": data
+            "debate": data,
         }
     except HTTPException:
         raise
