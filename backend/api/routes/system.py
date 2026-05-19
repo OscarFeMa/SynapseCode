@@ -936,7 +936,7 @@ class ApiKeyUpdateRequest(BaseModel):
 
 @router.post("/config/{service}/key", dependencies=[Depends(require_admin_access)])
 async def update_api_key(service: str, req: ApiKeyUpdateRequest):
-    """Actualiza una API key en tiempo de ejecución."""
+    """Actualiza una API key en tiempo de ejecucion."""
     valid_services = {
         "openrouter": "OPENROUTER_API_KEY",
         "groq": "GROQ_API_KEY",
@@ -954,6 +954,12 @@ async def update_api_key(service: str, req: ApiKeyUpdateRequest):
 
     logger.info("system.api_key_updated", service=service, env_var=env_var)
     return {"success": True, "service": service, "message": f"API key para {service} actualizada"}
+
+
+@router.post("/api-keys/{service}")
+async def update_api_key_alias(service: str, req: ApiKeyUpdateRequest):
+    """Alias para /config/{service}/key - compatibilidad con frontend."""
+    return await update_api_key(service, req)
 
 
 @router.get("/worker/resources")
@@ -1101,5 +1107,65 @@ async def get_absurdum_analysis(debate_id: str):
                     for p in proofs
                 ],
             }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/circuit-breakers/status")
+async def get_circuit_breakers_status():
+    """
+    Estado de todos los circuit breakers.
+    """
+    try:
+        from backend.adapters.circuit_breaker import circuit_breakers
+
+        status = circuit_breakers.get_all_status()
+        return status
+    except Exception as e:
+        logger.error("circuit_breakers_status_error", error=str(e))
+        return []
+
+
+@router.post("/circuit-breakers/reset")
+async def reset_circuit_breakers():
+    """
+    Resetea todos los circuit breakers.
+    """
+    try:
+        from backend.adapters.circuit_breaker import circuit_breakers
+
+        circuit_breakers.reset_all()
+        return {"status": "ok", "message": "All circuit breakers reset"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/model-registry/models")
+async def get_model_registry_models():
+    """
+    Obtiene todos los modelos registrados.
+    Alias para compatibilidad con frontend.
+    """
+    try:
+        from backend.engine.model_registry import model_registry
+
+        return {
+            "models": model_registry.get_available_models(),
+        }
+    except Exception as e:
+        logger.error("model_registry_error", error=str(e))
+        return {"models": []}
+
+
+@router.post("/model-registry/refresh-rankings")
+async def refresh_model_rankings():
+    """
+    Refresca los rankings de modelos.
+    """
+    try:
+        from backend.engine.model_registry import model_registry
+
+        model_registry.refresh_rankings()
+        return {"status": "ok", "message": "Model rankings refreshed"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

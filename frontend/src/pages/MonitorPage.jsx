@@ -15,15 +15,18 @@ export function MonitorPage() {
   const fetchData = async () => {
     try {
       const [gpuRes, histRes, healthRes, cbRes] = await Promise.allSettled([
-        fetch(`${API_BASE}/api/system/worker/gpu/metrics`).then((r) => r.json()),
-        fetch(`${API_BASE}/api/system/worker/gpu/history?limit=30`).then((r) => r.json()),
+        fetch(`${API_BASE}/api/v1/system/worker/gpu/metrics`).then((r) => r.json()),
+        fetch(`${API_BASE}/api/v1/system/worker/gpu/history?limit=30`).then((r) => r.json()),
         fetch(`${API_BASE}/health`).then((r) => r.json()),
-        fetch(`${API_BASE}/api/system/circuit-breakers/status`).then((r) => r.json()),
+        fetch(`${API_BASE}/api/v1/system/circuit-breakers/status`).then((r) => r.json()),
       ])
       if (gpuRes.status === 'fulfilled') setGpuMetrics(gpuRes.value)
-      if (histRes.status === 'fulfilled' && histRes.value?.history) setGpuHistory(histRes.value.history)
+      if (histRes.status === 'fulfilled' && histRes.value?.history) setGpuHistory(Array.isArray(histRes.value.history) ? histRes.value.history : [])
       if (healthRes.status === 'fulfilled') setHealth(healthRes.value)
-      if (cbRes.status === 'fulfilled') setCircuitBreakers(cbRes.value || [])
+      if (cbRes.status === 'fulfilled') {
+        const cbData = cbRes.value
+        setCircuitBreakers(Array.isArray(cbData) ? cbData : [])
+      }
     } catch (e) {
       console.warn('Monitor fetch error:', e)
     } finally {
