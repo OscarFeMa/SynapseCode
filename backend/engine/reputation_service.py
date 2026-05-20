@@ -80,7 +80,7 @@ class ReputationQueryService:
             return self._cache[key]
 
         # Fallback: buscar solo por modelo (cualquier rol)
-        for k, score in self._cache.items():
+        for score in self._cache.values():
             if score.model == model:
                 return score
 
@@ -108,7 +108,7 @@ class ReputationQueryService:
             Dict con {slot: weight} normalizado (suma=1.0)
         """
         weights = []
-        for model, role in zip(models, roles):
+        for model, role in zip(models, roles, strict=False):
             score = await self.get_score(model, role)
             weights.append(score.weight())
 
@@ -117,7 +117,7 @@ class ReputationQueryService:
             total = len(weights)
 
         normalized = [w / total for w in weights]
-        return {f"{m}:{r}": w for (m, r), w in zip(zip(models, roles), normalized)}
+        return {f"{m}:{r}": w for (m, r), w in zip(zip(models, roles, strict=False), normalized, strict=False)}
 
     def format_reputation_context(self, scores: list[ModelReputationScore]) -> str:
         """Formatea scores como contexto para prompts del tribunal"""

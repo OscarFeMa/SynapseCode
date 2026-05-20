@@ -536,7 +536,7 @@ class WarehouseManager:
             "PARTIAL_CONSENSUS": 0.5,
             "DIVERGENT": 0.0,
         }
-        return mapping.get(consensus_level, None)
+        return mapping.get(consensus_level)
 
     async def sync_to_supabase(self, table_name: str, data: dict[str, Any]) -> bool:
         """

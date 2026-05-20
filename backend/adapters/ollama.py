@@ -4,6 +4,7 @@ Cliente async para Ollama API (usa formato nativo, no OpenAI-compatible)
 """
 
 import asyncio
+import contextlib
 import json
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -206,14 +207,12 @@ class OllamaClient:
                     for m in models[:5]:  # Limitar a 5 para no saturar
                         model_name = m.get("name", "")
                         if model_name:
-                            try:
+                            with contextlib.suppress(Exception):
                                 await self.client.post(
                                     f"{self.base_url}/api/generate",
                                     json={"model": model_name, "prompt": "", "keep_alive": 0},
                                     timeout=5.0,
                                 )
-                            except Exception:
-                                pass
             except Exception:
                 pass
             # Esperar a que la GPU se recupere

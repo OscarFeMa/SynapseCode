@@ -5,6 +5,7 @@ Reparado para funcionar en Windows con broadcast/multicast
 """
 
 import asyncio
+import contextlib
 import json
 import platform
 import socket
@@ -235,10 +236,8 @@ class NodeDiscoverer:
         self.is_running = False
         if self._broadcast_task:
             self._broadcast_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._broadcast_task
-            except asyncio.CancelledError:
-                pass
 
         if self._transport:
             self._transport.close()

@@ -28,10 +28,10 @@ class TestHealthEndpoints:
 
     def test_root_endpoint(self):
         client = TestClient(app)
-        response = client.get("/")
+        response = client.get("/", headers={"Accept": "application/json"})
         assert response.status_code == 200
         data = response.json()
-        assert data["name"] == "Synapse Council"
+        assert data["name"] == "SynapseCode"
         assert "version" in data
         assert "node_role" in data
 

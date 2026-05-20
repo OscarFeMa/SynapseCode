@@ -629,10 +629,7 @@ Este veredicto se emitió sin consenso completo tras {self.MAX_ITERATIONS} itera
 
         # Heurística: si score técnico < 50, considerar como bloqueo parcial
         score = self._extract_score(response)
-        if score < 30:
-            return True
-
-        return False
+        return score < 30
 
     def _extract_score(self, response: str) -> int:
         """Extrae puntuación numérica de la respuesta (0-100)"""

@@ -60,13 +60,6 @@ async def check_service_health(client_class, settings_prefix: str) -> dict[str, 
                 browser=settings.WEB_AGENT_BROWSER,
                 headless=settings.WEB_AGENT_HEADLESS,
             )
-        elif settings_prefix == "huggingface":
-            if not settings.HF_ENABLED or not settings.HF_TOKEN:
-                health_tracker.record(settings_prefix, "skipped")
-                return {"status": "skipped", "reason": "HF_TOKEN not configured"}
-            from backend.adapters.huggingface import HuggingFaceClient
-
-            client = HuggingFaceClient(api_key=settings.HF_TOKEN)
         elif settings_prefix == "groq":
             if not settings.GROQ_API_KEY:
                 health_tracker.record(settings_prefix, "skipped")
@@ -111,7 +104,6 @@ def _get_suggested_fix(service: str, error: str) -> str:
         "lm_studio": "Abre LM Studio en el Worker y activa Local Inference Server",
         "jan": "Abre Jan en el Worker y activa el servidor API",
         "web_agent": "Ejecuta: playwright install chromium",
-        "huggingface": "Obtener token en https://huggingface.co/settings/tokens",
         "groq": "Verifica GROQ_API_KEY en .env. Crear key en https://console.groq.com/keys",
         "gemini": "Verifica GEMINI_API_KEY en .env. Crear key en https://aistudio.google.com/apikey",
     }
@@ -147,7 +139,6 @@ async def collect_dependency_health() -> dict[str, Any]:
         check_service_health(LMStudioClient, "lm_studio"),
         check_service_health(JanClient, "jan"),
         check_service_health(WebAgentClient, "web_agent"),
-        check_service_health(None, "huggingface"),
         check_service_health(None, "groq"),
         check_service_health(None, "gemini"),
         return_exceptions=True,
@@ -159,7 +150,6 @@ async def collect_dependency_health() -> dict[str, Any]:
         lm_studio_health,
         jan_health,
         web_agent_health,
-        huggingface_health,
         groq_health,
         gemini_health,
     ) = results
@@ -171,7 +161,6 @@ async def collect_dependency_health() -> dict[str, Any]:
         "lm_studio": lm_studio_health.get("status", "unknown") if isinstance(lm_studio_health, dict) else "error",
         "jan": jan_health.get("status", "unknown") if isinstance(jan_health, dict) else "error",
         "web_agent": web_agent_health.get("status", "unknown") if isinstance(web_agent_health, dict) else "error",
-        "huggingface": huggingface_health.get("status", "unknown") if isinstance(huggingface_health, dict) else "error",
         "groq": groq_health.get("status", "unknown") if isinstance(groq_health, dict) else "error",
         "gemini": gemini_health.get("status", "unknown") if isinstance(gemini_health, dict) else "error",
     }
@@ -202,9 +191,6 @@ async def collect_dependency_health() -> dict[str, Any]:
             "web_agent": web_agent_health
             if isinstance(web_agent_health, dict)
             else {"status": "error", "error": str(web_agent_health)},
-            "huggingface": huggingface_health
-            if isinstance(huggingface_health, dict)
-            else {"status": "error", "error": str(huggingface_health)},
             "groq": groq_health if isinstance(groq_health, dict) else {"status": "error", "error": str(groq_health)},
             "gemini": gemini_health
             if isinstance(gemini_health, dict)

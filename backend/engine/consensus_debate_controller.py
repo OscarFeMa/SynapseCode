@@ -291,7 +291,7 @@ class ConsensusDebateController:
 
         positions = await asyncio.gather(*tasks)
 
-        for agent, position in zip(agents, positions):
+        for agent, position in zip(agents, positions, strict=False):
             if isinstance(position, Exception):
                 logger.error(
                     "consensus.proposal_failed_unexpected",
@@ -1140,12 +1140,12 @@ Máximo 350 palabras.
 ## Participantes
 """
 
-        for agent_id, pos in final_positions.items():
+        for pos in final_positions.values():
             consensus_doc += f"- **{pos.agent.name}** ({pos.agent.role.value}): Confianza {pos.confidence:.0%}\\n"
 
         consensus_doc += "\n## Posiciones Finales\n\n"
 
-        for agent_id, pos in final_positions.items():
+        for pos in final_positions.values():
             consensus_doc += f"### {pos.agent.name}\n"
             consensus_doc += f"{pos.position[:300]}...\n\n"
             consensus_doc += f"- **Puntos de apoyo**: {', '.join(pos.supporting_points[:2])}\\n"
@@ -1183,7 +1183,7 @@ Máximo 350 palabras.
         all_fallacies = []
 
         for round_data in session.rounds:
-            for agent_id, pos in round_data.positions.items():
+            for pos in round_data.positions.values():
                 for fallacy in pos.logical_fallacies_detected:
                     all_fallacies.append(
                         {
@@ -1374,7 +1374,7 @@ Máximo 350 palabras.
                 content += f"**Temas de Disenso**: {', '.join(round_data.dissent_topics)}\n"
 
             content += "\n**Posiciones**:\n\n"
-            for agent_id, pos in round_data.positions.items():
+            for pos in round_data.positions.values():
                 content += f"- **{pos.agent.name}**: {pos.position[:200]}...\n"
                 content += f"  - Confianza: {pos.confidence:.0%} | Consenso: {pos.consensus_score:.0%}\n"
 

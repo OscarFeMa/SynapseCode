@@ -135,17 +135,16 @@ class BaseOpenAICompatibleClient(ABC):
                         json=payload,
                         headers=headers,
                     ) as response:
-                        if response.status_code == 429:
-                            if attempt < self.max_retries:
-                                logger.warning(
-                                    "openai_base.rate_limit_stream",
-                                    attempt=attempt + 1,
-                                    wait=retry_delay,
-                                    url=self.base_url,
-                                )
-                                await asyncio.sleep(retry_delay)
-                                retry_delay *= 2
-                                continue
+                        if response.status_code == 429 and attempt < self.max_retries:
+                            logger.warning(
+                                "openai_base.rate_limit_stream",
+                                attempt=attempt + 1,
+                                wait=retry_delay,
+                                url=self.base_url,
+                            )
+                            await asyncio.sleep(retry_delay)
+                            retry_delay *= 2
+                            continue
 
                         response.raise_for_status()
                         async for line in response.aiter_lines():
@@ -172,17 +171,16 @@ class BaseOpenAICompatibleClient(ABC):
                         json=payload,
                         headers=headers,
                     )
-                    if response.status_code == 429:
-                        if attempt < self.max_retries:
-                            logger.warning(
-                                "openai_base.rate_limit",
-                                attempt=attempt + 1,
-                                wait=retry_delay,
-                                url=self.base_url,
-                            )
-                            await asyncio.sleep(retry_delay)
-                            retry_delay *= 2
-                            continue
+                    if response.status_code == 429 and attempt < self.max_retries:
+                        logger.warning(
+                            "openai_base.rate_limit",
+                            attempt=attempt + 1,
+                            wait=retry_delay,
+                            url=self.base_url,
+                        )
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2
+                        continue
 
                     response.raise_for_status()
                     data = response.json()

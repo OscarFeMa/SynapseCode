@@ -467,7 +467,7 @@ class ReputationService:
                 return
 
             # Actualizar cada modelo
-            for key, metric in metrics.items():
+            for metric in metrics.values():
                 await self._update_model_reputation(metric, db_session)
 
             # Incrementar contador de debates para todos los modelos actualizados

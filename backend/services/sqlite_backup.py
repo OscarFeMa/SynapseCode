@@ -3,6 +3,7 @@ SynapseCode - SQLite Backup Service
 Automatic backup of SQLite database to Supabase Storage
 """
 
+import contextlib
 import os
 import shutil
 import tempfile
@@ -187,10 +188,8 @@ class SQLiteBackupService:
         finally:
             # Limpiar archivo temporal
             if backup_path and Path(backup_path).exists():
-                try:
+                with contextlib.suppress(OSError):
                     os.remove(backup_path)
-                except OSError:
-                    pass
 
     async def list_backups(self, limit: int = 20) -> list[dict[str, Any]]:
         """

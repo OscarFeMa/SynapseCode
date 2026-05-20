@@ -8,6 +8,20 @@ SynapseCode es una plataforma de razonamiento colectivo híbrido que orquesta m�
 
 ## 🗓️ Línea Temporal de Desarrollo
 
+<<<<<<< HEAD
+=======
+### **Fase 12: Publicación Web y Estabilización (Completada - v3.0)**
+
+#### Mayo 19, 2026: Despliegue en SynapseCode.org y Fixes Críticos
+- ✅ **Landing Page Pública**: Nueva web con diseño editorial en `synapsecode.org`.
+- ✅ **Despliegue SPA React**: React App desplegada bajo la ruta `/app/` manejando cliente-servidor dinámico con fallback estático (Netlify/GH Pages).
+- ✅ **Compartición de Debates (FEAT-6)**: `SharePage.jsx` y exportación estática para compartir debates en la web pública mediante Supabase.
+- ✅ **SEO Básico**: `sitemap.xml` y `robots.txt` para la visibilidad de la landing.
+- ✅ **Clean Code & Linting (FIX-4)**: Solucionados 43 lints complejos con Ruff Auto-fixer (B, SIM, PERF).
+- ✅ **Refactor de Contexto (FEAT-7)**: Extracción del ContextWindowManager a `debate_models.py` para gestión unificada.
+- ✅ **Estabilización de Pipelines**: Tests unitarios y de integración de GitHub Actions arreglados.
+
+>>>>>>> origin/main
 ### **Fase 11: Admin Panel v3.0 - Compact Dashboard + Full Debates View (Completada - v3.0)**
 
 #### Mayo 19, 2026: Rediseño Completo del Panel de Administración
@@ -465,7 +479,11 @@ POST /api/v1/debate/consensus/create
 
 ---
 
+<<<<<<< HEAD
 **Versión actual:** v2.9.0  
+=======
+**Versión actual:** v3.0.0  
+>>>>>>> origin/main
 **Última actualización:** 2026-05-19  
 **Repositorio:** https://github.com/OscarFeMa/SynapseCode  
 **Web:** https://synapsecode.org  
