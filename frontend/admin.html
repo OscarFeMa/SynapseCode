@@ -144,6 +144,54 @@
   .markdown-body table { width:100%; border-collapse:collapse; font-size:0.78rem; margin:8px 0; }
   .markdown-body th, .markdown-body td { text-align:left; padding:6px 8px; border-bottom:1px solid #E0DDD7; }
   .markdown-body th { color:#6B6560; font-weight:600; font-size:0.7rem; text-transform:uppercase; }
+
+  /* ─── RESPONSIVE ──────────────────────────── */
+  @media (max-width: 1024px) {
+    .dash-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    header { padding: 8px 12px; flex-wrap: wrap; gap: 8px; }
+    header h1 { font-size: 1rem; }
+    header #clock { display: none; }
+    .container { flex-direction: column; height: auto; }
+    nav { width: 100%; padding: 4px 0; border-right: none; border-bottom: 1px solid #E0DDD7; display: flex; overflow-x: auto; }
+    nav a { white-space: nowrap; padding: 6px 12px; font-size: 0.75rem; border-left: none; border-bottom: 3px solid transparent; }
+    nav a:hover, nav a.active { border-left: none; border-bottom-color: #23403B; padding-left: 12px; }
+    .content { padding: 12px; }
+    .dash-section { padding: 10px; }
+    .dash-section h3 { font-size: 0.85rem; }
+    .form-group input, .form-group select, .form-group textarea { max-width: 100%; }
+    .form-row { flex-direction: column; }
+    .form-row .form-group { min-width: 100%; }
+    .health-table { font-size: 0.65rem; }
+    .health-table th, .health-table td { padding: 3px 4px; }
+    .debate-card-header { padding: 8px 10px; }
+    .debate-card-header .topic { font-size: 0.8rem; }
+    .debate-card-header .meta { font-size: 0.65rem; gap: 6px; }
+    .turn { padding: 8px 10px; }
+    .turn .text { font-size: 0.72rem; }
+    .metrics-row { flex-direction: column; }
+    .metric-mini { min-width: 100%; }
+  }
+  @media (max-width: 480px) {
+    header { padding: 6px 8px; }
+    header h1 { font-size: 0.9rem; }
+    .badge { font-size: 0.6rem; padding: 1px 6px; }
+    .btn { padding: 6px 12px; font-size: 0.7rem; }
+    .btn-sm { padding: 3px 8px; font-size: 0.65rem; }
+    nav a { padding: 5px 10px; font-size: 0.7rem; }
+    .content { padding: 8px; }
+    .dash-section { padding: 8px; margin-bottom: 8px; }
+    .dash-section h3 { font-size: 0.8rem; }
+    h2 { font-size: 1rem; margin-bottom: 10px; }
+    h3 { font-size: 0.9rem; }
+    .debate-card-header .meta { flex-direction: column; gap: 2px; }
+    .export-row { flex-direction: column; }
+    .export-row .btn { width: 100%; }
+    .log-mini { font-size: 0.6rem; max-height: 120px; }
+    .form-group label { font-size: 0.7rem; }
+    .form-group input, .form-group select, .form-group textarea { font-size: 0.8rem; padding: 6px 10px; }
+  }
 </style>
 </head>
 <body>
