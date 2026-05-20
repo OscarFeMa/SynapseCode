@@ -2,7 +2,7 @@
 
 Plataforma de **razonamiento colectivo híbrido** que orquesta múltiples modelos de IA en debates estructurados por roles, con veredicto del **Tribunal de Magistrados**.
 
-Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.43) ejecuta modelos locales.
+Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.45) ejecuta modelos locales.
 
 **Diseño Editorial**: Background `#F5F3EE` (cream paper), Accent `#23403B` (petroleum green), Typography `Instrument Serif` + `Inter`.
 
@@ -174,7 +174,8 @@ SynapseCode/
 │   │   ├── deepseek.py             # DeepSeek
 │   │   ├── huggingface.py          # HuggingFace Inference API
 │   │   ├── web_agent.py            # Playwright (10 sitios IA)
-│   │   └── http_client_manager.py  # HTTP connection pooling
+│   │   ├── http_client_manager.py  # HTTP connection pooling
+│   │   └── circuit_breaker.py      # Circuit breaker pattern
 │   │
 │   ├── engine/                     # Motor de debate
 │   │   ├── sequential_debate_controller.py  # Debate secuencial
@@ -199,10 +200,12 @@ SynapseCode/
 │   │   ├── model_evaluator.py               # Evaluador con rankings web
 │   │   ├── role_matcher.py                  # Asignación inteligente rol→modelo
 │   │   ├── report_generator.py              # Generador de reportes HTML/PDF
+│   │   ├── web_search_service.py            # Búsqueda web DuckDuckGo + Trafilatura
 │   │   └── prompts.py                       # Templates por rol
 │   │
 │   ├── api/routes/                 # Endpoints REST
 │   │   ├── debate.py               # Debates (CRUD, export, continue, pause)
+│   │   ├── debate_report_generator.py  # Generador de informes híbridos
 │   │   ├── system.py               # Chat directo, worker, RDP, analytics
 │   │   ├── health.py               # Health checks multi-servicio
 │   │   ├── cache.py                # Gestión de caché semántica
@@ -214,7 +217,8 @@ SynapseCode/
 │   │
 │   ├── api/
 │   │   ├── websocket.py            # WebSocket handler
-│   │   └── middleware.py           # Middleware CORS, logging
+│   │   ├── middleware.py           # Rate limiting middleware
+│   │   └── health_tracker.py       # Health tracking
 │   │
 │   ├── database/
 │   │   ├── local_db.py             # SQLite async engine
@@ -240,24 +244,80 @@ SynapseCode/
 │   │
 │   ├── services/
 │   │   ├── supabase_sync.py        # Sync a Supabase Cloud
-│   │   └── rdp_manager.py          # Gestión RDP al Worker
+│   │   ├── rdp_manager.py          # Gestión RDP al Worker
+│   │   ├── sqlite_backup.py        # Backups locales SQLite
+│   │   └── gpu_metrics.py          # Métricas GPU (NRML)
 │   │
 │   └── tests/
-│       ├── test_comprehensive.py   # 162 tests (21 niveles)
-│       ├── test_system.py
-│       └── exhaustive_test.py
+│       ├── conftest.py               # Pytest fixtures
+│       ├── comprehensive_battery.py  # Test battery
+│       ├── comprehensive_battery_v2.py
+│       ├── api/                      # API endpoint tests
+│       │   ├── test_backup_api.py
+│       │   ├── test_cache_api.py
+│       │   ├── test_debate_api.py
+│       │   └── test_health_system.py
+│       ├── integration/              # Integration tests
+│       │   ├── test_controller.py
+│       │   ├── test_db_models.py
+│       │   ├── test_hybrid_memory.py
+│       │   ├── test_migrations.py
+│       │   ├── test_prometheus.py
+│       │   ├── test_reputation.py
+│       │   ├── test_sqlite_backup.py
+│       │   ├── test_supabase_sync.py
+│       │   ├── test_task_manager.py
+│       │   ├── test_tribunal_fallback.py
+│       │   └── test_warehouse.py
+│       └── unit/                     # Unit tests
+│           ├── test_adapters.py
+│           ├── test_circuit_breaker.py
+│           ├── test_config.py
+│           ├── test_convergence.py
+│           ├── test_debate_models.py
+│           ├── test_gpu_metrics.py
+│           ├── test_imports.py
+│           ├── test_intervention_taxonomy.py
+│           ├── test_local_engine_manager.py
+│           ├── test_logging_config.py
+│           ├── test_quality_monitor.py
+│           ├── test_reductio.py
+│           ├── test_semantic_cache.py
+│           ├── test_tribunal_config.py
+│           └── test_websocket_manager.py
 │
 ├── frontend/
-│   ├── control-center/             # Control Center v2.7 (Vanilla JS)
-│   │   └── index.html              # App completa, zero dependencies
-│   ├── admin.html                  # Admin Panel v3.0 (compact dashboard)
-│   ├── all-debates.html            # Full debates view with search/filter/export
-│   └── src/                        # React frontend (legacy)
+│   ├── web/                      # Landing page pública (synapsecode.org)
+│   │   ├── index.html            # Página principal
+│   │   ├── robots.txt
+│   │   ├── sitemap.xml
+│   │   └── CNAME
+│   ├── control-center/           # Control Center v2.7 (Vanilla JS)
+│   │   └── index.html            # App completa, zero dependencies
+│   ├── admin.html                # Admin Panel v3.0 (compact dashboard)
+│   ├── all-debates.html          # Full debates view with search/filter/export
+│   ├── index.html                # React SPA entry point
+│   └── src/                      # React frontend
+│       ├── main.jsx
+│       ├── pages/                # Dashboard, Debates, History, Settings, etc.
+│       ├── components/           # UI components
+│       ├── hooks/                # useWebSocket, useSession
+│       ├── store/                # Zustand store
+│       └── lib/                  # Supabase client
 │
 ├── .env.example                    # Template de configuración
-├── run_backend.bat                 # Lanzar backend
-├── open_control_center.bat         # Lanzar Control Center
+├── start_backend.bat               # Lanzar backend (uvicorn)
+├── run_backend.bat                 # Lanzar backend con venv
 ├── start_master.bat                # Lanzar todo (backend + frontend)
+├── start_synapse.bat               # Lanzar Synapse completo
+├── open_control_center.bat         # Abrir Control Center
+├── check_health.bat                # Verificar estado del sistema
+├── install_models.bat              # Instalar modelos Ollama
+├── configure_master.bat            # Configurar nodo Master
+├── scripts/                        # Scripts adicionales
+│   ├── worker_autostart.bat
+│   ├── web_agent_sessions.bat
+│   └── start_worker_template.bat
 └── README.md
 ```
 
@@ -422,7 +482,7 @@ cd <ruta-a-SynapseCode>
 .\venv\Scripts\python -m pytest backend/tests/ -v
 ```
 
-**150 tests** pasando. CI/CD obligatorio en cada PR. Linting con Ruff (`ruff check backend/`).
+**177 tests** pasando. CI/CD obligatorio en cada PR. Linting con Ruff (`ruff check backend/`).
 
 ---
 

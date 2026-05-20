@@ -214,7 +214,14 @@ app.add_middleware(ProxyHeadersMiddleware)
 
 # 2. Trusted Hosts (protege contra host header injection)
 app.add_middleware(
-    TrustedHostMiddleware, allowed_hosts=["synapsecode.org", "www.synapsecode.org", "localhost", "127.0.0.1"]
+    TrustedHostMiddleware,
+    allowed_hosts=[
+        "synapsecode.org",
+        "www.synapsecode.org",
+        "localhost",
+        "127.0.0.1",
+        "testserver",  # Necesario para pytest TestClient
+    ]
 )
 
 # 3. CORS (Restringido a dominios seguros)
