@@ -17,7 +17,9 @@ if sys.platform == "win32":
 import structlog
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.adapters.http_client_manager import HTTPClientManager
 from backend.api.middleware import (
@@ -52,6 +54,26 @@ logging.basicConfig(
 
 logger = structlog.get_logger()
 settings = get_settings()
+
+
+class ProxyHeadersMiddleware(BaseHTTPMiddleware):
+    """Extrae headers reales de Cloudflare Tunnel"""
+
+    async def dispatch(self, request: Request, call_next):
+        # Esquema HTTPS
+        if "x-forwarded-proto" in request.headers:
+            request.scope["scheme"] = request.headers["x-forwarded-proto"]
+
+        # IP Real del cliente
+        if "x-forwarded-for" in request.headers:
+            client_ip = request.headers["x-forwarded-for"].split(",")[0].strip()
+            request.scope["client"] = (client_ip, 0)
+        elif "cf-connecting-ip" in request.headers:
+            request.scope["client"] = (request.headers["cf-connecting-ip"], 0)
+
+        response = await call_next(request)
+        return response
+
 
 # Configurar logging estructurado con archivos rotatorios
 setup_logging(
@@ -187,12 +209,24 @@ app.add_middleware(RateLimitMiddleware, requests_per_minute=120, burst_size=60)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(LoggingMiddleware)
 
-# Configurar CORS
-origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else ["*"]
+# 1. Proxy Headers (debe ir primero para que request.client sea correcto)
+app.add_middleware(ProxyHeadersMiddleware)
+
+# 2. Trusted Hosts (protege contra host header injection)
+app.add_middleware(
+    TrustedHostMiddleware, allowed_hosts=["synapsecode.org", "www.synapsecode.org", "localhost", "127.0.0.1"]
+)
+
+# 3. CORS (Restringido a dominios seguros)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials="*" not in origins,
+    allow_origins=[
+        "https://synapsecode.org",
+        "https://www.synapsecode.org",
+        "http://localhost:5173",
+        "http://localhost:8000",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
