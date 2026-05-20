@@ -260,6 +260,15 @@
     <div id="tab-settings" class="tab">
       <h2>⚙️ Configuración del Sistema</h2>
       <div class="dash-section" style="margin-bottom:12px">
+        <h3>🔐 Admin Token</h3>
+        <div class="form-group">
+          <label>Token de acceso remoto (requerido para actualizar keys desde fuera de localhost)</label>
+          <input id="admin-token-input" type="password" placeholder="Pega aquí tu ADMIN_API_TOKEN..." style="max-width:400px">
+          <button class="btn btn-primary btn-sm" onclick="saveAdminToken()" style="margin-left:6px">Guardar</button>
+        </div>
+        <div id="token-status" style="margin-top:6px;font-size:0.8rem"></div>
+      </div>
+      <div class="dash-section" style="margin-bottom:12px">
         <h3>🔑 API Keys</h3>
         <div id="keys-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:8px 0"></div>
         <div class="form-group">
@@ -322,6 +331,9 @@ function renderTab(name) {
 
 async function api(method, path, data) {
   const opts = { method, headers: {'Content-Type':'application/json'} };
+  // Add admin token for authenticated endpoints
+  const token = localStorage.getItem('admin_token');
+  if (token) opts.headers['X-Admin-Token'] = token;
   if (data) opts.body = JSON.stringify(data);
   const r = await fetch(API + path, opts);
   const text = await r.text();
@@ -725,6 +737,23 @@ async function updateApiKey() {
   }
 }
 
+function saveAdminToken() {
+  const token = $('admin-token-input').value.trim();
+  if (!token) { alert('Ingresa un token'); return; }
+  localStorage.setItem('admin_token', token);
+  $('token-status').innerHTML = '<span style="color:#23403B"> Token guardado correctamente</span>';
+  $('admin-token-input').value = '';
+}
+
+function checkAdminToken() {
+  const token = localStorage.getItem('admin_token');
+  if (token) {
+    $('token-status').innerHTML = '<span style="color:#23403B"> Token configurado</span>';
+  } else {
+    $('token-status').innerHTML = '<span style="color:#8B2E2E"> Sin token - las operaciones admin fallarán desde remoto</span>';
+  }
+}
+
 // ─── PROJECT DOCS ──────────────────────────────
 let currentDoc = null;
 async function showDoc(name) {
@@ -818,6 +847,7 @@ setInterval(updateClock, 1000);
 updateClock();
 
 refreshDashboard();
+checkAdminToken();
 refreshMetricsSection();
 renderDebateList();
 setInterval(refreshDashboard, 15000);
