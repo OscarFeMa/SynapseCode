@@ -1,18 +1,8 @@
-<<<<<<< HEAD
-# 🧠 SynapseCode v2.9
-
-Plataforma de **razonamiento colectivo híbrido** que orquesta múltiples modelos de IA en debates estructurados por roles, con veredicto del **Tribunal de Magistrados**.
-
-Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.43) ejecuta modelos locales.
-
-=======
 # 🧠 SynapseCode v3.0
 
 Plataforma de **razonamiento colectivo híbrido** que orquesta múltiples modelos de IA en debates estructurados por roles, con veredicto del **Tribunal de Magistrados**.
 
 Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.45) ejecuta modelos locales.
-
->>>>>>> origin/main
 **Diseño Editorial**: Background `#F5F3EE` (cream paper), Accent `#23403B` (petroleum green), Typography `Instrument Serif` + `Inter`.
 
 ---
@@ -30,6 +20,7 @@ Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.45) eje
 - **Conexión Master ↔ Worker**: Detección automática de IP, heartbeat monitoring
 - **Monitor de Servicios**: Ollama, LM Studio, Jan con auto-lanzamiento
 - **Diseño Editorial**: Light theme con petroleum green accent, Instrument Serif + Inter
+- **Responsive**: Landing y Admin adaptados a móvil/tablet (breakpoints 768px, 480px)
 
 ### Búsqueda Web en Tiempo Real
 - **DuckDuckGo Search** (`ddgs`): Resultados reales sin API key
@@ -209,10 +200,7 @@ SynapseCode/
 │   │   ├── model_evaluator.py               # Evaluador con rankings web
 │   │   ├── role_matcher.py                  # Asignación inteligente rol→modelo
 │   │   ├── report_generator.py              # Generador de reportes HTML/PDF
-<<<<<<< HEAD
-=======
 │   │   ├── web_search_service.py            # Búsqueda web DuckDuckGo + Trafilatura
->>>>>>> origin/main
 │   │   └── prompts.py                       # Templates por rol
 │   │
 │   ├── api/routes/                 # Endpoints REST
@@ -299,13 +287,6 @@ SynapseCode/
 │           └── test_websocket_manager.py
 │
 ├── frontend/
-<<<<<<< HEAD
-│   ├── control-center/             # Control Center v2.7 (Vanilla JS)
-│   │   └── index.html              # App completa, zero dependencies
-│   ├── admin.html                  # Admin Panel v3.0 (compact dashboard)
-│   ├── all-debates.html            # Full debates view with search/filter/export
-│   └── src/                        # React frontend (legacy)
-=======
 │   ├── web/                      # Landing page pública (synapsecode.org)
 │   │   ├── index.html            # Página principal
 │   │   ├── robots.txt
@@ -323,7 +304,6 @@ SynapseCode/
 │       ├── hooks/                # useWebSocket, useSession
 │       ├── store/                # Zustand store
 │       └── lib/                  # Supabase client
->>>>>>> origin/main
 │
 ├── .env.example                    # Template de configuración
 ├── start_backend.bat               # Lanzar backend (uvicorn)
@@ -502,11 +482,7 @@ cd <ruta-a-SynapseCode>
 .\venv\Scripts\python -m pytest backend/tests/ -v
 ```
 
-<<<<<<< HEAD
-**150 tests** pasando. CI/CD obligatorio en cada PR. Linting con Ruff (`ruff check backend/`).
-=======
 **177 tests** pasando. CI/CD obligatorio en cada PR. Linting con Ruff (`ruff check backend/`).
->>>>>>> origin/main
 
 ---
 
