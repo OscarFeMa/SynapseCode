@@ -71,7 +71,6 @@ modules_to_test = [
     ("Jan Adapter", "backend.adapters.jan", "JanClient"),
     ("Web Agent", "backend.adapters.web_agent", "WebAgentClient"),
     ("HTTP Client Manager", "backend.adapters.http_client_manager", "HTTPClientManager"),
-    ("HuggingFace Adapter", "backend.adapters.huggingface", "HuggingFaceClient"),
     ("Supabase Sync", "backend.services.supabase_sync", "SupabaseSyncService"),
     ("SQLite Backup", "backend.services.sqlite_backup", "SQLiteBackupService"),
     ("RDP Manager", "backend.services.rdp_manager", "RDPManager"),
@@ -317,7 +316,6 @@ adapter_tests = [
     ("DeepSeekClient", "backend.adapters.deepseek", "DeepSeekClient", ["chat_completion", "health_check"]),
     ("JanClient", "backend.adapters.jan", "JanClient", ["chat_completion", "health_check"]),
     ("WebAgentClient", "backend.adapters.web_agent", "WebAgentClient", ["query", "health_check"]),
-    ("HuggingFaceClient", "backend.adapters.huggingface", "HuggingFaceClient", ["chat_completion", "health_check"]),
     (
         "HTTPClientManager",
         "backend.adapters.http_client_manager",

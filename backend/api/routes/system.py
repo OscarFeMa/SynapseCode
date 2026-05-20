@@ -234,20 +234,8 @@ async def direct_chat_endpoint(req: DirectChatRequest):
             response_text = await client.query(req.model, req.message)
             response_parts.append(response_text)
 
-        elif engine == "huggingface":
-            from backend.adapters.huggingface import HuggingFaceClient
-
-            client = HuggingFaceClient()
-            async for token in client.chat_completion(
-                model=req.model,
-                messages=messages,
-                temperature=req.temperature,
-                max_tokens=req.max_tokens,
-            ):
-                response_parts.append(token)
-
         else:
-            supported = "groq, gemini, openrouter, deepseek, web_agent, huggingface"
+            supported = "groq, gemini, openrouter, deepseek, web_agent"
             raise HTTPException(
                 status_code=400,
                 detail=f"Engine '{req.engine}' not supported. Use: {supported}",
@@ -941,7 +929,6 @@ async def update_api_key(service: str, req: ApiKeyUpdateRequest):
         "openrouter": "OPENROUTER_API_KEY",
         "groq": "GROQ_API_KEY",
         "gemini": "GEMINI_API_KEY",
-        "huggingface": "HF_TOKEN",
         "deepseek": "DEEPSEEK_API_KEY",
     }
     if service not in valid_services:

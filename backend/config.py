@@ -82,14 +82,10 @@ class Settings(BaseSettings):
     WEB_AGENT_BROWSER: str = "chromium"  # "chromium" | "chrome" (usa Chrome del sistema con sesiones guardadas)
     WEB_AGENT_HEADLESS: bool = True
     WEB_AGENT_TIMEOUT_SECONDS: int = 120
-    WEB_AGENT_SITES: str = "chat.openai.com,claude.ai,gemini.google.com,chat.deepseek.com,perplexity.ai,grok.com,chat.mistral.ai,meta.ai,huggingface.co/chat,you.com"
+    WEB_AGENT_SITES: str = "chat.openai.com,claude.ai,gemini.google.com,chat.deepseek.com,perplexity.ai,grok.com,chat.mistral.ai,meta.ai,you.com"
     WEB_AGENT_SESSION_DIR: str = "./data/browser_sessions"
     WEB_AGENT_CHROME_PATH: str = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
     WEB_AGENT_CHROME_PROFILE: str = ""  # Vacío = usa perfil por defecto del usuario
-
-    # ─── HuggingFace Inference API ───────────────────────────
-    HF_TOKEN: str | None = None
-    HF_ENABLED: bool = True
 
     # ─── RDP Manager (Wake-on-RDP para Worker) ──────────────────
     RDP_ENABLED: bool = True
