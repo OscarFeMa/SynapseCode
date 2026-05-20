@@ -221,7 +221,7 @@ app.add_middleware(
         "localhost",
         "127.0.0.1",
         "testserver",  # Necesario para pytest TestClient
-    ]
+    ],
 )
 
 # 3. CORS (Restringido a dominios seguros)
