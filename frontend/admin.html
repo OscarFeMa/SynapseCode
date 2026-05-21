@@ -315,7 +315,6 @@
           <select id="key-service" style="max-width:180px">
             <option value="groq">Groq</option>
             <option value="gemini">Gemini</option>
-            <option value="huggingface">HuggingFace</option>
           </select>
           <input id="key-value" placeholder="Nueva API key..." style="max-width:350px">
           <button class="btn btn-primary btn-sm" onclick="updateApiKey()" style="margin-left:6px">Actualizar</button>
@@ -370,6 +369,8 @@ function renderTab(name) {
 
 async function api(method, path, data) {
   const opts = { method, headers: {'Content-Type':'application/json'} };
+  const tok = localStorage.getItem('admin_token');
+  if (tok) opts.headers['Authorization'] = 'Bearer ' + tok;
   if (data) opts.body = JSON.stringify(data);
   const r = await fetch(API + path, opts);
   const text = await r.text();
@@ -413,7 +414,6 @@ async function refreshDashboard() {
     {title:'Groq', val:svc.groq?.status||'no config', sub:(svc.groq?.models_available||'?')+' modelos', st:svc.groq?.status},
     {title:'Gemini', val:svc.gemini?.status||'no config', sub:(svc.gemini?.models_available||'?')+' modelos', st:svc.gemini?.status},
     {title:'Web Agent', val:svc.web_agent?.status||'?', sub:svc.web_agent?.playwright_installed ? 'Playwright' : '', st:svc.web_agent?.status},
-    {title:'HuggingFace', val:svc.huggingface?.status||'?', sub:svc.huggingface?.user||'', st:svc.huggingface?.status},
   ];
   $('dash-services').innerHTML = cards.map(c =>
     `<div class="svc-row"><span class="svc-name">${c.title}</span><span class="svc-status">${badge(c.st)}</span><span style="color:#8B8580;font-size:0.65rem">${c.sub}</span></div>`
@@ -740,7 +740,6 @@ async function refreshSettings() {
     const keys = [
       {name:'Groq', status:svc.groq?.status, configured: !!svc.groq && svc.groq.status !== 'skipped'},
       {name:'Gemini', status:svc.gemini?.status, configured: !!svc.gemini && svc.gemini.status !== 'skipped'},
-      {name:'HuggingFace', status:svc.huggingface?.status, configured: !!svc.huggingface && svc.huggingface.status !== 'skipped'},
       {name:'DeepSeek', status:svc.deepseek?.status, configured: !!svc.deepseek && svc.deepseek.status !== 'skipped'},
     ];
     $('keys-grid').innerHTML = keys.map(k =>
