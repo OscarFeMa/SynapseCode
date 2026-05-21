@@ -69,13 +69,6 @@
       justify-content: space-between;
       height: 56px;
     }
-    .nav-logo {
-      font-family: 'Instrument Serif', serif;
-      font-size: 1.2rem;
-      font-style: italic;
-      color: var(--petroleum);
-      text-decoration: none;
-    }
     .nav-links {
       display: flex;
       gap: 24px;
@@ -109,7 +102,7 @@
       padding: 60px 24px 60px;
       background: linear-gradient(180deg, var(--white) 0%, var(--cream) 100%);
     }
-    .hero-content { max-width: 800px; }
+    .hero-inner { max-width: 800px; }
     .hero-logo { max-width: 320px; width: 100%; margin-bottom: 12px; }
     .hero-badge {
       display: inline-block;
@@ -334,7 +327,6 @@
     }
     @media (max-width: 480px) {
       .nav-inner { height: 48px; }
-      .nav-logo { font-size: 1rem; }
       .nav-links { gap: 8px; }
       .nav-links a { font-size: 0.85rem; }
       .nav-cta { padding: 5px 12px; font-size: 0.8rem; }
@@ -365,7 +357,7 @@
   <!-- NAV -->
   <nav>
     <div class="nav-inner">
-      <a href="#" class="nav-logo">⚡ SynapseCode</a>
+      <span class="hero-badge" style="margin:0;font-size:0.65rem">v3.0 · Open Source</span>
       <div class="nav-links">
         <a href="#features">Características</a>
         <a href="#architecture">Arquitectura</a>
@@ -380,7 +372,6 @@
   <section class="hero" id="hero">
     <div class="hero-content">
       <img src="/logo.png" alt="SynapseCode" class="hero-logo">
-      <span class="hero-badge">v3.0 · Open Source</span>
       <h1>Razonamiento colectivo con múltiples IAs</h1>
       <p>Plataforma híbrida que orquesta modelos locales y cloud en debates estructurados por roles, con veredicto del Tribunal de Magistrados y búsqueda web en tiempo real.</p>
       <div class="hero-actions">
