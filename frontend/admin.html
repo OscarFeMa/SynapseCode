@@ -474,7 +474,7 @@ function formatUptime(seconds) {
 
 // ─── DASHBOARD ──────────────────────────────────
 async function refreshDashboard() {
-  const h = await api('GET','/health');
+  const h = await api('GET','/api/health');
   $('master-badge').innerHTML = 'Master: ' + (h.status===200 ? badge('online') : badge('error'));
   if (h.status !== 200) return;
   const svc = h.data.services || {};
@@ -510,7 +510,7 @@ async function refreshWorkerSection() {
 }
 
 async function refreshHealthSection() {
-  const r = await api('GET', '/health/history');
+  const r = await api('GET', '/api/health/history');
   if (r.status !== 200) {
     $('dash-health-tbody').innerHTML = '<tr><td colspan="4" style="color:#8B2E2E">Sin datos</td></tr>';
     return;
@@ -806,7 +806,7 @@ function exportDirect(sid, format) {
 
 // ─── CONFIGURACIÓN ─────────────────────────────
 async function refreshSettings() {
-  const h = await api('GET', '/health');
+  const h = await api('GET', '/api/health');
   if (h.status === 200) {
     const svc = h.data.services || {};
     const keys = [
