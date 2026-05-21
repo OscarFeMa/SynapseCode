@@ -321,6 +321,18 @@
         </div>
         <div id="key-result" style="margin-top:6px"></div>
       </div>
+      <div class="dash-section" style="margin-bottom:12px">
+        <h3>🔐 Admin Token</h3>
+        <div class="form-group">
+          <label>Token de acceso (para cambios de configuración remotos)</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="admin-token-input" placeholder="ADMIN_API_TOKEN..." style="max-width:400px">
+            <button class="btn btn-primary btn-sm" onclick="saveAdminToken()">Guardar</button>
+            <button class="btn btn-sm" style="background:#E0DDD7;color:#6B6560" onclick="clearAdminToken()">Limpiar</button>
+          </div>
+          <div id="token-status" style="margin-top:4px;font-size:0.75rem;color:#6B6560"></div>
+        </div>
+      </div>
       <div class="dash-section">
         <h3>⏱️ Timeouts por Modelo</h3>
         <table class="health-table"><thead><tr><th>Patrón</th><th>Timeout</th></tr></thead>
@@ -856,6 +868,25 @@ function renderMarkdown(md) {
   html = html.replace(/\n/g, '<br>');
   return html;
 }
+
+// ─── ADMIN TOKEN ────────────────────────────
+function saveAdminToken() {
+  const val = $('admin-token-input').value.trim();
+  if (!val) { $('token-status').textContent = '⚠️ Introduce un token'; return; }
+  localStorage.setItem('admin_token', val);
+  $('token-status').textContent = '✅ Token guardado';
+  $('admin-token-input').value = '';
+  refreshDashboard();
+}
+function clearAdminToken() {
+  localStorage.removeItem('admin_token');
+  $('token-status').textContent = '🧹 Token eliminado';
+  refreshDashboard();
+}
+(function() {
+  const saved = localStorage.getItem('admin_token');
+  if (saved) $('token-status').textContent = '✅ Token configurado';
+})();
 
 // ─── CLOCK & AUTO-REFRESH ──────────────────────
 function updateClock() {
