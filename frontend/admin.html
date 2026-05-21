@@ -208,9 +208,37 @@
     .form-group label { font-size: 0.8rem; }
     .form-group input, .form-group select, .form-group textarea { font-size: 0.85rem; padding: 8px 12px; }
   }
+
+  /* ─── OFFLINE BANNER ─────────────────────── */
+  #offline-banner {
+    display: none;
+    background: #8B2E2E;
+    color: #FFFFFF;
+    text-align: center;
+    padding: 16px 20px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    position: sticky;
+    top: 0;
+    z-index: 9998;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  }
+  #offline-banner.visible { display: block; }
+  #offline-banner .sub {
+    font-weight: 400;
+    font-size: 0.85rem;
+    opacity: 0.8;
+    margin-top: 4px;
+  }
 </style>
 </head>
 <body>
+
+<div id="offline-banner">
+  🛑 Red SynapseCode apagada
+  <div class="sub">Master y Workers desconectados — los datos no están disponibles</div>
+</div>
 
 <header>
   <div class="header-left">
@@ -379,6 +407,7 @@
 <script>
 const API = '';
 const WS_BASE = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host;
+let masterOnline = true;
 let logBuffer = [];
 let ws = null;
 let wsReconnectTimer = null;
@@ -407,10 +436,18 @@ async function api(method, path, data) {
   const tok = localStorage.getItem('admin_token');
   if (tok) opts.headers['Authorization'] = 'Bearer ' + tok;
   if (data) opts.body = JSON.stringify(data);
-  const r = await fetch(API + path, opts);
-  const text = await r.text();
-  try { return { status: r.status, data: JSON.parse(text) }; }
-  catch { return { status: r.status, data: text }; }
+  try {
+    const r = await fetch(API + path, opts);
+    const text = await r.text();
+    const online = r.status > 0 && r.status < 500;
+    if (online && !masterOnline) { masterOnline = true; document.getElementById('offline-banner').classList.remove('visible'); }
+    if (!online && masterOnline) { masterOnline = false; document.getElementById('offline-banner').classList.add('visible'); }
+    try { return { status: r.status, data: JSON.parse(text) }; }
+    catch { return { status: r.status, data: text }; }
+  } catch {
+    if (masterOnline) { masterOnline = false; document.getElementById('offline-banner').classList.add('visible'); }
+    return { status: 0, data: null };
+  }
 }
 
 function badge(s) {
