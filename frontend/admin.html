@@ -499,7 +499,7 @@ async function refreshWorkerSection() {
   const r = await api('GET','/api/v1/system/worker/services');
   if (r.status !== 200) {
     $('worker-badge').innerHTML = 'Worker: ' + badge('offline');
-    $('dash-worker-status').innerHTML = '<div style="color:#8B2E2E;font-size:0.75rem">Worker offline</div>';
+    $('dash-worker-status').innerHTML = '<div style="color:#8B2E2E;font-size:0.75rem">Worker offline (HTTP ' + r.status + ')</div>';
     return;
   }
   $('worker-badge').innerHTML = 'Worker: ' + badge('online') + ' ' + (r.data.worker_ip||'');
