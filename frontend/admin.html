@@ -947,7 +947,7 @@ log('info','Synapse Control Center iniciado');
   document.getElementById('heart-btn').addEventListener('click', function() {
     heartClicks++;
     if (heartClicks === 1) {
-      heartTimer = setTimeout(() => { heartClicks = 0; }, 1000);
+      heartTimer = setTimeout(() => { heartClicks = 0; }, 5000);
     }
     if (heartClicks >= 3) {
       heartClicks = 0;
