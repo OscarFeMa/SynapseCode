@@ -532,7 +532,34 @@
       <br>
       Desarrollado por OscarFeMa · Mayo 2026 · Licencia MIT
     </p>
+    <div style="margin-top:20px;font-size:1.1rem;cursor:pointer;user-select:none" id="heart-btn">❤️</div>
   </footer>
 
+  <div id="dedication-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;justify-content:center;align-items:center;font-family:'Instrument Serif',serif;">
+    <div style="background:#FFFFFF;padding:40px 50px;border-radius:16px;text-align:center;max-width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+      <div style="font-size:2rem;margin-bottom:16px;">❤️</div>
+      <div style="font-size:1.4rem;color:#23403B;font-style:italic;line-height:1.6;">Os quiero con el alma<br>Irene y Victor</div>
+      <button onclick="document.getElementById('dedication-modal').style.display='none'" style="margin-top:20px;padding:8px 24px;border:1px solid #23403B;background:#FFFFFF;color:#23403B;border-radius:6px;cursor:pointer;font-size:0.9rem;">Cerrar</button>
+    </div>
+  </div>
+
+  <script>
+    let heartClicks = 0;
+    let heartTimer = null;
+    document.getElementById('heart-btn').addEventListener('click', function() {
+      heartClicks++;
+      if (heartClicks === 1) {
+        heartTimer = setTimeout(() => { heartClicks = 0; }, 1000);
+      }
+      if (heartClicks >= 3) {
+        heartClicks = 0;
+        clearTimeout(heartTimer);
+        document.getElementById('dedication-modal').style.display = 'flex';
+      }
+    });
+    document.getElementById('dedication-modal').addEventListener('click', function(e) {
+      if (e.target === this) this.style.display = 'none';
+    });
+  </script>
 </body>
 </html>
