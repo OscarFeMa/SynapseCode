@@ -454,40 +454,8 @@
       <div class="section-label">Arquitectura</div>
       <h2 class="section-title">Diseño Master-Worker híbrido</h2>
       <p class="section-desc">Separación clara entre orquestación (Master) y ejecución de modelos (Worker) para máxima flexibilidad.</p>
-      <div class="arch-diagram">
-<pre>
-<span class="node">┌─────────────────────────────────────────────────────────────┐</span>
-<span class="node">│                      MASTER NODE                            │</span>
-<span class="node">│  FastAPI + SQLite + Supabase Sync + WebSocket Streaming     │</span>
-<span class="node">│                                                             │</span>
-<span class="node">│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │</span>
-<span class="node">│  │SequentialDeb.│  │UltraDebate   │  │ConsensusDeb. │      │</span>
-<span class="node">│  │Controller    │  │Controller    │  │Controller    │      │</span>
-<span class="node">│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │</span>
-<span class="node">│         └─────────────────┼─────────────────┘              │</span>
-<span class="node">│                           │                                 │</span>
-<span class="node">│              ┌────────────▼────────────┐                    │</span>
-<span class="node">│              │   Agent Orchestrator    │                    │</span>
-<span class="node">│              │  + Model Registry       │                    │</span>
-<span class="node">│              │  + Role Matcher         │                    │</span>
-<span class="node">│              └────────────┬────────────┘                    │</span>
-<span class="node">└───────────────────────────┼─────────────────────────────────┘</span>
-<span class="arrow">                            │ HTTP / WebSocket</span>
-<span class="arrow">                            ▼</span>
-<span class="node">┌───────────────────────────┼─────────────────────────────────┐</span>
-<span class="node">│                      WORKER NODE                            │</span>
-<span class="node">│  GPU ~13.5 GB · Ollama + LM Studio + Jan                   │</span>
-<span class="node">│                                                             │</span>
-<span class="node">│  ┌──────────┐  ┌──────────  ┌──────────┐  ┌──────────┐   │</span>
-<span class="node">│  │ llama3:8b│  │gemma3:4b │  │mistral:7b│  │deepseek  │   │</span>
-<span class="node">│  │          │  │          │  │          │  │-r1:7b    │   │</span>
-<span class="node">│  └──────────┘  └──────────┘  └──────────┘  └──────────   │</span>
-<span class="node">│                                                             │</span>
-<span class="node">│  ┌──────────────────────────────────────────────────────┐  │</span>
-<span class="node">│  │  Cloud Fallback: Groq · Gemini · OpenRouter    │  │</span>
-<span class="node">│  └──────────────────────────────────────────────────────┘  │</span>
-<span class="node">└─────────────────────────────────────────────────────────────┘</span>
-</pre>
+      <div class="arch-diagram" style="text-align:center;">
+        <img src="/architecture-diagram.png" alt="SynapseCode Architecture" style="max-width:100%;height:auto;display:inline-block;">
       </div>
     </div>
   </section>

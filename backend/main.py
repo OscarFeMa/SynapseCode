@@ -309,6 +309,15 @@ async def logo_admin_png():
     return HTMLResponse("<h1>Logo admin no encontrado</h1>", status_code=404)
 
 
+@app.get("/architecture-diagram.png", include_in_schema=False)
+async def architecture_diagram_png():
+    """Diagrama de arquitectura"""
+    path = os.path.join(os.path.dirname(__file__), "..", "frontend", "web", "architecture-diagram.png")
+    if os.path.exists(path):
+        return FileResponse(path, media_type="image/png")
+    return HTMLResponse("<h1>Diagrama no encontrado</h1>", status_code=404)
+
+
 @app.get("/sitemap.xml", include_in_schema=False)
 async def sitemap_xml():
     """Sitemap.xml para SEO"""
