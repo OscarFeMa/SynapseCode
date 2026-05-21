@@ -291,6 +291,15 @@ async def robots_txt():
     return PlainTextResponse("User-agent: *\nAllow: /", media_type="text/plain")
 
 
+@app.get("/logo.png", include_in_schema=False)
+async def logo_png():
+    """Logo del proyecto"""
+    logo_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "web", "logo.png")
+    if os.path.exists(logo_path):
+        return FileResponse(logo_path, media_type="image/png")
+    return HTMLResponse("<h1>Logo no encontrado</h1>", status_code=404)
+
+
 @app.get("/sitemap.xml", include_in_schema=False)
 async def sitemap_xml():
     """Sitemap.xml para SEO"""
