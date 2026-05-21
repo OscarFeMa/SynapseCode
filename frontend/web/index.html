@@ -109,38 +109,39 @@
       padding: 80px 24px 60px;
       background: linear-gradient(180deg, var(--white) 0%, var(--cream) 100%);
     }
-    .hero-content { max-width: 700px; }
+    .hero-content { max-width: 800px; }
+    .hero-logo { max-width: 200px; margin-bottom: 20px; }
     .hero-badge {
       display: inline-block;
       background: var(--petroleum);
       color: var(--white);
-      font-size: 0.7rem;
+      font-size: 0.8rem;
       font-weight: 600;
       letter-spacing: 1px;
       text-transform: uppercase;
-      padding: 4px 14px;
+      padding: 6px 18px;
       border-radius: 20px;
-      margin-bottom: 24px;
+      margin-bottom: 28px;
     }
     .hero h1 {
       font-family: 'Instrument Serif', serif;
-      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-size: clamp(3rem, 7vw, 4.5rem);
       font-weight: 400;
       font-style: italic;
       color: var(--petroleum);
       line-height: 1.1;
-      margin-bottom: 20px;
+      margin-bottom: 24px;
     }
     .hero p {
-      font-size: 1.1rem;
+      font-size: 1.2rem;
       color: var(--text-muted);
-      max-width: 550px;
-      margin: 0 auto 32px;
+      max-width: 600px;
+      margin: 0 auto 36px;
       line-height: 1.7;
     }
     .hero-actions {
       display: flex;
-      gap: 12px;
+      gap: 16px;
       justify-content: center;
       flex-wrap: wrap;
     }
@@ -148,9 +149,9 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 12px 28px;
-      border-radius: 6px;
-      font-size: 0.9rem;
+      padding: 14px 32px;
+      border-radius: 8px;
+      font-size: 1rem;
       font-weight: 600;
       text-decoration: none;
       transition: all 0.2s;
@@ -171,19 +172,19 @@
     .btn-outline:hover { background: var(--petroleum); color: var(--white); }
 
     /* ─── SECTIONS ────────────────────────────── */
-    section { padding: 80px 24px; }
-    .section-inner { max-width: 1100px; margin: 0 auto; }
+    section { padding: 100px 24px; }
+    .section-inner { max-width: 1200px; margin: 0 auto; }
     .section-label {
-      font-size: 0.7rem;
+      font-size: 0.85rem;
       font-weight: 600;
       letter-spacing: 1.5px;
       text-transform: uppercase;
       color: var(--petroleum);
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
     .section-title {
       font-family: 'Instrument Serif', serif;
-      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      font-size: clamp(2rem, 4vw, 3rem);
       font-weight: 400;
       font-style: italic;
       color: var(--petroleum);
@@ -200,14 +201,14 @@
     #features { background: var(--white); }
     .features-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 24px;
     }
     .feature-card {
       background: var(--cream);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 24px;
+      border-radius: 10px;
+      padding: 28px;
       transition: transform 0.2s, box-shadow 0.2s;
     }
     .feature-card:hover {
@@ -215,20 +216,20 @@
       box-shadow: 0 4px 20px rgba(35,64,59,0.08);
     }
     .feature-icon {
-      font-size: 1.5rem;
-      margin-bottom: 12px;
+      font-size: 1.8rem;
+      margin-bottom: 14px;
     }
     .feature-card h3 {
       font-family: 'Instrument Serif', serif;
-      font-size: 1.1rem;
+      font-size: 1.3rem;
       font-style: italic;
       color: var(--petroleum);
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
     .feature-card p {
-      font-size: 0.85rem;
+      font-size: 0.95rem;
       color: var(--text-muted);
-      line-height: 1.6;
+      line-height: 1.7;
     }
 
     /* ─── ARCHITECTURE ────────────────────────── */
@@ -285,12 +286,12 @@
     }
     .stat-value {
       font-family: 'Instrument Serif', serif;
-      font-size: 2.5rem;
+      font-size: 3rem;
       font-style: italic;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
     .stat-label {
-      font-size: 0.8rem;
+      font-size: 0.9rem;
       color: rgba(255,255,255,0.7);
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -300,12 +301,13 @@
     footer {
       background: var(--cream-dark);
       border-top: 1px solid var(--border);
-      padding: 32px 24px;
+      padding: 40px 24px;
       text-align: center;
     }
     footer p {
-      font-size: 0.8rem;
+      font-size: 0.9rem;
       color: var(--text-muted);
+      line-height: 1.8;
     }
     footer a {
       color: var(--petroleum);
@@ -318,31 +320,42 @@
       .nav-links { gap: 12px; }
       .nav-links a:not(.nav-cta) { display: none; }
       section { padding: 60px 16px; }
-      .features-grid { grid-template-columns: 1fr; }
-      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 24px; }
+      .features-grid { grid-template-columns: 1fr; gap: 20px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 28px; }
       .hero { padding: 100px 16px 60px; }
+      .hero p { font-size: 1.1rem; }
+      .section-desc { font-size: 1rem; }
       .arch-diagram { padding: 16px; }
-      .arch-diagram pre { font-size: 0.65rem; }
+      .arch-diagram pre { font-size: 0.7rem; }
       .code-block { padding: 16px; }
-      .code-block code { font-size: 0.75rem; }
+      .code-block code { font-size: 0.85rem; }
+      .feature-card { padding: 20px; }
     }
     @media (max-width: 480px) {
-      .nav-inner { padding: 0 8px; }
+      .nav-inner { height: 48px; }
       .nav-logo { font-size: 1rem; }
-      .nav-cta { padding: 5px 12px; font-size: 0.75rem; }
-      .hero { padding: 80px 12px 40px; min-height: auto; }
+      .nav-links { gap: 8px; }
+      .nav-links a { font-size: 0.85rem; }
+      .nav-cta { padding: 5px 12px; font-size: 0.8rem; }
+      .hero { padding: 70px 12px 40px; min-height: auto; }
       .hero h1 { font-size: 2rem; }
-      .hero p { font-size: 0.95rem; }
+      .hero p { font-size: 1rem; }
+      .hero-logo { max-width: 140px; }
       .hero-actions { flex-direction: column; }
-      .hero-actions .btn { width: 100%; justify-content: center; }
+      .hero-actions .btn { width: 100%; justify-content: center; font-size: 0.95rem; padding: 12px 24px; }
+      section { padding: 40px 16px; }
       .section-title { font-size: 1.5rem; }
-      .section-desc { font-size: 0.9rem; margin-bottom: 32px; }
-      .stats-grid { grid-template-columns: 1fr 1fr; gap: 16px; }
-      .stat-value { font-size: 2rem; }
-      .arch-diagram pre { font-size: 0.55rem; }
+      .section-desc { font-size: 0.95rem; margin-bottom: 28px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
+      .stat-value { font-size: 2.2rem; }
+      .stat-label { font-size: 0.8rem; }
+      .feature-card { padding: 16px; }
+      .feature-card h3 { font-size: 1.1rem; }
+      .feature-card p { font-size: 0.85rem; }
+      .arch-diagram pre { font-size: 0.6rem; }
       .code-block { padding: 12px; }
-      .code-block code { font-size: 0.7rem; }
-      footer { padding: 24px 16px; font-size: 0.75rem; }
+      .code-block code { font-size: 0.75rem; }
+      footer { padding: 24px 16px; font-size: 0.85rem; }
     }
   </style>
 </head>
@@ -365,6 +378,7 @@
   <!-- HERO -->
   <section class="hero" id="hero">
     <div class="hero-content">
+      <img src="/logo.png" alt="SynapseCode" class="hero-logo">
       <span class="hero-badge">v3.0 · Open Source</span>
       <h1>Razonamiento colectivo con múltiples IAs</h1>
       <p>Plataforma híbrida que orquesta modelos locales y cloud en debates estructurados por roles, con veredicto del Tribunal de Magistrados y búsqueda web en tiempo real.</p>
