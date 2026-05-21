@@ -726,7 +726,7 @@ class WorkerLaunchRequest(BaseModel):
     service: str  # ollama, lm_studio, jan, all
 
 
-@router.get("/worker/services", dependencies=[Depends(require_admin_access)])
+@router.get("/worker/services")
 async def get_worker_services():
     """Obtiene estado de todos los servicios en el Worker"""
     try:
