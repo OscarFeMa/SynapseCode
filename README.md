@@ -1,3 +1,21 @@
+<div align="center">
+  <img src="frontend/web/logo.png" alt="SynapseCode" width="280">
+  
+  **[🇪🇸 Español](#español) · [🇬🇧 English](#english)**
+  
+  [![CI](https://github.com/OscarFeMa/SynapseCode/actions/workflows/ci.yml/badge.svg)](...)
+  [![Tests](https://img.shields.io/badge/tests-177%20passing-brightgreen)]()
+  [![Python](https://img.shields.io/badge/python-3.12-blue)]()
+  [![License](https://img.shields.io/badge/license-MIT-green)]()
+  [![Web](https://img.shields.io/badge/web-synapsecode.org-23403B)]()
+</div>
+
+---
+
+# <a name="español"></a>🇪🇸 Español
+
+<div align="center">
+  <img src="frontend/web/logo.png" alt="SynapseCode" width="280">
   
   **[🇪🇸 Español](#español) · [🇬🇧 English](#english)**
   
