@@ -1,9 +1,43 @@
+<div align="center">
+  <img src="frontend/web/logo.png" alt="SynapseCode" width="280">
+  
+  **[🇪🇸 Español](#español) · [🇬🇧 English](#english)**
+  
+  [![CI](https://github.com/OscarFeMa/SynapseCode/actions/workflows/ci.yml/badge.svg)](...)
+  [![Tests](https://img.shields.io/badge/tests-177%20passing-brightgreen)]()
+  [![Python](https://img.shields.io/badge/python-3.12-blue)]()
+  [![License](https://img.shields.io/badge/license-MIT-green)]()
+  [![Web](https://img.shields.io/badge/web-synapsecode.org-23403B)]()
+</div>
+
+---
+
+# <a name="español"></a>🇪🇸 Español
+
+<div align="center">
+  <img src="frontend/web/logo.png" alt="SynapseCode" width="280">
+  
+  **[🇪🇸 Español](#español) · [🇬🇧 English](#english)**
+  
+  [![CI](https://github.com/OscarFeMa/SynapseCode/actions/workflows/ci.yml/badge.svg)](...)
+  [![Tests](https://img.shields.io/badge/tests-177%20passing-brightgreen)]()
+  [![Python](https://img.shields.io/badge/python-3.12-blue)]()
+  [![License](https://img.shields.io/badge/license-MIT-green)]()
+  [![Web](https://img.shields.io/badge/web-synapsecode.org-23403B)]()
+</div>
+
+---
+
+# <a name="español"></a>🇪🇸 Español
+
 # 🧠 SynapseCode v3.0
 
 Plataforma de **razonamiento colectivo híbrido** que orquesta múltiples modelos de IA en debates estructurados por roles, con veredicto del **Tribunal de Magistrados**.
 
 Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.45) ejecuta modelos locales.
 **Diseño Editorial**: Background `#F5F3EE` (cream paper), Accent `#23403B` (petroleum green), Typography `Instrument Serif` + `Inter`.
+
+---
 
 ---
 
@@ -482,7 +516,7 @@ cd <ruta-a-SynapseCode>
 .\venv\Scripts\python -m pytest backend/tests/ -v
 ```
 
-**177 tests** pasando. CI/CD obligatorio en cada PR. Linting con Ruff (`ruff check backend/`).
+**177 tests** passing. CI/CD mandatory on every PR. Linting with Ruff (`ruff check backend/`).
 
 ---
 
@@ -493,3 +527,331 @@ MIT
 ---
 
 *SynapseCode v3.0 · OscarFeMa · Mayo 2026 · [synapsecode.org](https://synapsecode.org)*
+
+---
+
+# <a name="english"></a>🇬🇧 English
+
+# 🧠 SynapseCode v3.0
+
+A **hybrid collective reasoning** platform that orchestrates multiple AI models
+in role-structured debates, with a **Tribunal of Magistrates** verdict.
+
+**Master-Worker architecture**: Master PC orchestrates, Worker PC (192.168.1.45)
+runs local models. Accessible at [synapsecode.org](https://synapsecode.org).
+
+## 🎯 Main Features
+
+### Control Center v3.0
+- **Compact Dashboard**: 4 panels in one view — Worker & Services, Diagnostics, Metrics, Logs
+- **Debates tab**: Launch debates + recent history (last 10) with expandable cards
+- **Full Debates view**: `/admin/all-debates` — search, filters, sort, pagination (20/page)
+- **Multi-format export**: JSON, DOCX, PDF, TXT per individual debate
+- **Project info**: Tab with README and HISTORY rendered as Markdown
+- **Zero Dependencies**: Pure Vanilla JS, no build, no node_modules
+- **Real-time status**: WebSocket + polling (3s active debates, 5s list)
+- **Master ↔ Worker connection**: Automatic IP detection, heartbeat monitoring
+- **Service monitor**: Ollama, LM Studio, Jan with auto-launch
+- **Editorial design**: Light theme with petroleum green accent, Instrument Serif + Inter
+- **Responsive**: Landing and Admin adapted for mobile/tablet (768px, 480px breakpoints)
+
+### Real-Time Web Search
+- **DuckDuckGo Search** (`ddgs`): Real results without API key
+- **Trafilatura**: Full article content extraction
+- **Web context for debates**: Updated information injected into prompts
+- **Tribunal fact-checking**: Real data to validate arguments
+
+### Professional Reports
+- **Interactive HTML**: Chart.js, dark theme, responsive
+- **Printable PDF**: Inline SVG charts, light theme
+- **Exportable DOCX**: Word document with cover page, tables, and verdict
+- **Automatic generation**: Post-debate, with metrics and verdict
+- **Hybrid approach**: Exact programmatic data + LLM narrative
+
+### Intelligent Model Assignment (v2.8)
+- **Model Registry**: Central registry of 25+ models with full metadata
+- **Model Evaluator**: Queries live web rankings (LMSYS Arena, OpenRouter stats) with 6h cache
+- **Role Matcher**: Automatic best-model-per-role assignment
+- **Smart Rotation Mode**: Create debates with `mode: "smart_rotation"` for optimal auto-assignment
+
+### Debate Engine
+- **Sequential Debates**: Multi-model with roles (Analyst, Critic, Synthesizer, Validator)
+- **Iterative Debates**: Cross-arguments between agents, validation, consensus search
+- **Ultra Crossing**: Advanced debate with 12+ agents and multiple phases
+- **Forced Consensus**: Consensus protocol with configurable threshold
+- **Continue/Pause**: `POST /debates/{id}/continue`, `/pause`, `/resume`
+- **Reductio ad Absurdum**: Bias elimination protocol
+- **Intervention Taxonomy**: Classification of discourse acts
+
+| Controller | Agents | Phases | Crossing | Context Mgmt |
+|---|---|---|---|---|
+| **Sequential** | 4-6 | Linear | Limited | Full |
+| **Ultra (v3.0)** | 12+ | Multi-sync | Master+Worker | Context Sliding Window |
+
+### Tribunal of Magistrates
+- **3 Specialized Roles**: Defender, Prosecutor, Arbitrator
+- **Fallback Chains**: If a model fails, uses the next automatically
+- **Consensus Protocol**: Forced or free with configurable threshold
+
+## 🚀 Quick Start
+
+### Backend
+\`\`\`bash
+cd <path-to-SynapseCode>
+
+# 1. Create virtual environment (first time)
+python -m venv venv
+
+# 2. Install dependencies
+.\venv\Scripts\pip install -r backend\requirements.txt    # Windows
+# or:
+./venv/bin/pip install -r backend/requirements.txt        # Linux/Mac
+
+# 3. Configure environment variables
+copy .env.example .env       # Windows
+# cp .env.example .env       # Linux/Mac
+# Edit .env: add API keys for Groq/Gemini/OpenRouter if needed
+
+# 4. Start backend
+start_backend.bat            # Windows
+# or manually:
+set PYTHONPATH=.
+uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers 1
+\`\`\`
+
+### Admin Panel
+\`\`\`
+# Backend serves the panel at /admin automatically
+# Open: http://localhost:8000/admin
+# All debates view: http://localhost:8000/admin/all-debates
+# Project docs: http://localhost:8000/api/v1/docs/readme
+\`\`\`
+
+### Verify
+\`\`\`bash
+curl http://localhost:8000/health
+curl http://localhost:8000/api/v1/debates/list
+\`\`\`
+
+## ⚙️ Configuration (.env)
+
+### Server
+| Variable | Default | Description |
+|---|---|---|
+| `NODE_ROLE` | `MASTER` | Node role (MASTER/WORKER) |
+| `HOST` | `0.0.0.0` | Listen IP |
+| `PORT` | `8000` | Server port |
+
+### Worker
+| Variable | Default | Description |
+|---|---|---|
+| `WORKER_OLLAMA_PORT` | `11434` | Ollama port on Worker |
+| `WORKER_LM_STUDIO_PORT` | `1234` | LM Studio port on Worker |
+| `WORKER_JAN_PORT` | `1337` | Jan port on Worker |
+
+### Cloud APIs
+| Variable | Description |
+|---|---|
+| `OPENROUTER_API_KEY` | API key for OpenRouter |
+| `GEMINI_API_KEY` | API key for Google Gemini |
+| `GROQ_API_KEY` | API key for Groq |
+| `DEEPSEEK_API_KEY` | API key for DeepSeek |
+| `HF_TOKEN` | Token for HuggingFace |
+
+### Supabase
+| Variable | Description |
+|---|---|
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Public anon key |
+
+### Features
+| Variable | Default | Description |
+|---|---|---|
+| `WEB_AGENT_ENABLED` | `true` | Enable Web Agent |
+| `MAX_CONCURRENT_SESSIONS` | `3` | Maximum concurrent sessions |
+| `INTERVENTION_TAXONOMY_ENABLED` | `true` | Intervention taxonomy |
+| `QUALITY_MONITOR_ENABLED` | `true` | Quality monitor |
+| `AGENT_REPUTATION_ENABLED` | `true` | Agent reputation system |
+| `HYBRID_MEMORY_V2_ENABLED` | `true` | Hybrid memory v2 |
+
+### Logging
+| Variable | Default | Description |
+|---|---|---|
+| `LOG_LEVEL` | `INFO` | Logging level |
+| `LOG_DIR` | `logs` | Logs directory |
+| `LOG_MAX_BYTES` | `10485760` | Max size per file (10MB) |
+| `LOG_BACKUP_COUNT` | `5` | Number of backups |
+| `LOG_TO_FILE` | `true` | Write logs to file |
+
+### Timeouts
+| Variable | Description |
+|---|---|
+| `MODEL_TIMEOUTS` | JSON with model patterns → timeout in seconds |
+
+## 🔌 API Endpoints
+
+### Debates
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/v1/debates/create` | Create sequential debate |
+| `POST` | `/api/v1/debates/create/iterative` | Create iterative debate |
+| `POST` | `/api/v1/debates/consensus/create` | Create consensus debate |
+| `GET` | `/api/v1/debates/list` | List active debates |
+| `GET` | `/api/v1/debates/{id}` | Full state of a debate |
+| `GET` | `/api/v1/debates/{id}/status` | Summary status |
+| `GET` | `/api/v1/debates/{id}/transcript` | Full transcript |
+| `GET` | `/api/v1/debates/{id}/report` | Structured JSON report |
+| `POST` | `/api/v1/debates/{id}/generate-report` | Generate hybrid Markdown report |
+| `POST` | `/api/v1/debates/{id}/generate-report/docx` | Generate Word report (.docx) |
+| `POST` | `/api/v1/debates/{id}/generate-report/pdf` | Generate PDF report |
+| `POST` | `/api/v1/debates/{id}/continue` | Continue completed debate |
+| `POST` | `/api/v1/debates/{id}/pause` | Pause running debate |
+| `POST` | `/api/v1/debates/{id}/resume` | Resume paused debate |
+| `DELETE` | `/api/v1/debates/{id}` | Delete debate |
+| `GET` | `/api/v1/debates/{id}/export/json` | Export JSON |
+| `GET` | `/api/v1/debates/{id}/export/markdown` | Export Markdown |
+| `GET` | `/api/v1/debates/{id}/export/pdf` | Export PDF |
+| `GET` | `/api/v1/debates/{id}/export/docx` | Export Word (.docx) |
+| `GET` | `/api/v1/debates/{id}/export/txt` | Export plain text (.txt) |
+| `GET` | `/api/v1/debates/history/list` | Debate history |
+| `GET` | `/api/v1/debates/history/{id}` | Historical debate |
+| `GET` | `/api/v1/debates/reputation` | Model reputations |
+| `GET` | `/api/v1/debates/reputation/{model}/{role}` | Specific reputation |
+
+### Model Registry
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/debates/models/registry` | All registered models |
+| `GET` | `/api/v1/debates/models/best-by-category` | Best models by category |
+| `GET` | `/api/v1/debates/models/comparison-table` | Complete comparison table |
+| `GET` | `/api/v1/debates/models/role-matching` | Model→role assignment |
+| `POST` | `/api/v1/debates/models/update-rankings` | Update rankings from web |
+| `GET` | `/api/v1/debates/models/smart-config` | Generate intelligent debate config |
+
+### Cloud (Supabase)
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/debates/cloud/status` | Supabase connection status |
+| `GET` | `/api/v1/debates/cloud/list` | List debates in cloud |
+| `GET` | `/api/v1/debates/cloud/{id}` | Debate from cloud |
+| `POST` | `/api/v1/debates/cloud/sync/{id}` | Sync debate to cloud |
+
+### System
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/system/settings` | Current configuration |
+| `POST` | `/api/v1/system/settings` | Update configuration |
+| `POST` | `/api/v1/system/chat/direct` | Direct chat to model |
+| `GET` | `/api/v1/system/metrics` | System metrics |
+| `GET` | `/api/v1/system/analytics` | Data Warehouse analytics |
+| `GET` | `/api/v1/system/health/sync` | Supabase sync status |
+| `GET` | `/api/v1/system/tribunal/config` | Tribunal configuration |
+| `GET` | `/api/v1/system/health` | System health check |
+| `POST` | `/api/v1/system/wake-worker` | Wake-on-LAN / RDP to Worker |
+| `POST` | `/api/v1/system/wake-worker-auto` | Automatic wake |
+| `GET` | `/api/v1/system/rdp-status` | RDP status |
+| `GET` | `/api/v1/system/worker/services` | Worker services status |
+| `POST` | `/api/v1/system/worker/services/launch` | Launch Worker service |
+| `GET` | `/api/v1/docs/{doc_name}` | Project docs (readme, history) |
+
+### Cache
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/cache/stats` | Cache statistics |
+| `POST` | `/api/v1/cache/invalidate` | Invalidate cache |
+| `POST` | `/api/v1/cache/cleanup` | Clean expired |
+| `GET` | `/api/v1/cache/health` | Cache health |
+
+### Health
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Complete health check |
+| `GET` | `/health/live` | Liveness check |
+| `GET` | `/health/ready` | Readiness check |
+| `GET` | `/health/dependencies` | Dependencies status |
+
+### WebSocket
+| Path | Description |
+|---|---|
+| `/ws/sessions/{id}` | Real-time debate streaming |
+
+### Network
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/network/nodes` | Discovered nodes |
+| `GET` | `/api/v1/network/status` | P2P network status |
+
+---
+
+## ⚙️ Configuration (.env)
+
+### Server
+| Variable | Default | Description |
+|---|---|---|
+| `NODE_ROLE` | `MASTER` | Node role (MASTER/WORKER) |
+| `HOST` | `0.0.0.0` | Listen IP |
+| `PORT` | `8000` | Server port |
+
+### Worker
+| Variable | Default | Description |
+|---|---|---|
+| `WORKER_OLLAMA_PORT` | `11434` | Ollama port on Worker |
+| `WORKER_LM_STUDIO_PORT` | `1234` | LM Studio port on Worker |
+| `WORKER_JAN_PORT` | `1337` | Jan port on Worker |
+
+### Cloud APIs
+| Variable | Description |
+|---|---|
+| `OPENROUTER_API_KEY` | API key for OpenRouter |
+| `GEMINI_API_KEY` | API key for Google Gemini |
+| `GROQ_API_KEY` | API key for Groq |
+| `DEEPSEEK_API_KEY` | API key for DeepSeek |
+| `HF_TOKEN` | Token for HuggingFace |
+
+### Supabase
+| Variable | Description |
+|---|---|
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Public anon key |
+
+### Features
+| Variable | Default | Description |
+|---|---|---|
+| `WEB_AGENT_ENABLED` | `true` | Enable Web Agent |
+| `MAX_CONCURRENT_SESSIONS` | `3` | Maximum concurrent sessions |
+| `INTERVENTION_TAXONOMY_ENABLED` | `true` | Intervention taxonomy |
+| `QUALITY_MONITOR_ENABLED` | `true` | Quality monitor |
+| `AGENT_REPUTATION_ENABLED` | `true` | Agent reputation system |
+| `HYBRID_MEMORY_V2_ENABLED` | `true` | Hybrid memory v2 |
+
+### Logging
+| Variable | Default | Description |
+|---|---|---|
+| `LOG_LEVEL` | `INFO` | Logging level |
+| `LOG_DIR` | `logs` | Logs directory |
+| `LOG_MAX_BYTES` | `10485760` | Max size per file (10MB) |
+| `LOG_BACKUP_COUNT` | `5` | Number of backups |
+| `LOG_TO_FILE` | `true` | Write logs to file |
+
+### Timeouts
+| Variable | Description |
+|---|---|
+| `MODEL_TIMEOUTS` | JSON with model patterns → timeout in seconds |
+
+## 🧪 Tests
+
+```bash
+cd <path-to-SynapseCode>
+.\venv\Scripts\python -m pytest backend/tests/ -v    # Windows
+# ./venv/bin/python -m pytest backend/tests/ -v     # Linux/Mac
+```
+
+**177 tests** passing. CI/CD mandatory on every PR. Linting with Ruff.
+
+## 📄 License
+
+MIT
+
+---
+
+*SynapseCode v3.0 · OscarFeMa · May 2026 · [synapsecode.org](https://synapsecode.org)*

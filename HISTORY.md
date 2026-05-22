@@ -1,3 +1,9 @@
+**[🇪🇸 Español](#español-history) · [🇬🇧 English](#english-history)**
+
+---
+
+# <a name="español-history"></a>🇪🇸 Historial de Desarrollo
+
 # 📜 Historia de Desarrollo - SynapseCode v3.0
 
 ## Resumen del Proyecto
@@ -477,7 +483,7 @@ POST /api/v1/debate/consensus/create
 - ✅ **CI/CD**: GitHub Actions con tests de imports y pytest
 - ✅ **Nuevo repositorio**: `https://github.com/OscarFeMa/SynapseCode`
 
----
+--- 
 
 ## 📚 Recursos
 
@@ -488,8 +494,364 @@ POST /api/v1/debate/consensus/create
 
 ---
 
-**Versión actual:** v3.0.0
-**Última actualización:** 2026-05-19  
-**Repositorio:** https://github.com/OscarFeMa/SynapseCode  
+# <a name="english-history"></a>🇬🇧 Development History
+
+## 📜 Development History - SynapseCode v3.0
+
+### Project Summary
+
+SynapseCode is a hybrid collective reasoning platform that orchestrates multiple AI models in role-structured debates, with cross-validation and multi-agent consensus.
+
+---
+
+### 🗓️ Development Timeline
+
+### **Phase 12: Web Publication and Stabilization (Completed - v3.0)**
+
+#### May 19, 2026: Deployment on SynapseCode.org and Critical Fixes
+- ✅ **Public Landing Page**: New web with editorial design at `synapsecode.org`.
+- ✅ **React SPA Deployment**: React App deployed under `/app/` route handling dynamic client-server with static fallback (Netlify/GH Pages).
+- ✅ **Debate Sharing (FEAT-6)**: `SharePage.jsx` and static export for sharing debates on the public web via Supabase.
+- ✅ **Basic SEO**: `sitemap.xml` and `robots.txt` for landing page visibility.
+- ✅ **Clean Code & Linting (FIX-4)**: Solved 43 complex lints with Ruff Auto-fixer (B, SIM, PERF).
+- ✅ **Context Refactor (FEAT-7)**: Extracted ContextWindowManager to `debate_models.py` for unified management.
+- ✅ **Pipeline Stabilization**: GitHub Actions unit and integration tests fixed.
+
+### **Phase 13: Responsive Design + Consolidation (Completed - v3.0)**
+
+#### May 20, 2026: Responsive Design, Cleanup and Unification
+- ✅ **Responsive Landing Page**: Breakpoints 768px and 480px for mobile/tablet
+  - Collapsed nav, adaptive hero, 1-column grid
+  - Architecture diagram with monospace font (correct alignment)
+- ✅ **Responsive Admin Panel**: Horizontal scrollable nav, compact tables, stacked forms
+- ✅ **GitHub Pages Removal**: `deploy-web.yml` workflow removed, everything served from local backend
+- ✅ **Synapse → SynapseCode Consolidation**: Complete merge of ~80 lost commits due to force push
+- ✅ **Desktop Shortcuts**: `SynapseCode.lnk` (silent + opens browser) and `SynapseCode Logs.lnk` (visible)
+- ✅ **Cloudflare Cache**: Fixed phantom redirect to `/app` from old version cache
+- ✅ **"View App" Button**: Explicit white color `#FFFFFF` on petroleum background
+
+### **Phase 11: Admin Panel v3.0 - Compact Dashboard + Full Debates View (Completed - v3.0)**
+
+#### May 19, 2026: Complete Administration Panel Redesign
+- ✅ **Compact Dashboard**: 4 panels in single view — Worker & Services, Diagnostics, Metrics, Recent Logs
+- ✅ **Reduced Tabs**: From 8 to 3 — Dashboard, Debates, Configuration + Project Info
+- ✅ **Full Debates View** (`/admin/all-debates`):
+  - Real-time topic search
+  - Status filter (completed, live, error)
+  - Sort by date or tokens
+  - Pagination (20 per page)
+  - Expandable cards with turn sequence
+  - 4 export buttons: JSON, DOCX, PDF, TXT
+- ✅ **New TXT Export Endpoint**: `GET /api/v1/debates/{id}/export/txt`
+- ✅ **New Documents Endpoint**: `GET /api/v1/docs/{doc_name}` (readme, history)
+- ✅ **Project Info Tab**: Renders README.md and HISTORY.md as formatted HTML
+- ✅ **Inline Markdown Renderer**: Vanilla JS parsing, no external dependencies
+- ✅ **404 Fix for Completed Debates**: Checks active list before querying memory
+- ✅ **Expandable Card Close Fix**: Polling updates only metadata without DOM reconstruction
+- ✅ **WebSocket Optimization**: `updateDebateListMeta()` instead of full `renderDebateList()`
+- ✅ **CI/CD Fixes**: HTTPException import in main.py, f-strings without placeholders removed
+- ✅ **Security**: CVE-2026-40347 (`python-multipart`) patched, safety policy updated
+
+### **Phase 10: Visual Editorial Unification (Completed - v2.9)**
+
+#### May 19, 2026: Admin Panel Redesign + SPA Routing + Backend Endpoints
+- ✅ **Admin Panel `/admin` Redesign**: From dark theme (`#0f172a`) to editorial light design
+  - Background `#F5F3EE` (cream paper), Accent `#23403B` (petroleum green)
+  - Typography `Instrument Serif` (headings) + `Inter` (body) from Google Fonts
+  - White cards with subtle borders, pastel-colored badges
+  - Petroleum green buttons, states with soft colors
+  - All 8 tabs unified: Dashboard, Debates, New Debate, Worker, Diagnostics, Logs, Metrics, Configuration
+- ✅ **SPA Routing Fix**: `serve.cjs` now handles client-side routing with fallback to `index.html`
+- ✅ **New Backend Endpoints**:
+  - `GET /circuit-breakers/status` - Circuit breaker status
+  - `GET /model-registry/models` - Registered models list
+  - `POST /api-keys/{service}` - Alias for updating API keys
+- ✅ **Process Management**: `start_backend.bat` to launch backend as persistent process
+- ✅ **API Field Mapping Normalized**: `topic` ↔ `title`/`query`, `session_id` ↔ `id`, status uppercase
+- ✅ **Circuit Breakers**: Exposed via API and handled gracefully in frontend
+- ✅ **React SPA**: 19 components redesigned with editorial theme (Dashboard, Debates, Monitor, etc.)
+
+### **Phase 9: Intelligent Model Assignment (Completed - v2.8)**
+
+#### May 18, 2026: Model Registry + Evaluator + Role Matcher
+- ✅ **Model Registry**: Central registry of 25+ models with complete metadata (context, speed, cost, specialty)
+- ✅ **Model Evaluator**: Live web rankings query (LMSYS Arena, OpenRouter stats) with 6h cache and fallback
+- ✅ **Role Matcher**: Automatic best-model-per-role assignment based on specialty, platform and available VRAM
+- ✅ **Smart Rotation Mode**: New `smart_rotation` mode for debates with optimal automatic assignment
+- ✅ **6 New API Endpoints**: `/models/registry`, `/models/best-by-category`, `/models/comparison-table`, `/models/role-matching`, `/models/update-rankings`, `/models/smart-config`
+- ✅ **Dynamic Tables by Category**: finance, coding, analysis, reasoning, creative, multilingual, long_context, fast, free
+- ✅ **Automatic VRAM Filter**: Models exceeding 13.5GB Worker VRAM automatically excluded
+- ✅ **OOM Models Blocked**: `qwen2.5-coder:14b`, `qwen2.5:14b`, `llama3:70b`, `mixtral:8x7b`
+- ✅ **Ruff Format Applied**: 4 files formatted, 150 tests passing
+- ✅ **CI/CD Green**: Ruff check + pytest on each commit
+
+### **Phase 8: Resilience, Reports and Web Search (Completed - v2.8)**
+
+#### May 17, 2026: System Robustness + Professional Reports
+- ✅ **Real Web Search**: DuckDuckGo (`ddgs`) + Trafilatura replace Wikipedia/HTTP
+- ✅ **HTML/PDF Reports**: Automatic generation with graphics and metrics
+- ✅ **Local Fallback**: Local agents fail → automatic fallback to llama3:8b
+- ✅ **CUDA Recovery**: Detects GPU errors, cleans memory and retries
+- ✅ **Empty Response Validation**: 0 tokens now throws error (was silent fail)
+- ✅ **HTTP 500 in Streaming**: Detected and reported correctly
+- ✅ **warm_model retry**: 2 attempts with delay for transient errors
+- ✅ **llama3.2:latest → llama3:8b**: Corrected throughout codebase
+- ✅ **CI/CD Clean**: 15 linting errors + 4 format files corrected
+- ✅ **Safety Policy**: `.safety-policy.yml` for vulnerability checks
+
+### **Phase 7: Cloud APIs and Web Agent (Completed - v2.2)**
+
+#### May 2026: Free Cloud APIs + Worker Auto-Management
+- ✅ **Groq Cloud**: Integration with Llama 3.1, Llama 3.3, Qwen3
+- ✅ **Google Gemini**: Integration with Gemini 2.5 Flash and 2.0 Flash
+- ✅ **Web Agent v2**: 10 IA sites supported with anti-detection stealth
+- ✅ **Native Chrome**: Web Agent uses system Chrome with saved sessions
+- ✅ **WorkerServiceManager**: Automatic detection and launch of services
+- ✅ **Port Forwarding**: LM Studio accessible via netsh from network
+- ✅ **Worker Autostart**: Auto-start script for Ollama + LM Studio + Jan
+- ✅ **API Keys Assistant**: Interactive script for obtaining free keys
+- ✅ **TaskManager**: Background tasks system with retry and configuration
+- ✅ **Hybrid Memory v2**: Sync to Supabase with fallback
+- ✅ **QualityMonitor**: Filter for low-quality responses
+- ✅ **OpenRouter URL Fix**: Correction of double `/v1/`
+- ✅ **Gemini Parser Fix**: Multiline JSON streaming
+- ✅ **Groq Model Fix**: Updated to `llama-3.1-8b-instant`
+- ✅ **History List Fix**: Response key corrected
+- ✅ **General Cleanup**: 232 MB freed, 150+ obsolete files removed
+- ✅ **Security**: API keys redacted from git history
+
+---
+
+## 🔧 Critical Problems Solved
+
+### 1. Retry System (CRITICAL)
+**Problem:** Agents failed without retry, showing `[Error: ]` in responses.
+
+**Implemented Solution:**
+```python
+async def _generate_agent_proposal_with_retry(self, session, agent, max_retries=2):
+    fallback_models = ['llama3:8b', 'mistral:7b', 'qwen2.5:3b']
+    
+    for attempt in range(max_retries + 1):
+        try:
+            position = await self._generate_agent_proposal_once(session, agent)
+            if position.position and not position.position.startswith("["):
+                return position
+        except Exception as e:
+            if attempt < max_retries:
+                await asyncio.sleep(2 ** attempt)  # Exponential backoff
+    
+    # Fallback to alternative models
+    for fallback_model in fallback_models:
+        try:
+            position = await self._generate_agent_proposal_once(session, fallback_agent)
+            return position
+        except:
+            continue
+```
+
+**Result:** 0 agent errors in subsequent debates.
+
+### 2. Consensus Persistence (CRITICAL)
+**Problem:** Debates remained in `running` state in SQLite without `consensus_score`.
+
+**Cause:** Missing `select` import in SQLAlchemy.
+
+**Solution:**
+```python
+from sqlalchemy import select  # Added line 16
+```
+
+### 3. Supabase Synchronization
+**Problem:** Consensus tables didn't exist in Supabase.
+
+**Solution:** Created complete SQL schema with:
+- `consensus_debates` (main debates)
+- `consensus_rounds` (individual rounds)
+- `consensus_agent_positions` (positions by agent)
+- RLS policies for anonymous access
+
+---
+
+## 📊 Project Statistics
+
+### Lines of Code
+| Component | Lines | Files |
+|-----------|-------|-------|
+| Backend Python | ~8,500 | 45 |
+| Frontend React | ~3,200 | 28 |
+| Web Interface | ~1,800 | 1 |
+| SQL/Schemas | ~400 | 3 |
+| Scripts/Batch | ~800 | 8 |
+| **TOTAL** | **~14,700** | **85** |
+
+### Supported AI Models
+| Provider | Models |
+|----------|--------|
+| Meta | llama3:8b, llama3.1:8b |
+| Mistral | mistral:7b |
+| Alibaba | qwen2.5:3b |
+| DeepSeek | deepseek-r1:7b |
+| OpenRouter | gpt-4, claude-3, etc. |
+
+### Database
+| Table | Typical Records |
+|-------|-----------------|
+| sequential_debates | ~50 debates |
+| consensus_debates | ~20 debates |
+| debate_turns | ~200 turns |
+| consensus_rounds | ~60 rounds |
+
+---
+
+## 🎯 Key Design Decisions
+
+### 1. Hybrid Master-Worker Architecture
+**Decision:** Separate processing (Worker) from orchestration (Master).
+
+**Justification:**
+- Enables using more powerful PC for AI (Worker)
+- Main PC (Master) remains responsive
+- Scalable to multiple Workers
+- Fault isolation
+
+### 2. SQLite + Supabase (Dual Storage)
+**Decision:** Local first, cloud as backup.
+
+**Justification:**
+- Works offline
+- Asynchronous sync doesn't block debates
+- Recovery from network failures
+- Zero cost for local development
+
+### 3. Cross-Validation in Consensus
+**Decision:** Each agent validates other agents' positions.
+
+**Justification:**
+- Detects logical fallacies
+- Reduces individual biases
+- Higher consensus quality
+- Score based on mutual agreement
+
+### 4. Retry System with Fallback
+**Decision:** 3 attempts + automatic model switching.
+
+**Justification:**
+- Ollama sometimes fails with large models
+- Smaller models (3B) more reliable
+- Exponential backoff doesn't overload Worker
+- Transparency for end user
+
+---
+
+## 🚀 Deployment and Usage
+
+### Automated Installation
+```batch
+# Windows - Run as Administrator
+INSTALL_MASTER.bat  # On Master PC
+INSTALL_WORKER.bat  # On Worker PC
+```
+
+### Basic Usage
+```bash
+# Start server
+cd synapse-council
+.\start_synapse.bat
+
+# Open web interface
+http://localhost:8000/static/debate_manager.html
+
+# API endpoint
+POST /api/v1/debate/consensus/create
+```
+
+---
+
+## 👥 Contributors and Roles
+
+- **Architecture:** Hybrid system design
+- **Backend:** FastAPI, SQLAlchemy, AI integrations
+- **Frontend:** React, WebSocket, UI/UX
+- **DevOps:** Installation scripts, packaging
+
+---
+
+## 📈 Next Steps (v2.1 Roadmap)
+
+1. **Argumentation Network Visualization**
+   - Argument graph with D3.js
+   - Visual fallacy detection
+
+2. **Advanced Reputation System**
+   - EMA by topic domain
+   - Agent leaderboard
+
+3. **Multi-format Export**
+   - Academic format PDF
+   - JSON for integrations
+   - Markdown with frontmatter
+
+4. **Performance Optimization**
+   - Similar response caching
+   - Quantized models (Q4_K_M)
+   - Increased parallelism
+
+---
+
+## 📝 Development Notes
+
+### Lessons Learned
+
+1. **Retry is Essential:** Local models fail more than commercial ones. A robust retry system is non-negotiable.
+
+2. **Structured Parsing:** Expecting consistent LLM formats is naive. Strict regex and validation are necessary.
+
+3. **Real-time Monitoring:** Long debates (15+ min) require constant visual feedback to maintain engagement.
+
+4. **Graceful Fallback:** When a model fails, the user shouldn't notice. Silent transition to backup models.
+
+---
+
+### **Phase 8: Control Center, Exportation and Stabilization (Completed - v2.3)**
+
+#### May 2026: Complete web interface, clean exports, CI
+- ✅ **Web Control Center** (`/admin`): Real-time dashboard with 6 functional tabs
+  - Master/Worker services monitor with state cards
+  - Complete debate history with direct export
+  - Form for creating new debates (topic, mode, engine)
+  - System metrics and statistics
+  - Live event logs
+- ✅ **Clean Result Export**
+  - JSON with only `tema`, `estado`, `intervenciones` (role, agent, model, text)
+  - Markdown with role icons (📊 analyst, ⚡ critic, 🔗 synthesizer...)
+  - Printable HTML (ready for PDF from browser, without weasyprint)
+- ✅ **Intelligent Health Check**
+  - Groq and Gemini now appear as services in `/health`
+  - Each offline service includes `suggested_fix` with solution
+  - New endpoints: `/health/live` and `/health/ready`
+- ✅ **Health Check Methods**: Groq and Gemini have `health_check()` verifying API key and model listing
+- ✅ **SynapseDashboard.exe**: Debug console, socket timeout retries, Worker header shows only essentials (Jan doesn't block state)
+- ✅ **start_synapse.bat**: One-click to start server + dashboard
+- ✅ **CSP Swagger UI**: Allows CDN from jsdelivr and unpkg
+- ✅ **Worker Auto-launch**: Only attempts WinRM if TrustedHosts configured, RDP timeout max 10s
+- ✅ **Ultra Debate Turns**: Now persists each intervention as `SequentialDebateTurn` in DB
+- ✅ **CI/CD**: GitHub Actions with import tests and pytest
+- ✅ **New Repository**: `https://github.com/OscarFeMa/SynapseCode`
+
+---
+
+## 📚 Resources
+
+- **Documentation:** `/docs/`
+- **API Reference:** `http://localhost:8000/docs` (Swagger UI)
+- **Test Scripts:** `/scripts/`
+- **SQL Schemas:** `supabase_*.sql`
+
+---
+
+**Current Version:** v3.0.0  
+**Last Updated:** May 22, 2026  
+**Repository:** https://github.com/OscarFeMa/SynapseCode  
 **Web:** https://synapsecode.org  
-**Estado:** Production Ready ✅
+**Status:** Production Ready ✅
