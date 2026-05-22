@@ -145,7 +145,7 @@ jobs:
 
       - name: Check dependencies for known vulnerabilities
         run: |
-          pip install --upgrade python-multipart "starlette>=1.0.1"
+          pip install --upgrade pip
           pip install -r backend/requirements.txt
           pip-audit --desc on -r backend/requirements.txt
 

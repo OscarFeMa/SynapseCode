@@ -3,7 +3,8 @@
 # ═══════════════════════════════════════════════════════════════
 
 # ─── Core Framework ─────────────────────────────────────────────
-fastapi>=0.115.0
+fastapi>=0.136.0
+starlette>=1.0.1
 uvicorn[standard]==0.27.0
 python-multipart>=0.0.26
 
@@ -13,8 +14,8 @@ aiosqlite==0.19.0
 alembic==1.13.1
 
 # ─── Configuration ────────────────────────────────────────────
-pydantic==2.6.1
-pydantic-settings==2.1.0
+pydantic>=2.9.0
+pydantic-settings>=2.1.0
 python-dotenv>=1.2.2
 
 # ─── HTTP Client ──────────────────────────────────────────────
