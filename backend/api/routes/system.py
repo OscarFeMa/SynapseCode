@@ -729,6 +729,7 @@ class WorkerLaunchRequest(BaseModel):
 @router.get("/worker/services")
 async def get_worker_services():
     """Obtiene estado de todos los servicios en el Worker"""
+    print("=== GET /worker/services called (NO AUTH) ===")
     try:
         from backend.engine.worker_launcher import worker_service_manager
 

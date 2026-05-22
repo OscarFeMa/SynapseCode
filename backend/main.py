@@ -220,7 +220,9 @@ app.add_middleware(
         "www.synapsecode.org",
         "localhost",
         "127.0.0.1",
-        "testserver",  # Necesario para pytest TestClient
+        "192.168.1.43",
+        "testserver",
+      # Necesario para pytest TestClient
     ],
 )
 

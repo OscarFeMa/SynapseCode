@@ -530,6 +530,18 @@ SynapseCode is a hybrid collective reasoning platform that orchestrates multiple
 - ✅ **Cloudflare Cache**: Fixed phantom redirect to `/app` from old version cache
 - ✅ **"View App" Button**: Explicit white color `#FFFFFF` on petroleum background
 
+### **Phase 14: Web Stabilization and Local Network (Completed - v3.0)**
+
+#### May 22, 2026: Fix 404/502, Static IP and Bilingual README
+- ✅ **Bilingual README (ES/EN)**: README.md now fully bilingual with badges, language switcher, and updated stats.
+- ✅ **Bilingual HISTORY (ES/EN)**: Development history translated to English while preserving the original Spanish.
+- ✅ **TrustedHostMiddleware Fix**: Changed `"192.168.1.43:8000"` → `"192.168.1.43"` (Starlette v0.50.0 extracts hostname only, strips port). Fixed `Invalid host header` error when accessing from Linux server.
+- ✅ **nginx Proxy Fix**: Master IP updated from `192.168.1.44` to `192.168.1.43`. Added `location /health` with proxy_pass to backend.
+- ✅ **Master Static IP**: Set fixed IP `192.168.1.43` on Windows to prevent DHCP changes.
+- ✅ **Cloudflare → nginx → Backend fix**: Cloudflare Tunnel points to nginx:80, which proxies to `192.168.1.43:8000`. All 3 routes verified: `/`, `/health` and `/api/v1/debates/list` return 200 OK from `synapsecode.org`.
+- ✅ **Worker Auto-Detection Debug**: The UDP discovery system already auto-detects the Worker via broadcast. The issue was the Worker connected to a different WiFi after a router reset.
+- ✅ **Backend v2.0.0**: All services healthy (database, ollama, lm_studio, jan, web_agent, groq, gemini).
+
 ### **Phase 11: Admin Panel v3.0 - Compact Dashboard + Full Debates View (Completed - v3.0)**
 
 #### May 19, 2026: Complete Administration Panel Redesign
@@ -838,6 +850,18 @@ POST /api/v1/debate/consensus/create
 - ✅ **Ultra Debate Turns**: Now persists each intervention as `SequentialDebateTurn` in DB
 - ✅ **CI/CD**: GitHub Actions with import tests and pytest
 - ✅ **New Repository**: `https://github.com/OscarFeMa/SynapseCode`
+
+### **Fase 14: Estabilización Web y Red Local (Completada - v3.0)**
+
+#### Mayo 22, 2026: Fix 404/502, IP Estática y README Bilingüe
+- ✅ **README Bilingüe (ES/EN)**: README.md ahora completamente bilingüe con badges, language switcher y estadísticas actualizadas.
+- ✅ **HISTORY Bilingüe (ES/EN)**: Historial de desarrollo traducido al inglés manteniendo el original en español.
+- ✅ **Fix TrustedHostMiddleware**: Corregido `"192.168.1.43:8000"` → `"192.168.1.43"` (Starlette extrae solo hostname, sin puerto). Eliminado error `Invalid host header` al acceder desde el servidor Linux.
+- ✅ **Fix nginx Proxy**: IP del Master actualizada de `192.168.1.44` a `192.168.1.43`. Agregado `location /health` con proxy_pass al backend.
+- ✅ **IP Estática Master**: Configurada IP fija `192.168.1.43` en Windows para evitar cambios por DHCP.
+- ✅ **Fix Cloudflare → nginx → Backend**: Túnel Cloudflare apunta a nginx:80, que proxea a `192.168.1.43:8000`. Las 3 rutas verificadas: `/`, `/health` y `/api/v1/debates/list` retornan 200 OK desde `synapsecode.org`.
+- ✅ **Worker Auto-Detection Debug**: El sistema de discovery UDP ya detecta automáticamente al Worker por broadcast. El problema era que el Worker se conectó a otra WiFi tras un reseteo del router.
+- ✅ **Backend v2.0.0**: Todos los servicios healthy (database, ollama, lm_studio, jan, web_agent, groq, gemini).
 
 ---
 
