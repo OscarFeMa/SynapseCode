@@ -221,8 +221,7 @@ app.add_middleware(
         "localhost",
         "127.0.0.1",
         "192.168.1.43",
-        "testserver",
-      # Necesario para pytest TestClient
+        "testserver",  # Necesario para pytest TestClient
     ],
 )
 
