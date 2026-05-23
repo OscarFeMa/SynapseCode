@@ -96,31 +96,31 @@
     /* ─── LANGUAGE SWITCHER ───────────────────── */
     .lang-switcher {
       display: flex;
-      gap: 2px;
-      background: var(--cream-dark);
-      border-radius: 6px;
-      padding: 2px;
+      align-items: center;
       flex-shrink: 0;
     }
-    .lang-btn {
-      background: none;
-      border: none;
+    .lang-select {
+      background: var(--white);
+      border: 1px solid var(--border);
       cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 4px;
+      padding: 6px 28px 6px 10px;
+      border-radius: 6px;
       font-family: 'Inter', sans-serif;
-      font-size: 0.7rem;
+      font-size: 0.78rem;
       font-weight: 600;
-      color: var(--text-muted);
+      color: var(--petroleum);
       transition: all 0.15s;
       text-transform: uppercase;
       letter-spacing: 0.3px;
+      min-width: 84px;
+      outline: none;
     }
-    .lang-btn:hover { color: var(--petroleum); }
-    .lang-btn.active {
-      background: var(--white);
-      color: var(--petroleum);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    .lang-select:hover {
+      border-color: #CFCBC2;
+    }
+    .lang-select:focus {
+      border-color: var(--petroleum-light);
+      box-shadow: 0 0 0 2px rgba(35,64,59,0.12);
     }
 
     /* ─── HERO ───────────────────────────────── */
@@ -345,6 +345,7 @@
       .nav-links { gap: 12px; flex-wrap: wrap; }
       .nav-links a:not(.nav-cta) { display: none; }
       .lang-switcher { order: -1; width: 100%; justify-content: center; }
+      .lang-select { width: 100%; max-width: 180px; text-align: center; }
       section { padding: 60px 16px; }
       .features-grid { grid-template-columns: 1fr; gap: 20px; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 28px; }
@@ -362,6 +363,7 @@
       .nav-inner { height: auto; }
       .nav-links { gap: 8px; }
       .nav-links a { font-size: 0.85rem; }
+      .lang-select { max-width: 140px; font-size: 0.72rem; padding: 5px 24px 5px 8px; }
       .nav-cta { padding: 5px 12px; font-size: 0.8rem; }
       .hero { padding: 110px 12px 40px; min-height: auto; }
       .hero h1 { font-size: 2rem; }
@@ -752,25 +754,26 @@
       const ogLocale = document.querySelector('meta[property="og:locale"]');
       if (ogLocale) ogLocale.setAttribute('content', localeMap[lang] || 'es_ES');
 
-      // Update active button in switcher
-      document.querySelectorAll('.lang-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.lang === lang);
-      });
+      const select = document.getElementById('lang-select');
+      if (select) select.value = lang;
 
       localStorage.setItem('lang', lang);
     }
 
     function buildLangSwitcher() {
       const container = document.getElementById('lang-switcher');
+      const select = document.createElement('select');
+      select.id = 'lang-select';
+      select.className = 'lang-select';
       LANGS.forEach(l => {
-        const btn = document.createElement('button');
-        btn.className = 'lang-btn';
-        btn.dataset.lang = l.code;
-        btn.title = l.name;
-        btn.textContent = l.label;
-        btn.addEventListener('click', () => setLang(l.code));
-        container.appendChild(btn);
+        const opt = document.createElement('option');
+        opt.value = l.code;
+        opt.textContent = l.label;
+        opt.title = l.name;
+        select.appendChild(opt);
       });
+      select.addEventListener('change', (e) => setLang(e.target.value));
+      container.appendChild(select);
     }
 
     // Initialize

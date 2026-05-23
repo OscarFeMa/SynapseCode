@@ -66,6 +66,12 @@ El panel de administración se sirve automáticamente en `http://localhost:8000/
 
 ---
 
+## Seguridad
+
+- Contacto de seguridad: `security@synapsecode.org`
+
+---
+
 ## Estructura del Proyecto
 
 ```
@@ -179,6 +185,12 @@ curl http://localhost:8000/api/v1/debates/list
 ```
 
 Admin panel served at `http://localhost:8000/admin`.
+
+---
+
+## Security
+
+- Security contact: `security@synapsecode.org`
 
 ---
 
