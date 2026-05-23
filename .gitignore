@@ -114,6 +114,9 @@ push_to_github.sh
 web/
 HTML/
 
+# ── Audit/Scan Artifacts ─────────────────────
+bandit_results.json
+
 # ── Legacy/Deprecated ────────────────────────
 SynapseDashboard.py
 SynapseDashboard.spec
