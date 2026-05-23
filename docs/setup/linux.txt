@@ -1,0 +1,309 @@
+====================================================
+  INSTALAR SERVIDOR WEB SYNAPSE CODE EN LINUX MINT
+====================================================
+
+Requisitos:
+- Linux Mint (cualquier version reciente)
+- Conexion a internet
+- Conocimientos basicos de terminal
+- IMPORTANTE: Este PC actuara como servidor 24/7, la tapa ira cerrada
+
+
+----------------------------------------------------
+PASO 0: Configurar cierre de tapa (ANTES DE NADA)
+----------------------------------------------------
+Por defecto Linux Mint suspende el portatil al cerrar la tapa.
+Hay que evitarlo para que funcione con la tapa bajada.
+
+Copia y pega TODO este bloque en la terminal:
+
+    sudo sed -i 's/^#HandleLidSwitchExternalPower=.*/HandleLidSwitchExternalPower=ignore/' /etc/systemd/logind.conf 2>/dev/null || true
+    sudo sed -i 's/^#HandleLidSwitch=.*/HandleLidSwitch=ignore/' /etc/systemd/logind.conf 2>/dev/null || true
+    if ! grep -q "^HandleLidSwitchExternalPower=ignore" /etc/systemd/logind.conf; then
+        echo "HandleLidSwitchExternalPower=ignore" | sudo tee -a /etc/systemd/logind.conf > /dev/null
+    fi
+    if ! grep -q "^HandleLidSwitch=ignore" /etc/systemd/logind.conf; then
+        echo "HandleLidSwitch=ignore" | sudo tee -a /etc/systemd/logind.conf > /dev/null
+    fi
+    sudo systemctl restart systemd-logind
+
+IMPORTANTE:
+- Conecta el cargador antes de cerrar la tapa
+- La pantalla se apagara pero el sistema seguira funcionando
+- Para apagarlo manual: sudo shutdown -h now
+
+NOTA: Tambien desactiva la suspension automatica por inactividad.
+Ve a Menu -> Preferencias -> Gestor de energia y pon
+"Suspender equipo cuando este inactivo" a NUNCA
+(tanto con bateria como con AC).
+
+Alternativamente desde terminal:
+    gsettings set org.cinnamon.settings-daemon.plugins.power sleep-display-ac 0
+    gsettings set org.cinnamon.settings-daemon.plugins.power sleep-display-battery 0
+
+Para verificar que funciono:
+
+    grep -E "HandleLidSwitch" /etc/systemd/logind.conf
+
+Debe mostrar:
+    HandleLidSwitchExternalPower=ignore
+    HandleLidSwitch=ignore
+
+
+----------------------------------------------------
+PASO 1: Abrir terminal
+----------------------------------------------------
+Presiona Ctrl + Alt + T o busca "Terminal" en el menu.
+
+
+----------------------------------------------------
+PASO 2: Actualizar el sistema
+----------------------------------------------------
+Ejecuta:
+
+    sudo apt update && sudo apt upgrade -y
+
+Te pedira tu contrasena de usuario. Espera a que termine.
+
+
+----------------------------------------------------
+PASO 3: Instalar nginx y herramientas
+----------------------------------------------------
+Ejecuta:
+
+    sudo apt install nginx curl unzip -y
+
+
+----------------------------------------------------
+PASO 4: Crear carpeta para la web
+----------------------------------------------------
+Ejecuta:
+
+    sudo mkdir -p /var/www/synapsecode
+
+
+----------------------------------------------------
+PASO 5: Descargar los archivos desde GitHub
+----------------------------------------------------
+Ejecuta TODO junto (copia y pega el bloque completo):
+
+    cd /tmp
+    rm -rf SynapseCode-main
+    curl -L -o SynapseCode.zip https://github.com/OscarFeMa/SynapseCode/archive/refs/heads/main.zip
+    unzip -o SynapseCode.zip
+    sudo cp -r SynapseCode-main/frontend/web/* /var/www/synapsecode/
+
+Explicacion breve:
+- cd /tmp          -> va a la carpeta temporal
+- rm -rf ...       -> limpia descargas anteriores
+- curl ...         -> descarga el codigo desde GitHub
+- unzip ...        -> descomprime el archivo
+- sudo cp ...      -> copia los archivos a la carpeta definitiva
+
+
+----------------------------------------------------
+PASO 6: Dar permisos
+----------------------------------------------------
+Ejecuta:
+
+    sudo chown -R www-data:www-data /var/www/synapsecode
+    sudo chmod -R 755 /var/www/synapsecode
+
+Esto permite que nginx pueda leer los archivos.
+
+
+----------------------------------------------------
+PASO 7: Configurar nginx
+----------------------------------------------------
+7.1 Crear el archivo de configuracion:
+
+    sudo nano /etc/nginx/sites-available/synapsecode
+
+7.2 Se abrira un editor azul llamado "nano".
+     Borra todo lo que aparezca (puedes mantener pulsado
+     Retroceso o Supr).
+
+7.3 Pega exactamente esto (Ctrl + Shift + V o click
+     derecho + Pegar):
+
+----------------------------------------------------------------
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;
+
+    root /var/www/synapsecode;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /admin {
+        alias /var/www/synapsecode;
+        try_files /admin.html =404;
+    }
+
+    location /api/ {
+        proxy_pass http://192.168.1.100:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+        proxy_connect_timeout 10s;
+        proxy_next_upstream error timeout invalid_header http_502 http_503 http_504;
+        proxy_next_upstream_tries 1;
+    }
+
+    access_log /var/log/nginx/synapsecode_access.log;
+    error_log  /var/log/nginx/synapsecode_error.log warn;
+}
+----------------------------------------------------------------
+
+7.4 IMPORTANTE: En la linea "proxy_pass http://192.168.1.100:8000;"
+     debes cambiar 192.168.1.100 por la IP real del PC Windows
+     donde corre el Master.
+
+Para saber la IP del Master (Windows):
+- Abre "cmd" en Windows
+- Escribe "ipconfig"
+- Busca "Direccion IPv4" (algo como 192.168.1.X)
+
+7.5 Guardar en nano:
+    1. Ctrl + O (letra O, no cero)
+    2. Presiona Enter
+    3. Ctrl + X para salir
+
+
+----------------------------------------------------
+PASO 8: Activar el sitio
+----------------------------------------------------
+Ejecuta:
+
+    sudo ln -sf /etc/nginx/sites-available/synapsecode /etc/nginx/sites-enabled/
+    sudo rm -f /etc/nginx/sites-enabled/default
+
+Verificar configuracion (debe decir "ok" y "successful"):
+
+    sudo nginx -t
+
+Reiniciar nginx:
+
+    sudo systemctl restart nginx
+
+
+----------------------------------------------------
+PASO 9: Abrir puerto en el firewall
+----------------------------------------------------
+Ejecuta:
+
+    sudo ufw allow 80/tcp
+    sudo ufw allow 443/tcp
+
+Si dice que ufw no esta activo, no pasa nada.
+
+
+----------------------------------------------------
+PASO 10: PROBAR
+----------------------------------------------------
+Desde el mismo Linux Mint abre el navegador y visita:
+
+    http://localhost
+
+Deberias ver la pagina principal de SynapseCode.
+
+Desde otro ordenador en la misma red, usa la IP de Linux Mint:
+
+    http://IP_DE_LINUX_MINT
+
+Para saber la IP de Linux Mint:
+
+    ip a | grep inet
+
+Busca algo como "192.168.1.X"
+
+
+----------------------------------------------------
+PASO 11: Verificar proxy al Master
+----------------------------------------------------
+Con el Master encendido en Windows, visita:
+
+    http://IP_DE_LINUX_MINT/api/health
+
+Si el Master esta encendido -> ves un JSON con el estado.
+Si el Master esta apagado   -> ves error 502 (es normal).
+
+
+----------------------------------------------------
+COMO ACTUALIZAR LA WEB TRAS CAMBIOS
+----------------------------------------------------
+Cuando modifiques archivos en Windows y los subas a GitHub,
+ejecuta esto en Linux Mint:
+
+    cd /tmp && rm -rf SynapseCode-main && curl -L -o SynapseCode.zip https://github.com/OscarFeMa/SynapseCode/archive/refs/heads/main.zip && unzip -o SynapseCode.zip && sudo cp -r SynapseCode-main/frontend/web/* /var/www/synapsecode/ && echo "Web actualizada"
+
+
+====================================================
+OPCIONALES
+====================================================
+
+
+A - HTTPS con Let's Encrypt (solo si tienes dominio)
+----------------------------------------------------
+    sudo apt install certbot python3-certbot-nginx -y
+    sudo certbot --nginx -d tudominio.com
+
+Sigue las instrucciones en pantalla.
+
+
+B - Auto-actualizacion cada 10 minutos
+----------------------------------------------------
+Para que Linux Mint descargue automaticamente los cambios:
+
+    crontab -e
+
+Selecciona "nano" si te pregunta. Al final del archivo anade:
+
+*/10 * * * * cd /tmp && rm -rf SynapseCode-main && curl -L -o SynapseCode.zip -s https://github.com/OscarFeMa/SynapseCode/archive/refs/heads/main.zip && unzip -qo SynapseCode.zip && sudo cp -r SynapseCode-main/frontend/web/* /var/www/synapsecode/
+
+Guarda con Ctrl + O, Enter, Ctrl + X.
+
+
+====================================================
+SOLUCION DE PROBLEMAS
+====================================================
+
+
+Problema: No puedo acceder desde otro ordenador
+----------------------------------------------------
+Solucion:
+- Asegurate de que ambos PCs esten en la MISMA red
+- Desde Linux Mint ejecuta: sudo systemctl status nginx
+- Verifica la IP con: ip a | grep inet
+- Prueba desde Linux Mint: curl http://localhost
+
+
+Problema: 502 Bad Gateway todo el tiempo
+----------------------------------------------------
+Solucion:
+- El Master (Windows) esta apagado o la IP es incorrecta
+- Edita la IP: sudo nano /etc/nginx/sites-available/synapsecode
+- Cambia proxy_pass por la IP correcta
+- Luego: sudo nginx -t && sudo systemctl restart nginx
+
+
+Problema: 403 Forbidden
+----------------------------------------------------
+Solucion:
+- Ejecuta de nuevo el paso 6 (permisos)
+
+
+Problema: Archivos no actualizados
+----------------------------------------------------
+Solucion:
+- Ejecuta manualmente el comando de "COMO ACTUALIZAR"
+- Verifica que tengas internet: ping 8.8.8.8

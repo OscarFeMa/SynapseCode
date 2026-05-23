@@ -34,7 +34,7 @@
 
 Plataforma de **razonamiento colectivo híbrido** que orquesta múltiples modelos de IA en debates estructurados por roles, con veredicto del **Tribunal de Magistrados**.
 
-Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (192.168.1.45) ejecuta modelos locales.
+Arquitectura **Master-Worker**: PC Master orquesta, PC Worker (<WORKER_IP>) ejecuta modelos locales.
 **Diseño Editorial**: Background `#F5F3EE` (cream paper), Accent `#23403B` (petroleum green), Typography `Instrument Serif` + `Inter`.
 
 ---
@@ -537,7 +537,7 @@ MIT
 A **hybrid collective reasoning** platform that orchestrates multiple AI models
 in role-structured debates, with a **Tribunal of Magistrates** verdict.
 
-**Master-Worker architecture**: Master PC orchestrates, Worker PC (192.168.1.45)
+**Master-Worker architecture**: Master PC orchestrates, Worker PC (<WORKER_IP>)
 runs local models. Accessible at [synapsecode.org](https://synapsecode.org).
 
 ## 🎯 Main Features

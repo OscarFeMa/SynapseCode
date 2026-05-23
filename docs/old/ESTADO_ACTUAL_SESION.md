@@ -33,10 +33,10 @@ Optimizar el Worker PC (192.168.1.43) para liberar memoria RAM y utilizar GPU, p
 
 ### Worker Node (MakederPc)
 - **IP:** 192.168.1.43
-- **Usuario Windows:** MAKEDERPC\maked
-- **Contraseña Windows:** makeder23
-- **Contraseña RDP:** DNIcxwcaqza4 (nota: usar usuario "maked" sin dominio para RDP)
-- **Ollama URL:** http://192.168.1.43:11434
+- **Usuario Windows:** `<WORKER_USERNAME>`
+- **Contraseña Windows:** `<WORKER_PASSWORD>`
+- **Contraseña RDP:** `<WORKER_PASSWORD>` (nota: usar usuario "maked" sin dominio para RDP)
+- **Ollama URL:** http://`<WORKER_IP>`:11434
 - **Ruta Ollama:** C:\Users\maked\AppData\Local\Programs\Ollama\ollama.exe
 - **Acceso:** Via RDP (WinRM/SSH no configurados)
 

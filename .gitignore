@@ -90,6 +90,30 @@ debate_*.md
 debate_*.txt
 report_hybrid.*
 
+# ── Backup / temp files ──────────────────────
+*.backup
+*.blockbackup
+*.trustedhost*
+*.bak
+
+# ── RDP / remote access ─────────────────────
+*.rdp
+*.rdp.bak
+config/workers.json
+
+# ── Scripts de gestión del repo (locales) ────
+push_to_github.bat
+push_to_github.sh
+*.local.bat
+*.local.sh
+
+# ── PyInstaller artifacts ────────────────────
+*.spec
+
+# ── Built web assets (not source) ────────────
+web/
+HTML/
+
 # ── Legacy/Deprecated ────────────────────────
 SynapseDashboard.py
 SynapseDashboard.spec

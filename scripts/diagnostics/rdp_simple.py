@@ -16,7 +16,7 @@ def resolve_worker_ip(hostname="makederpc"):
     except socket.gaierror:
         return None
 
-def connect_rdp(ip, username="MAKEDER\\maked", password="DNIcxwcaqza4"):
+def connect_rdp(ip, username="<WORKER_USERNAME>", password="<WORKER_PASSWORD>"):
     """Conecta vía RDP usando mstsc.exe con credenciales automáticas"""
     try:
         # 1. Guardar credenciales en Windows Credential Manager
