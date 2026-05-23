@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, LayoutDashboard, MessageSquare, PlusCircle, BarChart3, Scale, Cpu, Database, History, Settings, X } from 'lucide-react'
+import { Search, LayoutDashboard, MessageSquare, PlusCircle, BarChart3, Scale, Cpu, Database, History, Settings } from 'lucide-react'
 
 const commands = [
   { id: 'dashboard', label: 'Ir al Dashboard', icon: LayoutDashboard, path: '/dashboard', shortcut: 'g d' },
@@ -71,7 +71,7 @@ export function CommandPalette({ isOpen, onClose }) {
         <div className="max-h-72 overflow-y-auto py-2">
           {filtered.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-[#8A8780]">
-              No se encontraron resultados para "{query}"
+              No se encontraron resultados para {'"'}{query}{'"'}
             </div>
           ) : (
             filtered.map((cmd) => (

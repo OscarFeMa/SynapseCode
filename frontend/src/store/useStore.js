@@ -29,7 +29,7 @@ function normalizeTurns(agentCalls) {
 }
 
 // Session Store
-export const useSessionStore = create((set, get) => ({
+export const useSessionStore = create((set) => ({
   // State
   sessions: [],
   currentSession: null,
@@ -189,7 +189,7 @@ export const useWebSocketStore = create((set, get) => ({
         set({ currentPhase: event.payload.phase })
         break
         
-      case 'agent_token':
+      case 'agent_token': {
         const { agent, token } = event.payload
         set({
           agentTokens: {
@@ -198,6 +198,7 @@ export const useWebSocketStore = create((set, get) => ({
           }
         })
         break
+      }
         
       case 'tribunal_verdict':
         set({ tribunalScores: {
@@ -207,11 +208,12 @@ export const useWebSocketStore = create((set, get) => ({
         }})
         break
         
-      case 'session_completed':
+      case 'session_completed': {
         // Auto-fetch final results
         const sessionId = event.session_id
         useSessionStore.getState().fetchSession(sessionId)
         break
+      }
     }
   },
   

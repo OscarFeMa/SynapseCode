@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Loader2, RefreshCw, Clock, Hash, DollarSign,
   Globe, ChevronDown, ChevronUp, FileText, GitBranch, Scale,
-  FlaskConical, BarChart3, MessageSquare,
+  FlaskConical, MessageSquare,
 } from 'lucide-react'
 import { useSession } from '../hooks/useSession'
 import { useWebSocket } from '../hooks/useWebSocket'
-import { useSessionStore, useWebSocketStore, useUIStore } from '../store/useStore'
+import { useSessionStore, useWebSocketStore } from '../store/useStore'
 import { AgentCard } from '../components/Chat/AgentCard'
 import { TribunalPanel } from '../components/Tribunal/TribunalPanel'
 
@@ -26,10 +26,9 @@ export function DebateLivePage() {
   const [activeTab, setActiveTab] = useState('live')
 
   const { session, isLoading, error, refresh } = useSession(sessionId)
-  const { isConnected, events, currentPhase, isSessionComplete } = useWebSocket(sessionId)
+  const { isConnected, events, currentPhase } = useWebSocket(sessionId)
   const { agentTokens } = useWebSocketStore()
   const { setCurrentSession } = useSessionStore()
-  const { showTribunalPanel } = useUIStore()
   const [showWebResults, setShowWebResults] = useState(false)
 
   useEffect(() => {
@@ -232,7 +231,7 @@ export function DebateLivePage() {
   )
 }
 
-function LiveTab({ session, events, currentPhase, getAgentsForPhase, showWebResults, setShowWebResults }) {
+function LiveTab({ session, currentPhase, getAgentsForPhase, showWebResults, setShowWebResults }) {
   const phases = ['ANALYSIS', 'CRITIQUE', 'SYNTHESIS', 'TRIBUNAL']
   const phaseLabels = {
     ANALYSIS: 'Analisis',
@@ -437,6 +436,7 @@ function TribunalTab({ session }) {
   )
 }
 
+// eslint-disable-next-line no-unused-vars
 function ReductioTab({ session }) {
   return (
     <div className="text-center py-12 text-[#8A8780]">

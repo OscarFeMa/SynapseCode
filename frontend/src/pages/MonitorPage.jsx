@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { RefreshCw, AlertTriangle, CheckCircle, XCircle, Activity, Thermometer, Cpu, Zap } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 

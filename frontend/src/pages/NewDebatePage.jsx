@@ -191,12 +191,12 @@ export function NewDebatePage() {
         {step === 4 && (
           <div className="space-y-3">
             <div className="bg-[#F5F3EE] rounded p-4 font-mono text-sm space-y-1">
-              <div className="text-[#8A8780]">// Configuracion del debate</div>
+              <div className="text-[#8A8780]">{'// Configuracion del debate'}</div>
               <div>
-                <span className="text-[#23403B]">tipo:</span> <span className="text-[#161616]">"{form.type}"</span>
+                <span className="text-[#23403B]">tipo:</span> <span className="text-[#161616]">{'"'}{form.type}{'"'}</span>
               </div>
               <div>
-                <span className="text-[#23403B]">tema:</span> <span className="text-[#161616]">"{form.topic || '(vacio)'}"</span>
+                <span className="text-[#23403B]">tema:</span> <span className="text-[#161616]">{'"'}{form.topic || '(vacio)'}{'"'}</span>
               </div>
               <div>
                 <span className="text-[#23403B]">rondas:</span> <span className="text-[#4A7C59]">{form.rounds}</span>

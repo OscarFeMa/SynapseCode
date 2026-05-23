@@ -1,5 +1,4 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import { useEffect } from 'react'
 import { ChatInput } from './components/Chat/ChatInput'
 import { SessionView } from './components/Chat/SessionView'
 import { SessionList } from './components/History/SessionList'
@@ -16,6 +15,7 @@ import { CachePage } from './pages/CachePage'
 import { SettingsPage } from './pages/SettingsPage'
 import { DebateLivePage } from './pages/DebateLivePage'
 
+// eslint-disable-next-line no-unused-vars
 function Layout({ children }) {
   return (
     <div className="min-h-screen bg-[#F5F3EE] text-[#161616]">
@@ -57,6 +57,7 @@ function Layout({ children }) {
   )
 }
 
+// eslint-disable-next-line no-unused-vars
 function HomePage() {
   const navigate = useNavigate()
   const clearEvents = useWebSocketStore((state) => state.clearEvents)
@@ -79,6 +80,7 @@ function SessionPage() {
   return <SessionView />
 }
 
+// eslint-disable-next-line no-unused-vars
 function HistoryPageLegacy() {
   return (
     <Layout>

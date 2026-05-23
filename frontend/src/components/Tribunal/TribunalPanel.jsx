@@ -49,12 +49,14 @@ const colorClasses = {
   },
 }
 
+// eslint-disable-next-line no-unused-vars
 export function TribunalPanel({ sessionId, verdict, isActive }) {
   const events = useWebSocketStore((state) => state.events)
   const agentTokens = useWebSocketStore((state) => state.agentTokens)
   const tribunalScores = useWebSocketStore((state) => state.tribunalScores)
   
   // Get latest tribunal events
+  // eslint-disable-next-line no-unused-vars
   const tribunalEvents = events.filter(e => 
     e.type.startsWith('tribunal_') || 
     (e.type === 'phase_started' && e.payload.phase === 'TRIBUNAL')

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Download, Calendar, TrendingUp, MessageSquare, Scale,
+  Calendar, TrendingUp, MessageSquare, Scale,
   Clock, ChevronLeft, ChevronRight, Loader2, FileDown,
 } from 'lucide-react'
 import {
-  AreaChart, Area, BarChart, Bar, LineChart, Line,
+  AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts'
 import { format, subDays, parseISO } from 'date-fns'
@@ -36,11 +36,13 @@ export function HistoryPage() {
 
   useEffect(() => {
     fetchDebates()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, dateRange])
 
   const fetchDebates = async () => {
     setLoading(true)
     try {
+      // eslint-disable-next-line no-unused-vars
       const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
       const res = await fetch(
         `${base}/api/v1/sessions?page=${page}&limit=${perPage}&days=${dateRange}`
@@ -398,6 +400,7 @@ function KpiCard({ icon: Icon, label, value, accent }) {
 }
 
 function computeStats(debates, total) {
+  // eslint-disable-next-line no-unused-vars
   const completed = debates.filter((d) => d.status === 'COMPLETED')
   const consensusReached = debates.filter(
     (d) => d.consensus_level === 'CONSENSUS_REACHED'

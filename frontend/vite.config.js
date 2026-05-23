@@ -21,6 +21,6 @@ export default defineConfig({
   build: {
     outDir: '../web/app',
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: false,
   },
 })
