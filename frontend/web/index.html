@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SynapseCode — Motor de Debate Multi-Agente</title>
-  <meta name="description" content="Plataforma de razonamiento colectivo híbrido que orquesta múltiples modelos de IA en debates estructurados con Tribunal de Magistrados.">
+  <title data-i18n="meta.title">SynapseCode — Motor de Debate Multi-Agente</title>
+  <meta data-i18n="meta.description" name="description" content="Plataforma de razonamiento colectivo híbrido que orquesta múltiples modelos de IA en debates estructurados con Tribunal de Magistrados.">
   <meta name="keywords" content="AI, multi-agent, debate, LLM, Ollama, FastAPI, Python, reasoning">
   <meta name="author" content="OscarFeMa">
   <meta name="robots" content="index, follow">
 
   <!-- Open Graph -->
-  <meta property="og:title" content="SynapseCode — Motor de Debate Multi-Agente">
-  <meta property="og:description" content="Razonamiento colectivo híbrido con múltiples LLMs locales y cloud, Tribunal de Magistrados y búsqueda web en tiempo real.">
+  <meta data-i18n="og.title" property="og:title" content="SynapseCode — Motor de Debate Multi-Agente">
+  <meta data-i18n="og.description" property="og:description" content="Razonamiento colectivo híbrido con múltiples LLMs locales y cloud, Tribunal de Magistrados y búsqueda web en tiempo real.">
   <meta property="og:url" content="https://synapsecode.org">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="es_ES">
@@ -68,6 +68,7 @@
       align-items: center;
       justify-content: space-between;
       height: 56px;
+      gap: 12px;
     }
     .nav-links {
       display: flex;
@@ -91,6 +92,36 @@
       transition: background 0.2s;
     }
     .nav-cta:hover { background: var(--petroleum-dark); }
+
+    /* ─── LANGUAGE SWITCHER ───────────────────── */
+    .lang-switcher {
+      display: flex;
+      gap: 2px;
+      background: var(--cream-dark);
+      border-radius: 6px;
+      padding: 2px;
+      flex-shrink: 0;
+    }
+    .lang-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      transition: all 0.15s;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .lang-btn:hover { color: var(--petroleum); }
+    .lang-btn.active {
+      background: var(--white);
+      color: var(--petroleum);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
 
     /* ─── HERO ───────────────────────────────── */
     .hero {
@@ -310,12 +341,14 @@
 
     /* ─── RESPONSIVE ──────────────────────────── */
     @media (max-width: 768px) {
-      .nav-links { gap: 12px; }
+      .nav-inner { flex-wrap: wrap; height: auto; padding: 8px 0; gap: 8px; }
+      .nav-links { gap: 12px; flex-wrap: wrap; }
       .nav-links a:not(.nav-cta) { display: none; }
+      .lang-switcher { order: -1; width: 100%; justify-content: center; }
       section { padding: 60px 16px; }
       .features-grid { grid-template-columns: 1fr; gap: 20px; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 28px; }
-      .hero { padding: 80px 16px 50px; }
+      .hero { padding: 120px 16px 50px; }
       .hero p { font-size: 1.1rem; }
       .hero-logo { max-width: 260px; }
       .section-desc { font-size: 1rem; }
@@ -326,11 +359,11 @@
       .feature-card { padding: 20px; }
     }
     @media (max-width: 480px) {
-      .nav-inner { height: 48px; }
+      .nav-inner { height: auto; }
       .nav-links { gap: 8px; }
       .nav-links a { font-size: 0.85rem; }
       .nav-cta { padding: 5px 12px; font-size: 0.8rem; }
-      .hero { padding: 50px 12px 40px; min-height: auto; }
+      .hero { padding: 110px 12px 40px; min-height: auto; }
       .hero h1 { font-size: 2rem; }
       .hero p { font-size: 1rem; }
       .hero-logo { max-width: 180px; }
@@ -359,12 +392,13 @@
     <div class="nav-inner">
       <span class="hero-badge" style="margin:0;font-size:0.65rem">v3.0 · Open Source</span>
       <div class="nav-links">
-        <a href="#features">Características</a>
-        <a href="#architecture">Arquitectura</a>
-        <a href="#quickstart">Inicio rápido</a>
-        <a href="https://github.com/OscarFeMa/SynapseCode" target="_blank">GitHub</a>
-        <a href="/admin" class="nav-cta">Ver App</a>
+        <a href="#features" data-i18n="nav.features">Características</a>
+        <a href="#architecture" data-i18n="nav.architecture">Arquitectura</a>
+        <a href="#quickstart" data-i18n="nav.quickstart">Inicio rápido</a>
+        <a href="https://github.com/OscarFeMa/SynapseCode" target="_blank" data-i18n="nav.github">GitHub</a>
+        <a href="/admin" class="nav-cta" data-i18n="nav.app">Ver App</a>
       </div>
+      <div class="lang-switcher" id="lang-switcher"></div>
     </div>
   </nav>
 
@@ -372,11 +406,11 @@
   <section class="hero" id="hero">
     <div class="hero-content">
       <img src="/logo.png" alt="SynapseCode" class="hero-logo">
-      <h1>Razonamiento colectivo con múltiples IAs</h1>
-      <p>Plataforma híbrida que orquesta modelos locales y cloud en debates estructurados por roles, con veredicto del Tribunal de Magistrados y búsqueda web en tiempo real.</p>
+      <h1 data-i18n="hero.tagline">Razonamiento colectivo con múltiples IAs</h1>
+      <p data-i18n="hero.desc">Plataforma híbrida que orquesta modelos locales y cloud en debates estructurados por roles, con veredicto del Tribunal de Magistrados y búsqueda web en tiempo real.</p>
       <div class="hero-actions">
-        <a href="#quickstart" class="btn btn-primary">Empezar ahora</a>
-        <a href="https://github.com/OscarFeMa/SynapseCode" target="_blank" class="btn btn-outline">Ver en GitHub</a>
+        <a href="#quickstart" class="btn btn-primary" data-i18n="hero.cta">Empezar ahora</a>
+        <a href="https://github.com/OscarFeMa/SynapseCode" target="_blank" class="btn btn-outline" data-i18n="hero.github">Ver en GitHub</a>
       </div>
     </div>
   </section>
@@ -384,39 +418,39 @@
   <!-- FEATURES -->
   <section id="features">
     <div class="section-inner">
-      <div class="section-label">Características</div>
-      <h2 class="section-title">Todo lo que necesitas para debates multi-agente</h2>
-      <p class="section-desc">Desde la asignación inteligente de modelos hasta reportes profesionales en PDF y DOCX.</p>
+      <div class="section-label" data-i18n="features.label">Características</div>
+      <h2 class="section-title" data-i18n="features.title">Todo lo que necesitas para debates multi-agente</h2>
+      <p class="section-desc" data-i18n="features.desc">Desde la asignación inteligente de modelos hasta reportes profesionales en PDF y DOCX.</p>
       <div class="features-grid">
         <div class="feature-card">
           <div class="feature-icon">🧠</div>
-          <h3>Debate Multi-Agente</h3>
-          <p>Orquesta 4-12+ agentes con roles especializados (Analista, Crítico, Sintetizador, Validador) en debates secuenciales o iterativos.</p>
+          <h3 data-i18n="features.card1.title">Debate Multi-Agente</h3>
+          <p data-i18n="features.card1.desc">Orquesta 4-12+ agentes con roles especializados (Analista, Crítico, Sintetizador, Validador) en debates secuenciales o iterativos.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">⚖️</div>
-          <h3>Tribunal de Magistrados</h3>
-          <p>Defensor, Fiscal y Árbitro evalúan argumentos con fallback chains automáticos y protocolo de consenso configurable.</p>
+          <h3 data-i18n="features.card2.title">Tribunal de Magistrados</h3>
+          <p data-i18n="features.card2.desc">Defensor, Fiscal y Árbitro evalúan argumentos con fallback chains automáticos y protocolo de consenso configurable.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🔍</div>
-          <h3>Búsqueda Web en Tiempo Real</h3>
-          <p>DuckDuckGo + Trafilatura inyectan contexto actualizado en los debates para verificación factual automática.</p>
+          <h3 data-i18n="features.card3.title">Búsqueda Web en Tiempo Real</h3>
+          <p data-i18n="features.card3.desc">DuckDuckGo + Trafilatura inyectan contexto actualizado en los debates para verificación factual automática.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🎯</div>
-          <h3>Asignación Inteligente</h3>
-          <p>Model Registry + Evaluator + Role Matcher asignan el mejor modelo por rol según especialidad, VRAM y rankings en vivo.</p>
+          <h3 data-i18n="features.card4.title">Asignación Inteligente</h3>
+          <p data-i18n="features.card4.desc">Model Registry + Evaluator + Role Matcher asignan el mejor modelo por rol según especialidad, VRAM y rankings en vivo.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">📊</div>
-          <h3>Reportes Profesionales</h3>
-          <p>Exporta debates como JSON, Markdown, PDF imprimible, DOCX (Word) o TXT con métricas y veredicto estructurado.</p>
+          <h3 data-i18n="features.card5.title">Reportes Profesionales</h3>
+          <p data-i18n="features.card5.desc">Exporta debates como JSON, Markdown, PDF imprimible, DOCX (Word) o TXT con métricas y veredicto estructurado.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">️</div>
-          <h3>Arquitectura Master-Worker</h3>
-          <p>PC Master orquesta, PC Worker ejecuta modelos locales (Ollama, LM Studio, Jan) con auto-recuperación y monitoring GPU.</p>
+          <h3 data-i18n="features.card6.title">Arquitectura Master-Worker</h3>
+          <p data-i18n="features.card6.desc">PC Master orquesta, PC Worker ejecuta modelos locales (Ollama, LM Studio, Jan) con auto-recuperación y monitoring GPU.</p>
         </div>
       </div>
     </div>
@@ -425,24 +459,24 @@
   <!-- STATS -->
   <section id="stats">
     <div class="section-inner">
-      <div class="section-label">Métricas del proyecto</div>
-      <h2 class="section-title">Números que hablan</h2>
+      <div class="section-label" data-i18n="stats.label">Métricas del proyecto</div>
+      <h2 class="section-title" data-i18n="stats.title">Números que hablan</h2>
       <div class="stats-grid">
         <div>
           <div class="stat-value">12+</div>
-          <div class="stat-label">Adaptadores IA</div>
+          <div class="stat-label" data-i18n="stats.adapters">Adaptadores IA</div>
         </div>
         <div>
           <div class="stat-value">25+</div>
-          <div class="stat-label">Modelos registrados</div>
+          <div class="stat-label" data-i18n="stats.models">Modelos registrados</div>
         </div>
         <div>
           <div class="stat-value">150+</div>
-          <div class="stat-label">Tests automatizados</div>
+          <div class="stat-label" data-i18n="stats.tests">Tests automatizados</div>
         </div>
         <div>
           <div class="stat-value">4</div>
-          <div class="stat-label">Formatos de export</div>
+          <div class="stat-label" data-i18n="stats.exports">Formatos de export</div>
         </div>
       </div>
     </div>
@@ -451,9 +485,9 @@
   <!-- ARCHITECTURE -->
   <section id="architecture">
     <div class="section-inner">
-      <div class="section-label">Arquitectura</div>
-      <h2 class="section-title">Diseño Master-Worker híbrido</h2>
-      <p class="section-desc">Separación clara entre orquestación (Master) y ejecución de modelos (Worker) para máxima flexibilidad.</p>
+      <div class="section-label" data-i18n="arch.label">Arquitectura</div>
+      <h2 class="section-title" data-i18n="arch.title">Diseño Master-Worker híbrido</h2>
+      <p class="section-desc" data-i18n="arch.desc">Separación clara entre orquestación (Master) y ejecución de modelos (Worker) para máxima flexibilidad.</p>
       <div class="arch-diagram" style="text-align:center;">
         <img src="/architecture-diagram.png" alt="SynapseCode Architecture" style="max-width:100%;height:auto;display:inline-block;">
       </div>
@@ -463,9 +497,9 @@
   <!-- QUICKSTART -->
   <section id="quickstart">
     <div class="section-inner">
-      <div class="section-label">Inicio rápido</div>
-      <h2 class="section-title">Funcionando en 3 minutos</h2>
-      <p class="section-desc">Requiere Python 3.12+ y acceso a un PC Worker con Ollama (o usa solo modelos cloud).</p>
+      <div class="section-label" data-i18n="qs.label">Inicio rápido</div>
+      <h2 class="section-title" data-i18n="qs.title">Funcionando en 3 minutos</h2>
+      <p class="section-desc" data-i18n="qs.desc">Requiere Python 3.12+ y acceso a un PC Worker con Ollama (o usa solo modelos cloud).</p>
       <div class="code-block">
 <code><span class="comment"># 1. Clonar el repositorio</span>
 <span class="cmd">git clone</span> https://github.com/OscarFeMa/SynapseCode.git
@@ -493,12 +527,12 @@
   <!-- FOOTER -->
   <footer>
     <p>
-      <strong>SynapseCode v3.0</strong> · 
-      <a href="https://github.com/OscarFeMa/SynapseCode" target="_blank">GitHub</a> · 
-      <a href="/admin" target="_blank">Panel Admin</a> · 
+      <strong>SynapseCode v3.0</strong> ·
+      <a href="https://github.com/OscarFeMa/SynapseCode" target="_blank" data-i18n="footer.github">GitHub</a> ·
+      <a href="/admin" target="_blank" data-i18n="footer.admin">Panel Admin</a> ·
       <a href="https://synapsecode.org" target="_blank">synapsecode.org</a>
       <br>
-      Desarrollado por OscarFeMa · Mayo 2026 · Licencia MIT
+      <span data-i18n="footer.credit">Desarrollado por OscarFeMa · Mayo 2026 · Licencia MIT</span>
     </p>
     <div style="margin-top:20px;font-size:1.1rem;cursor:pointer;user-select:none" id="heart-btn">❤️</div>
   </footer>
@@ -506,12 +540,245 @@
   <div id="dedication-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;justify-content:center;align-items:center;font-family:'Instrument Serif',serif;">
     <div style="background:#FFFFFF;padding:80px 100px;border-radius:32px;text-align:center;max-width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
       <div style="font-size:4rem;margin-bottom:32px;">❤️</div>
-      <div style="font-size:2.8rem;color:#23403B;font-style:italic;line-height:1.6;">Os quiero con el alma<br>Irene y Víctor</div>
-      <button onclick="document.getElementById('dedication-modal').style.display='none'" style="margin-top:40px;padding:16px 48px;border:1px solid #23403B;background:#FFFFFF;color:#23403B;border-radius:12px;cursor:pointer;font-size:1.2rem;">Cerrar</button>
+      <div style="font-size:2.8rem;color:#23403B;font-style:italic;line-height:1.6;" data-i18n="modal.text">Os quiero con el alma<br>Irene y Víctor</div>
+      <button onclick="document.getElementById('dedication-modal').style.display='none'" style="margin-top:40px;padding:16px 48px;border:1px solid #23403B;background:#FFFFFF;color:#23403B;border-radius:12px;cursor:pointer;font-size:1.2rem;" data-i18n="modal.close">Cerrar</button>
     </div>
   </div>
 
   <script>
+    // ─── MULTILINGUAL SUPPORT ────────────────────────
+    const LANGS = [
+      { code: 'es', label: 'ES', name: 'Español' },
+      { code: 'en', label: 'EN', name: 'English' },
+      { code: 'zh', label: '中文', name: '简体中文' },
+      { code: 'hi', label: 'हि', name: 'हिन्दी' },
+      { code: 'pt', label: 'PT', name: 'Português' },
+      { code: 'ja', label: '日', name: '日本語' },
+    ];
+
+    const TR = {
+      'meta.title': {
+        es: 'SynapseCode — Motor de Debate Multi-Agente',
+        en: 'SynapseCode — Multi-Agent Debate Engine',
+        zh: 'SynapseCode — 多智能体辩论引擎',
+        hi: 'SynapseCode — मल्टी-एजेंट डिबेट इंजन',
+        pt: 'SynapseCode — Motor de Debate Multi-Agente',
+        ja: 'SynapseCode — マルチエージェント討論エンジン'
+      },
+      'meta.description': {
+        es: 'Plataforma de razonamiento colectivo híbrido que orquesta múltiples modelos de IA en debates estructurados con Tribunal de Magistrados.',
+        en: 'Hybrid collective reasoning platform orchestrating multiple AI models in role-structured debates with a Tribunal of Magistrates.',
+        zh: '混合集体推理平台，编排多个AI模型在角色结构化辩论中，设有大法官法庭。',
+        hi: 'हाइब्रिड सामूहिक तर्क प्लेटफॉर्म जो मजिस्ट्रेट ट्रिब्यूनल के साथ भूमिका-संरचित बहसों में कई AI मॉडलों को ऑर्केस्ट्रेट करता है।',
+        pt: 'Plataforma de raciocínio coletivo híbrido que orquestra múltiplos modelos de IA em debates estruturados por papéis com Tribunal de Magistrados.',
+        ja: '複数のAIモデルを役割構造化された討論で orchestration するハイブリッド集団推論プラットフォーム。'
+      },
+      'og.title': {
+        es: 'SynapseCode — Motor de Debate Multi-Agente',
+        en: 'SynapseCode — Multi-Agent Debate Engine',
+        zh: 'SynapseCode — 多智能体辩论引擎',
+        hi: 'SynapseCode — मल्टी-एजेंट डिबेट इंजन',
+        pt: 'SynapseCode — Motor de Debate Multi-Agente',
+        ja: 'SynapseCode — マルチエージェント討論エンジン'
+      },
+      'og.description': {
+        es: 'Razonamiento colectivo híbrido con múltiples LLMs locales y cloud, Tribunal de Magistrados y búsqueda web en tiempo real.',
+        en: 'Hybrid collective reasoning with local and cloud LLMs, Tribunal of Magistrates, and real-time web search.',
+        zh: '混合集体推理，支持本地和云端LLM、大法官法庭以及实时网络搜索。',
+        hi: 'स्थानीय और क्लाउड LLMs, मजिस्ट्रेट ट्रिब्यूनल और रीयल-टाइम वेब सर्च के साथ हाइब्रिड सामूहिक तर्क।',
+        pt: 'Raciocínio coletivo híbrido com LLMs locais e na nuvem, Tribunal de Magistrados e busca web em tempo real.',
+        ja: 'ローカルとクラウドのLLM、大法官廷、リアルタイムWeb検索を備えたハイブリッド集団推論。'
+      },
+      'nav.features': { es: 'Características', en: 'Features', zh: '功能', hi: 'विशेषताएं', pt: 'Recursos', ja: '機能' },
+      'nav.architecture': { es: 'Arquitectura', en: 'Architecture', zh: '架构', hi: 'आर्किटेक्चर', pt: 'Arquitetura', ja: 'アーキテクチャ' },
+      'nav.quickstart': { es: 'Inicio rápido', en: 'Quick Start', zh: '快速开始', hi: 'त्वरित आरंभ', pt: 'Início Rápido', ja: 'クイックスタート' },
+      'nav.github': { es: 'GitHub', en: 'GitHub', zh: 'GitHub', hi: 'GitHub', pt: 'GitHub', ja: 'GitHub' },
+      'nav.app': { es: 'Ver App', en: 'Open App', zh: '打开应用', hi: 'ऐप खोलें', pt: 'Abrir App', ja: 'アプリを開く' },
+      'hero.tagline': {
+        es: 'Razonamiento colectivo con múltiples IAs',
+        en: 'Collective reasoning with multiple AIs',
+        zh: '多AI集体推理',
+        hi: 'कई AI के साथ सामूहिक तर्क',
+        pt: 'Raciocínio coletivo com múltiplas IAs',
+        ja: '複数のAIによる集団推論'
+      },
+      'hero.desc': {
+        es: 'Plataforma híbrida que orquesta modelos locales y cloud en debates estructurados por roles, con veredicto del Tribunal de Magistrados y búsqueda web en tiempo real.',
+        en: 'Hybrid platform orchestrating local and cloud models in role-structured debates, with Tribunal verdict and real-time web search.',
+        zh: '混合平台，编排本地和云端模型进行角色结构化辩论，提供大法官法庭裁决和实时网络搜索。',
+        hi: 'हाइब्रिड प्लेटफॉर्म जो भूमिका-संरचित बहसों में स्थानीय और क्लाउड मॉडल को ऑर्केस्ट्रेट करता है, जिसमें ट्रिब्यूनल का फैसला और रीयल-टाइम वेब सर्च शामिल है।',
+        pt: 'Plataforma híbrida que orquestra modelos locais e na nuvem em debates estruturados por papéis, com veredito do Tribunal e busca web em tempo real.',
+        ja: 'ローカルモデルとクラウドモデルを役割構造化された討論で orchestration し、大法官廷の評決とリアルタイムWeb検索を提供するハイブリッドプラットフォーム。'
+      },
+      'hero.cta': { es: 'Empezar ahora', en: 'Get Started', zh: '开始使用', hi: 'शुरू करें', pt: 'Começar Agora', ja: '始める' },
+      'hero.github': { es: 'Ver en GitHub', en: 'View on GitHub', zh: '在GitHub查看', hi: 'GitHub पर देखें', pt: 'Ver no GitHub', ja: 'GitHubで見る' },
+      'features.label': { es: 'Características', en: 'Features', zh: '功能特性', hi: 'विशेषताएं', pt: 'Recursos', ja: '機能' },
+      'features.title': {
+        es: 'Todo lo que necesitas para debates multi-agente',
+        en: 'Everything you need for multi-agent debates',
+        zh: '多智能体辩论所需的一切',
+        hi: 'मल्टी-एजेंट बहस के लिए आपकी ज़रूरत की हर चीज़',
+        pt: 'Tudo que você precisa para debates multi-agente',
+        ja: 'マルチエージェント討論に必要なすべて'
+      },
+      'features.desc': {
+        es: 'Desde la asignación inteligente de modelos hasta reportes profesionales en PDF y DOCX.',
+        en: 'From intelligent model assignment to professional PDF and DOCX reports.',
+        zh: '从智能模型分配到专业的PDF和DOCX报告。',
+        hi: 'बुद्धिमान मॉडल असाइनमेंट से लेकर पेशेवर PDF और DOCX रिपोर्ट तक।',
+        pt: 'Da atribuição inteligente de modelos a relatórios profissionais em PDF e DOCX.',
+        ja: 'インテリジェントモデル割り当てからプロフェッショナルなPDF/DOCXレポートまで。'
+      },
+      'features.card1.title': { es: 'Debate Multi-Agente', en: 'Multi-Agent Debate', zh: '多智能体辩论', hi: 'मल्टी-एजेंट डिबेट', pt: 'Debate Multi-Agente', ja: 'マルチエージェント討論' },
+      'features.card1.desc': {
+        es: 'Orquesta 4-12+ agentes con roles especializados (Analista, Crítico, Sintetizador, Validador) en debates secuenciales o iterativos.',
+        en: 'Orchestrates 4-12+ agents with specialized roles (Analyst, Critic, Synthesizer, Validator) in sequential or iterative debates.',
+        zh: '编排4-12+个具有专业角色（分析员、评论员、综合员、验证员）的智能体，进行顺序或迭代辩论。',
+        hi: 'अनुक्रमिक या पुनरावृत्त बहसों में विशेष भूमिकाओं (विश्लेषक, आलोचक, संश्लेषक, मान्यक) के साथ 4-12+ एजेंटों को ऑर्केस्ट्रेट करता है।',
+        pt: 'Orquestra 4-12+ agentes com papéis especializados (Analista, Crítico, Sintetizador, Validador) em debates sequenciais ou iterativos.',
+        ja: '4〜12以上のエージェントを専門的な役割（分析者、批評家、統合者、検証者）で sequential または反復討論で orchestration します。'
+      },
+      'features.card2.title': { es: 'Tribunal de Magistrados', en: 'Tribunal of Magistrates', zh: '大法官法庭', hi: 'मजिस्ट्रेट ट्रिब्यूनल', pt: 'Tribunal de Magistrados', ja: '大法官廷' },
+      'features.card2.desc': {
+        es: 'Defensor, Fiscal y Árbitro evalúan argumentos con fallback chains automáticos y protocolo de consenso configurable.',
+        en: 'Defender, Prosecutor and Arbitrator evaluate arguments with automatic fallback chains and configurable consensus protocol.',
+        zh: '辩护人、检察官和仲裁员通过自动回退链和可配置的共识协议评估论点。',
+        hi: 'रक्षक, अभियोजक और मध्यस्थ स्वचालित फॉलबैक श्रृंखलाओं और कॉन्फ़िगरेबल सहमति प्रोटोकॉल के साथ तर्कों का मूल्यांकन करते हैं।',
+        pt: 'Defensor, Promotor e Árbitro avaliam argumentos com cadeias de fallback automáticas e protocolo de consenso configurável.',
+        ja: '弁護人、検察官、仲裁人が自動フォールバックチェーンと設定可能な合意プロトコルで議論を評価します。'
+      },
+      'features.card3.title': { es: 'Búsqueda Web en Tiempo Real', en: 'Real-Time Web Search', zh: '实时网络搜索', hi: 'रीयल-टाइम वेब सर्च', pt: 'Busca Web em Tempo Real', ja: 'リアルタイムWeb検索' },
+      'features.card3.desc': {
+        es: 'DuckDuckGo + Trafilatura inyectan contexto actualizado en los debates para verificación factual automática.',
+        en: 'DuckDuckGo + Trafilatura inject updated context into debates for automatic fact-checking.',
+        zh: 'DuckDuckGo + Trafilatura 将最新上下文注入辩论，实现自动事实核查。',
+        hi: 'DuckDuckGo + Trafilatura स्वचालित तथ्य-जांच के लिए बहसों में अद्यतन संदर्भ इंजेक्ट करते हैं।',
+        pt: 'DuckDuckGo + Trafilatura injetam contexto atualizado nos debates para verificação factual automática.',
+        ja: 'DuckDuckGo + Trafilatura が自動ファクトチェックのために最新のコンテキストを討論に注入します。'
+      },
+      'features.card4.title': { es: 'Asignación Inteligente', en: 'Intelligent Assignment', zh: '智能分配', hi: 'बुद्धिमान असाइनमेंट', pt: 'Atribuição Inteligente', ja: 'インテリジェント割り当て' },
+      'features.card4.desc': {
+        es: 'Model Registry + Evaluator + Role Matcher asignan el mejor modelo por rol según especialidad, VRAM y rankings en vivo.',
+        en: 'Model Registry + Evaluator + Role Matcher assign the best model per role based on specialty, VRAM and live rankings.',
+        zh: '模型注册表 + 评估器 + 角色匹配器根据专业领域、VRAM和实时排名为每个角色分配最佳模型。',
+        hi: 'मॉडल रजिस्ट्री + इवैल्यूएटर + रोल मैचर विशेषज्ञता, VRAM और लाइव रैंकिंग के आधार पर प्रति भूमिका सबसे अच्छा मॉडल असाइन करते हैं।',
+        pt: 'Model Registry + Evaluator + Role Matcher atribuem o melhor modelo por função com base em especialidade, VRAM e rankings ao vivo.',
+        ja: 'モデル登録 + 評価器 + 役割マッチャーが専門性、VRAM、ライブランキングに基づいて最適なモデルを各役割に割り当てます。'
+      },
+      'features.card5.title': { es: 'Reportes Profesionales', en: 'Professional Reports', zh: '专业报告', hi: 'पेशेवर रिपोर्ट', pt: 'Relatórios Profissionais', ja: 'プロフェッショナルレポート' },
+      'features.card5.desc': {
+        es: 'Exporta debates como JSON, Markdown, PDF imprimible, DOCX (Word) o TXT con métricas y veredicto estructurado.',
+        en: 'Export debates as JSON, Markdown, printable PDF, DOCX (Word) or TXT with metrics and structured verdict.',
+        zh: '将辩论导出为JSON、Markdown、可打印PDF、DOCX（Word）或TXT格式，包含指标和结构化裁决。',
+        hi: 'मीट्रिक्स और संरचित फैसले के साथ बहसों को JSON, Markdown, प्रिंट करने योग्य PDF, DOCX (Word) या TXT के रूप में एक्सपोर्ट करें।',
+        pt: 'Exporte debates como JSON, Markdown, PDF imprimível, DOCX (Word) ou TXT com métricas e veredito estruturado.',
+        ja: 'ディベートをJSON、Markdown、印刷可能PDF、DOCX（Word）、TXTとして、メトリクスと構造化された評決とともにエクスポートします。'
+      },
+      'features.card6.title': { es: 'Arquitectura Master-Worker', en: 'Master-Worker Architecture', zh: '主从架构', hi: 'मास्टर-वर्कर आर्किटेक्चर', pt: 'Arquitetura Master-Worker', ja: 'マスター・ワーカーアーキテクチャ' },
+      'features.card6.desc': {
+        es: 'PC Master orquesta, PC Worker ejecuta modelos locales (Ollama, LM Studio, Jan) con auto-recuperación y monitoring GPU.',
+        en: 'Master PC orchestrates, Worker PC runs local models (Ollama, LM Studio, Jan) with self-recovery and GPU monitoring.',
+        zh: '主控PC编排，工作PC运行本地模型（Ollama、LM Studio、Jan），具有自我恢复和GPU监控功能。',
+        hi: 'मास्टर PC ऑर्केस्ट्रेट करता है, वर्कर PC स्थानीय मॉडल (Ollama, LM Studio, Jan) को स्व-पुनर्प्राप्ति और GPU मॉनिटरिंग के साथ चलाता है।',
+        pt: 'PC Master orquestra, PC Worker executa modelos locais (Ollama, LM Studio, Jan) com auto-recuperação e monitoramento de GPU.',
+        ja: 'マスターPCが orchestration し、ワーカーPCが自己復旧とGPU監視を備えたローカルモデル（Ollama、LM Studio、Jan）を実行します。'
+      },
+      'stats.label': { es: 'Métricas del proyecto', en: 'Project Metrics', zh: '项目指标', hi: 'प्रोजेक्ट मीट्रिक्स', pt: 'Métricas do Projeto', ja: 'プロジェクト指標' },
+      'stats.title': { es: 'Números que hablan', en: 'Numbers that speak', zh: '数据说话', hi: 'आंकड़े बोलते हैं', pt: 'Números que falam', ja: '数字が語る' },
+      'stats.adapters': { es: 'Adaptadores IA', en: 'AI Adapters', zh: 'AI适配器', hi: 'AI एडेप्टर', pt: 'Adaptadores de IA', ja: 'AIアダプター' },
+      'stats.models': { es: 'Modelos registrados', en: 'Registered Models', zh: '已注册模型', hi: 'पंजीकृत मॉडल', pt: 'Modelos Registrados', ja: '登録モデル' },
+      'stats.tests': { es: 'Tests automatizados', en: 'Automated Tests', zh: '自动化测试', hi: 'स्वचालित परीक्षण', pt: 'Testes Automatizados', ja: '自動テスト' },
+      'stats.exports': { es: 'Formatos de export', en: 'Export Formats', zh: '导出格式', hi: 'एक्सपोर्ट फॉर्मेट', pt: 'Formatos de Exportação', ja: 'エクスポート形式' },
+      'arch.label': { es: 'Arquitectura', en: 'Architecture', zh: '架构', hi: 'आर्किटेक्चर', pt: 'Arquitetura', ja: 'アーキテクチャ' },
+      'arch.title': { es: 'Diseño Master-Worker híbrido', en: 'Hybrid Master-Worker Design', zh: '混合主从设计', hi: 'हाइब्रिड मास्टर-वर्कर डिज़ाइन', pt: 'Design Híbrido Master-Worker', ja: 'ハイブリッドマスター・ワーカーデザイン' },
+      'arch.desc': {
+        es: 'Separación clara entre orquestación (Master) y ejecución de modelos (Worker) para máxima flexibilidad.',
+        en: 'Clean separation between orchestration (Master) and model execution (Worker) for maximum flexibility.',
+        zh: '编排（主控）和模型执行（工作）之间的清晰分离，实现最大灵活性。',
+        hi: 'अधिकतम लचीलेपन के लिए ऑर्केस्ट्रेशन (मास्टर) और मॉडल निष्पादन (वर्कर) के बीच स्पष्ट अलगाव।',
+        pt: 'Separação clara entre orquestração (Master) e execução de modelos (Worker) para máxima flexibilidade.',
+        ja: '最大の柔軟性を実現するため、orchestration（マスター）とモデル実行（ワーカー）を明確に分離。'
+      },
+      'qs.label': { es: 'Inicio rápido', en: 'Quick Start', zh: '快速开始', hi: 'त्वरित आरंभ', pt: 'Início Rápido', ja: 'クイックスタート' },
+      'qs.title': { es: 'Funcionando en 3 minutos', en: 'Running in 3 minutes', zh: '3分钟内运行', hi: '3 मिनट में चालू', pt: 'Funcionando em 3 minutos', ja: '3分で起動' },
+      'qs.desc': {
+        es: 'Requiere Python 3.12+ y acceso a un PC Worker con Ollama (o usa solo modelos cloud).',
+        en: 'Requires Python 3.12+ and access to a Worker PC with Ollama (or use cloud models only).',
+        zh: '需要Python 3.12+和访问带有Ollama的工作PC（或仅使用云端模型）。',
+        hi: 'Python 3.12+ और Ollama के साथ वर्कर PC तक पहुंच की आवश्यकता है (या केवल क्लाउड मॉडल का उपयोग करें)।',
+        pt: 'Requer Python 3.12+ e acesso a um PC Worker com Ollama (ou use apenas modelos cloud).',
+        ja: 'Python 3.12+とOllamaを搭載したワーカーPCへのアクセスが必要です（クラウドモデルのみも可能）。'
+      },
+      'footer.github': { es: 'GitHub', en: 'GitHub', zh: 'GitHub', hi: 'GitHub', pt: 'GitHub', ja: 'GitHub' },
+      'footer.admin': { es: 'Panel Admin', en: 'Admin Panel', zh: '管理面板', hi: 'एडमिन पैनल', pt: 'Painel Admin', ja: '管理パネル' },
+      'footer.credit': { es: 'Desarrollado por OscarFeMa · Mayo 2026 · Licencia MIT', en: 'Built by OscarFeMa · May 2026 · MIT License', zh: '由OscarFeMa开发 · 2026年5月 · MIT许可证', hi: 'OscarFeMa द्वारा निर्मित · मई 2026 · MIT लाइसेंस', pt: 'Desenvolvido por OscarFeMa · Maio 2026 · Licença MIT', ja: 'OscarFeMa 制作 · 2026年5月 · MITライセンス' },
+      'modal.text': {
+        es: 'Os quiero con el alma<br>Irene y Víctor',
+        en: 'I love you with all my soul<br>Irene and Víctor',
+        zh: '我全心爱你们<br>Irene 和 Víctor',
+        hi: 'मैं तुमसे पूरी आत्मा से प्यार करता हूँ<br>Irene और Víctor',
+        pt: 'Amo vocês de alma<br>Irene e Víctor',
+        ja: '心から愛しています<br>Irene と Víctor'
+      },
+      'modal.close': { es: 'Cerrar', en: 'Close', zh: '关闭', hi: 'बंद करें', pt: 'Fechar', ja: '閉じる' }
+    };
+
+    function setLang(lang) {
+      if (!TR || !lang) return;
+
+      // Update html lang attribute
+      document.documentElement.lang = lang;
+
+      // Update meta tags (OG + SEO)
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        const val = TR[key] && TR[key][lang];
+        if (!val) return;
+
+        if (el.tagName === 'META') {
+          el.setAttribute('content', val);
+        } else if (el.tagName === 'TITLE') {
+          el.textContent = val;
+        } else if (el.tagName === 'BUTTON' || el.matches('button')) {
+          el.textContent = val;
+        } else {
+          // For elements with innerHTML (e.g., modal text has <br>)
+          el.innerHTML = val;
+        }
+      });
+
+      // Update OG locale
+      const localeMap = { es: 'es_ES', en: 'en_US', zh: 'zh_CN', hi: 'hi_IN', pt: 'pt_BR', ja: 'ja_JP' };
+      const ogLocale = document.querySelector('meta[property="og:locale"]');
+      if (ogLocale) ogLocale.setAttribute('content', localeMap[lang] || 'es_ES');
+
+      // Update active button in switcher
+      document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+      });
+
+      localStorage.setItem('lang', lang);
+    }
+
+    function buildLangSwitcher() {
+      const container = document.getElementById('lang-switcher');
+      LANGS.forEach(l => {
+        const btn = document.createElement('button');
+        btn.className = 'lang-btn';
+        btn.dataset.lang = l.code;
+        btn.title = l.name;
+        btn.textContent = l.label;
+        btn.addEventListener('click', () => setLang(l.code));
+        container.appendChild(btn);
+      });
+    }
+
+    // Initialize
+    buildLangSwitcher();
+    const saved = localStorage.getItem('lang') || 'es';
+    setLang(saved);
+
+    // ─── HEART EASTER EGG ──────────────────────────────
     let heartClicks = 0;
     let heartTimer = null;
     document.getElementById('heart-btn').addEventListener('click', function() {
