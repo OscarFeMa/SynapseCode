@@ -225,6 +225,72 @@ tr:hover td { background:var(--bg-surface); }
 .rf { height:100%; background:linear-gradient(90deg, var(--green), var(--cyan)); border-radius:2px; }
 
 @media (max-width:1280px) { .g3 { grid-template-columns:1fr; } .g4 { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:768px) {
+  .topbar { flex-wrap:wrap; height:auto; padding:8px 12px; gap:6px; }
+  .tabs { overflow-x:auto; width:100%; -webkit-overflow-scrolling:touch; scrollbar-width:none; gap:0; }
+  .tabs::-webkit-scrollbar { display:none; }
+  .tab { padding:6px 10px; font-size:11px; white-space:nowrap; flex-shrink:0; }
+  .status { width:100%; justify-content:flex-end; }
+  .main { padding:10px; }
+  .g4 { grid-template-columns:1fr 1fr; gap:8px; }
+  .g2 { grid-template-columns:1fr; gap:8px; }
+  .drawer { width:100%; max-width:100vw; }
+  .dp { width:100%; max-width:100vw; top:0; height:100vh; z-index:300; }
+  .panel { padding:12px; }
+  .dc { padding:10px; }
+  .dh { flex-direction:column; gap:4px; }
+  .dmodels { gap:2px; }
+  .dactions { flex-wrap:wrap; gap:4px; }
+  .dts { flex-wrap:wrap; gap:4px; }
+  .dtb { padding:8px; font-size:11px; }
+  .ws { flex-wrap:wrap; gap:4px; }
+  .wst { padding:6px 12px; font-size:11px; }
+  .fb { gap:8px; }
+  .fb .inp { max-width:100%; }
+  .mg { padding:10px; }
+  .mv { font-size:22px; }
+  table { font-size:11px; }
+  th, td { padding:6px 8px; }
+  .toasts { right:8px; left:8px; }
+  .toast { min-width:auto; width:100%; font-size:11px; }
+  .td { height:200px; }
+  .tn { width:90px; padding:8px; font-size:10px; }
+  .mc { padding:10px; }
+  .donut-wrap { flex-direction:column; gap:12px; }
+  .chat-msgs { padding:8px; }
+  .cm { margin-left:0!important; margin-right:0!important; font-size:12px; }
+  .bar-chart { height:80px; }
+}
+@media (max-width:480px) {
+  .topbar { padding:6px 8px; }
+  .tab { padding:4px 8px; font-size:10px; }
+  .brand { font-size:14px; }
+  .ver { font-size:8px; }
+  .g4 { grid-template-columns:1fr; }
+  .mv { font-size:18px; }
+  .ml { font-size:10px; }
+  .panel { padding:10px; border-radius:8px; }
+  .panel-title { font-size:12px; }
+  .card { padding:8px; }
+  .sn { padding:6px 8px; font-size:11px; }
+  .inp { font-size:12px; padding:8px 10px; }
+  .btn { padding:8px 14px; font-size:12px; }
+  .btn-sm { padding:4px 8px; font-size:10px; }
+  .drawer { padding:16px; }
+  .drawer-title { font-size:14px; }
+  .dc { padding:8px; }
+  .dt { font-size:12px; }
+  .ds { font-size:9px; }
+  .dbtn { font-size:10px; padding:3px 8px; }
+  .td { height:160px; }
+  .tn { width:80px; padding:6px; }
+  .tm { font-size:9px; }
+  table { font-size:10px; }
+  th, td { padding:4px 6px; }
+  .stream { font-size:10px; padding:0 8px; height:28px; }
+  .dn { width:80px; height:80px; }
+  .sk { height:60px!important; }
+}
 </style>
 </head>
 <body>
