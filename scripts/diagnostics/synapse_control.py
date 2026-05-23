@@ -207,7 +207,7 @@ class SynapseControlApp:
                     return json.load(f)
         except:
             pass
-        return {"makederpc": "192.168.1.42"}  # Default
+        return {"makederpc": "<WORKER_IP>"}  # Default
     
     def save_workers_history(self):
         """Guardar historial de workers"""
@@ -288,8 +288,8 @@ class SynapseControlApp:
                 cmdkey_cmd = [
                     'cmdkey', 
                     '/generic:TERMSRV/' + self.worker_ip,
-                    '/user:MAKEDER\\maked',
-                    '/pass:DNIcxwcaqza4'
+                    f'/user:{os.environ.get("WORKER_USERNAME", "<WORKER_USERNAME>")}',
+                    f'/pass:{os.environ.get("WORKER_PASSWORD", "<WORKER_PASSWORD>")}'
                 ]
                 
                 subprocess.run(cmdkey_cmd, capture_output=True, text=True)

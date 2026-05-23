@@ -61,8 +61,8 @@ Synapse Council v2.1.0 es una plataforma de **razonamiento colectivo híbrido** 
 │  └── HybridMemoryV2 (patrón fire-and-forget)                │
 ├─────────────────────────────────────────────────────────────────┤
 │  INFRAESTRUCTURA                                               │
-│  ├── PC A (Master): 192.168.1.43 - Orquestación             │
-│  └── PC B (Worker): 192.168.1.44 - Ollama/LM Studio/Jan     │
+│  ├── PC A (Master): <MASTER_IP> - Orquestación             │
+│  └── PC B (Worker): <WORKER_IP> - Ollama/LM Studio/Jan     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 

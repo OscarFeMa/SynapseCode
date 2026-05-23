@@ -3,6 +3,7 @@
 RDP Worker Connector - Aplicación Simple
 Conecta automáticamente al Worker vía RDP con IP dinámica
 """
+import os
 import tkinter as tk
 from tkinter import ttk, messagebox
 import socket
@@ -17,10 +18,10 @@ class RDPWorkerApp:
         self.root.geometry("400x300")
         self.root.resizable(False, False)
         
-        # Configuración
+        # Configuración (usar variables de entorno en producción)
         self.worker_hostname = "makederpc"
-        self.username = "MAKEDER\\maked"
-        self.password = "DNIcxwcaqza4"
+        self.username = os.environ.get("WORKER_USERNAME", "<WORKER_USERNAME>")
+        self.password = os.environ.get("WORKER_PASSWORD", "<WORKER_PASSWORD>")
         
         # Variables
         self.current_ip = None

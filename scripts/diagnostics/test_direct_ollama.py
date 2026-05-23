@@ -1,13 +1,13 @@
 """Test directo del adaptador Ollama"""
 import asyncio
 import sys
-sys.path.insert(0, 'C:\\Users\\usuario\\Desktop\\Synapse_Master')
+sys.path.insert(0, '..')  # Adjust to your project root
 
 from backend.adapters.ollama import OllamaClient
 
 async def test():
-    print("🔌 Conectando a Worker (192.168.1.43:11434)...")
-    client = OllamaClient(base_url="http://192.168.1.43:11434")
+    print("🔌 Conectando a Worker (<WORKER_IP>:11434)...")
+    client = OllamaClient(base_url="http://<WORKER_IP>:11434")
     
     print("📡 Health check...")
     health = await client.health_check()

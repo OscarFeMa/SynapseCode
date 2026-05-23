@@ -8,7 +8,7 @@
 ## 1. RESUMEN EJECUTIVO
 
 ### Objetivo Original
-Optimizar el Worker PC (192.168.1.43) para liberar memoria RAM y utilizar GPU, permitiendo ejecutar modelos grandes de AI (llama3:8b, mistral:7b, qwen2.5:7b) en local sin que los agentes se queden atascados en estado STREAMING.
+Optimizar el Worker PC (<MASTER_IP>) para liberar memoria RAM y utilizar GPU, permitiendo ejecutar modelos grandes de AI (llama3:8b, mistral:7b, qwen2.5:7b) en local sin que los agentes se queden atascados en estado STREAMING.
 
 ### Estado Actual (ACTUALIZADO 16:40)
 - **Worker optimizado:** ✅ Script ejecutado, memoria liberada, modelos descargados
@@ -26,13 +26,13 @@ Optimizar el Worker PC (192.168.1.43) para liberar memoria RAM y utilizar GPU, p
 ## 2. INFRAESTRUCTURA CONFIGURADA
 
 ### Master Node (Este Ordenador)
-- **IP:** 192.168.1.41
+- **IP:** <WORKER_IP>
 - **Ruta proyecto:** `C:\Users\usuario\Desktop\Synapse_Master\`
 - **Estado:** Servicio reiniciando (Background command ID: 1798)
 - **Puerto API:** 8000
 
 ### Worker Node (MakederPc)
-- **IP:** 192.168.1.43
+- **IP:** <MASTER_IP>
 - **Usuario Windows:** `<WORKER_USERNAME>`
 - **Contraseña Windows:** `<WORKER_PASSWORD>`
 - **Contraseña RDP:** `<WORKER_PASSWORD>` (nota: usar usuario "maked" sin dominio para RDP)
@@ -102,7 +102,7 @@ Los modelos grandes (llama3:8b, mistral:7b) fallan cuando se ejecutan desde el M
 ### Evidencia Recolectada
 1. **Funciona individualmente:** 
    ```bash
-   curl -X POST http://192.168.1.43:11434/api/generate \
+   curl -X POST http://<MASTER_IP>:11434/api/generate \
      -H "Content-Type: application/json" \
      -d '{"model":"llama3:8b","prompt":"Hola","stream":false}'
    # Respuesta exitosa: "¡Hola! ¿En qué puedo ayudarte hoy?"
@@ -217,12 +217,12 @@ curl http://localhost:8000/api/v1/sessions/{session_id}
 
 ### Verificar modelos en Worker
 ```bash
-curl http://192.168.1.43:11434/api/tags
+curl http://<MASTER_IP>:11434/api/tags
 ```
 
 ### Test directo de modelo
 ```bash
-curl -X POST http://192.168.1.43:11434/api/generate \
+curl -X POST http://<MASTER_IP>:11434/api/generate \
   -H "Content-Type: application/json" \
   -d '{"model":"llama3:8b","prompt":"Hola","stream":false}'
 ```
@@ -271,14 +271,14 @@ tail -f logs\synapse.log  # Si existe
 ## 10. CONTACTO Y ACCESOS
 
 ### Worker PC (MakederPc)
-- IP: 192.168.1.43
+- IP: <MASTER_IP>
 - RDP: 3389
 - Usuario RDP: maked
-- Contraseña RDP: DNIcxwcaqza4
-- Ollama: http://192.168.1.43:11434
+- Contraseña RDP: <WORKER_PASSWORD>
+- Ollama: http://<MASTER_IP>:11434
 
 ### Master PC (Este ordenador)
-- IP: 192.168.1.41
+- IP: <WORKER_IP>
 - API: http://localhost:8000
 - Ruta: C:\Users\usuario\Desktop\Synapse_Master\
 
@@ -356,7 +356,7 @@ import asyncio
 from backend.adapters.ollama import OllamaClient
 
 async def test():
-    client = OllamaClient(base_url="http://192.168.1.43:11434")
+    client = OllamaClient(base_url="http://<MASTER_IP>:11434")
     async for token in client.generate(model="tinyllama:latest", prompt="Hola"):
         print(token)
 
@@ -385,7 +385,7 @@ Al arrancar en otro ordenador, ejecutar en orden:
 curl http://localhost:8000/health
 
 # 2. Verificar Worker responde
-curl http://192.168.1.43:11434/api/tags
+curl http://<MASTER_IP>:11434/api/tags
 
 # 3. Verificar sesión de prueba reciente
 curl http://localhost:8000/api/v1/sessions/f2e6891e-6382-43ee-8bc7-29aefbdd6469

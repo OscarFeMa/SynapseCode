@@ -1,5 +1,5 @@
 import socket
-host = "192.168.1.33"
+host = "<WORKER_IP>"
 services = [("Ollama", 11434), ("LM Studio", 1234), ("Jan", 1337)]
 for name, port in services:
     try:
@@ -12,7 +12,7 @@ for name, port in services:
 # Also test Ollama API
 import httpx
 try:
-    r = httpx.get("http://192.168.1.33:11434/api/tags", timeout=10)
+    r = httpx.get(f"http://{host}:11434/api/tags", timeout=10)
     if r.status_code == 200:
         models = r.json().get("models", [])
         print(f"\nOllama models ({len(models)}):")
@@ -25,7 +25,7 @@ except Exception as e:
 
 # Test LM Studio API
 try:
-    r = httpx.get("http://192.168.1.33:1234/v1/models", timeout=10)
+    r = httpx.get(f"http://{host}:1234/v1/models", timeout=10)
     if r.status_code == 200:
         data = r.json()
         models = data.get("data", [])
@@ -39,7 +39,7 @@ except Exception as e:
 
 # Test Jan API
 try:
-    r = httpx.get("http://192.168.1.33:1337/v1/models", timeout=10)
+    r = httpx.get(f"http://{host}:1337/v1/models", timeout=10)
     if r.status_code == 200:
         data = r.json()
         models = data.get("data", [])
