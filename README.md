@@ -111,7 +111,9 @@ SynapseCode/
 ├── LICENSE
 └── README.md
 ```
+## 💖 Apoya el proyecto
 
+[![Sponsor en Liberapay](https://img.shields.io/badge/Sponsor-Liberapay-yellow?logo=liberapay)](https://liberapay.com/OscarFeMa)
 ---
 
 ## Pruebas
@@ -191,7 +193,9 @@ Admin panel served at `http://localhost:8000/admin`.
 ## Security
 
 - Security contact: `security@synapsecode.org`
+## 💖 Apoya el proyecto
 
+[![Sponsor en Liberapay](https://img.shields.io/badge/Sponsor-Liberapay-yellow?logo=liberapay)](https://liberapay.com/OscarFeMa)
 ---
 
 ## Configuration (.env)
@@ -236,5 +240,7 @@ Full reference in [.env.example](.env.example).
 MIT © 2025–2026 Oscar Fernandez Martin (OscarFeMa)
 
 ---
+## 💖 Apoya el proyecto
 
+[![Sponsor en Liberapay](https://img.shields.io/badge/Sponsor-Liberapay-yellow?logo=liberapay)](https://liberapay.com/OscarFeMa)
 *SynapseCode v3.0 · [synapsecode.org](https://synapsecode.org)*
