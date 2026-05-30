@@ -42,10 +42,8 @@ export function HistoryPage() {
   const fetchDebates = async () => {
     setLoading(true)
     try {
-      // eslint-disable-next-line no-unused-vars
-      const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
       const res = await fetch(
-        `${base}/api/v1/sessions?page=${page}&limit=${perPage}&days=${dateRange}`
+        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/sessions?page=${page}&limit=${perPage}&days=${dateRange}`
       )
       if (res.ok) {
         const data = await res.json()
@@ -400,8 +398,6 @@ function KpiCard({ icon: Icon, label, value, accent }) {
 }
 
 function computeStats(debates, total) {
-  // eslint-disable-next-line no-unused-vars
-  const completed = debates.filter((d) => d.status === 'COMPLETED')
   const consensusReached = debates.filter(
     (d) => d.consensus_level === 'CONSENSUS_REACHED'
   ).length

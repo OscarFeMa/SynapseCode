@@ -15,7 +15,6 @@ import { CachePage } from './pages/CachePage'
 import { SettingsPage } from './pages/SettingsPage'
 import { DebateLivePage } from './pages/DebateLivePage'
 
-// eslint-disable-next-line no-unused-vars
 function Layout({ children }) {
   return (
     <div className="min-h-screen bg-[#F5F3EE] text-[#161616]">
@@ -57,7 +56,6 @@ function Layout({ children }) {
   )
 }
 
-// eslint-disable-next-line no-unused-vars
 function HomePage() {
   const navigate = useNavigate()
   const clearEvents = useWebSocketStore((state) => state.clearEvents)
@@ -80,7 +78,6 @@ function SessionPage() {
   return <SessionView />
 }
 
-// eslint-disable-next-line no-unused-vars
 function HistoryPageLegacy() {
   return (
     <Layout>
